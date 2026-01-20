@@ -3,33 +3,27 @@
 //! These tests ensure that pattern rendering produces consistent output.
 //!
 //! ## PNG Golden Tests
-//! Golden files are stored in `tests/golden/` and compared against generated output.
+//! Golden PNG files are stored in `tests/golden/` and compared against generated output.
 //! Patterns use their `default_dimensions()` for canonical sizing.
 //!
-//! To regenerate golden files (if intentional changes are made):
-//! ```bash
-//! cargo run -- print --png tests/golden/ripple_576x500.png ripple
-//! cargo run -- print --png tests/golden/waves_576x500.png waves
-//! cargo run -- print --png tests/golden/sick_576x1920.png sick
-//! cargo run -- print --png tests/golden/calibration_576x500.png calibration
-//! ```
-//!
 //! ## Binary Command Golden Tests
-//! These test the actual printer command bytes (ESC sequences + raster data).
-//! SHA256 hashes are stored in the test file. If a hash changes:
-//! 1. Run with `-- --nocapture` to see the hex diff
-//! 2. If the change is intentional, update the hash constant
+//! Golden binary files (`.bin`) store the actual printer command bytes.
+//! These are compared byte-for-byte against generated output.
 //!
-//! To see current hashes:
+//! ## Regenerating Golden Files
+//!
+//! To regenerate all golden files (PNG + binary):
 //! ```bash
-//! cargo test binary_golden -- --nocapture
+//! make golden
 //! ```
+//!
+//! This runs both the CLI for PNGs and the `write_golden_binaries` test.
 
 use estrella::protocol::{commands, graphics};
 use estrella::render::{dither, patterns};
 use estrella::render::patterns::Pattern;
 use estrella::receipt;
-use sha2::{Sha256, Digest};
+use std::fs;
 
 /// Generate raster data for a pattern using its default dimensions
 fn generate_pattern_raster(pattern: &dyn Pattern) -> Vec<u8> {
@@ -212,25 +206,8 @@ fn test_pattern_determinism() {
 // BINARY COMMAND GOLDEN TESTS
 // ============================================================================
 
-// Expected SHA256 hashes for binary command output
-// To update: run `cargo test binary_golden -- --nocapture` and copy new hashes
-mod binary_hashes {
-    // Format: init + raster commands (256-row chunks) + cut
-    pub const RIPPLE_RASTER: &str = "449d197789ed976fb2eaf7cfe6e24a3ab78d03b8ff83666a4941e7c0af4177ce";
-    pub const WAVES_RASTER: &str = "63fa02dbe70882c79c078bd2f351de15889ad92e2ff682a638e07e52a80271a4";
-    pub const CALIBRATION_RASTER: &str = "463b40dd194d16e1d384f98490d5f1a5887bf5c74e01fc91f687aa3eebe41064";
-    pub const SICK_RASTER: &str = "647aea2544d224285ce3e99f41e6965c69282d7b4eea9092158cb800bff6de6c";
-
-    // Format: init + band commands (24-row bands + feed) + cut
-    pub const RIPPLE_BAND: &str = "7cc1cc0fa206421761f267cfdd9d5f8cd59a988001455f3cc51cf1eb10e6f887";
-    pub const WAVES_BAND: &str = "4f837115c5ba04563d3d574302c59886e499b06bc972ec20dd4ebe572f3cc969";
-    pub const CALIBRATION_BAND: &str = "826cdd180dccd22a0342f827db74281d44ff1412791445b885a6a5932c510855";
-    pub const SICK_BAND: &str = "3e9c8a9e806c6c04e3f68c46262255ddcb5edf3ea82a6efe5acad44f6681c11e";
-
-    // Receipt command sequences (text + barcodes)
-    pub const DEMO_RECEIPT: &str = "e83fa288b30403dd9ef8f39619a7d8e84f38c7ef8cc9e58c5e28f5dc3bf84b54";
-    pub const FULL_RECEIPT: &str = "4095e4a3ee25ccf40cda63776cf7123a97bb44bc78bad54b2990ed83cfeb63d8";
-}
+/// Path to golden test directory
+const GOLDEN_DIR: &str = "tests/golden";
 
 /// Generate printer commands using raster mode (ESC GS S)
 fn generate_raster_commands(width: usize, height: usize, raster_data: &[u8]) -> Vec<u8> {
@@ -299,108 +276,85 @@ fn generate_band_commands(width: usize, height: usize, raster_data: &[u8]) -> Ve
     cmd
 }
 
-/// Compute SHA256 hash of data and return as hex string
-fn sha256_hex(data: &[u8]) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(data);
-    let result = hasher.finalize();
-    hex::encode(result)
+/// Write binary data to a golden file
+fn write_golden_binary(name: &str, data: &[u8]) {
+    let path = format!("{}/{}.bin", GOLDEN_DIR, name);
+    fs::write(&path, data).expect(&format!("Failed to write {}", path));
+    println!("Wrote {} ({} bytes)", path, data.len());
 }
 
-/// Show hex diff between expected and actual data (first difference)
-fn show_hex_diff(name: &str, expected_hash: &str, actual_hash: &str, data: &[u8]) {
-    println!("\n=== BINARY GOLDEN TEST FAILED: {} ===", name);
-    println!("Expected hash: {}", expected_hash);
-    println!("Actual hash:   {}", actual_hash);
-    println!("\nCommand length: {} bytes", data.len());
+/// Compare binary data against a golden file
+fn check_binary_golden(name: &str, data: &[u8]) {
+    let path = format!("{}/{}.bin", GOLDEN_DIR, name);
+    let golden = fs::read(&path).expect(&format!(
+        "Golden file not found: {}. Run `make golden` to generate.",
+        path
+    ));
 
-    // Show first 256 bytes as hex dump
-    println!("\nFirst 256 bytes (hex):");
-    for (i, chunk) in data.iter().take(256).collect::<Vec<_>>().chunks(16).enumerate() {
-        print!("{:04x}: ", i * 16);
-        for byte in chunk {
-            print!("{:02x} ", byte);
-        }
-        println!();
-    }
+    if data != golden {
+        // Find first difference
+        let first_diff = data
+            .iter()
+            .zip(golden.iter())
+            .position(|(a, b)| a != b)
+            .unwrap_or(data.len().min(golden.len()));
 
-    // Show command structure summary
-    println!("\nCommand structure:");
-    let mut pos = 0;
-    let mut cmd_count = 0;
-    while pos < data.len() && cmd_count < 20 {
-        if data[pos] == 0x1B {
-            // ESC sequence
-            if pos + 1 < data.len() {
-                let next = data[pos + 1];
-                match next {
-                    0x40 => println!("  {:04x}: ESC @ (init)", pos),
-                    0x64 => {
-                        if pos + 2 < data.len() {
-                            println!("  {:04x}: ESC d {:02x} (cut)", pos, data[pos + 2]);
-                        }
-                    }
-                    0x6B => {
-                        if pos + 3 < data.len() {
-                            println!("  {:04x}: ESC k {:02x} {:02x} (band, {} bytes wide)",
-                                pos, data[pos + 2], data[pos + 3], data[pos + 2]);
-                        }
-                    }
-                    0x4A => {
-                        if pos + 2 < data.len() {
-                            println!("  {:04x}: ESC J {:02x} (feed {} units)", pos, data[pos + 2], data[pos + 2]);
-                        }
-                    }
-                    0x1D => {
-                        if pos + 2 < data.len() && data[pos + 2] == 0x53 {
-                            // ESC GS S raster command
-                            if pos + 8 < data.len() {
-                                let xl = data[pos + 4] as u16;
-                                let xh = data[pos + 5] as u16;
-                                let yl = data[pos + 6] as u16;
-                                let yh = data[pos + 7] as u16;
-                                let w = xl + xh * 256;
-                                let h = yl + yh * 256;
-                                println!("  {:04x}: ESC GS S (raster {}x{} = {} bytes)",
-                                    pos, w, h, w as usize * h as usize);
-                            }
-                        }
-                    }
-                    _ => {}
-                }
-            }
-        }
-        pos += 1;
-        cmd_count += 1;
-    }
-
-    println!("\nTo update hash, copy the actual hash above to binary_hashes::{}", name);
-}
-
-/// Check binary output against expected hash
-fn check_binary_golden(name: &str, expected_hash: &str, data: &[u8]) {
-    let actual_hash = sha256_hex(data);
-
-    println!("{}: {} ({} bytes)", name, actual_hash, data.len());
-
-    if expected_hash != "PENDING" && actual_hash != expected_hash {
-        show_hex_diff(name, expected_hash, &actual_hash, data);
         panic!(
-            "Binary golden test failed for {}: hash mismatch",
-            name
+            "Binary mismatch for {}:\n\
+             - Golden: {} bytes\n\
+             - Actual: {} bytes\n\
+             - First difference at byte {:#06x}\n\
+             Run `make golden` to regenerate if this change is intentional.",
+            name,
+            golden.len(),
+            data.len(),
+            first_diff
         );
     }
 }
 
-// Raster mode tests (default mode)
+// ============================================================================
+// GOLDEN BINARY FILE GENERATOR
+// ============================================================================
+
+/// Generate all golden binary files.
+/// Run with: cargo test write_golden_binaries --ignored -- --nocapture
+#[test]
+#[ignore]
+fn write_golden_binaries() {
+    // Pattern raster commands
+    for name in ["ripple", "waves", "calibration", "sick"] {
+        let pattern = patterns::by_name(name).unwrap();
+        let (width, height) = pattern.default_dimensions();
+        let raster = pattern.render(width, height);
+
+        // Raster mode
+        let cmd = generate_raster_commands(width, height, &raster);
+        write_golden_binary(&format!("{}_raster", name), &cmd);
+
+        // Band mode
+        let cmd = generate_band_commands(width, height, &raster);
+        write_golden_binary(&format!("{}_band", name), &cmd);
+    }
+
+    // Receipts
+    write_golden_binary("demo_receipt", &receipt::demo_receipt());
+    write_golden_binary("full_receipt", &receipt::full_receipt());
+
+    println!("\nAll golden binary files written to {}/", GOLDEN_DIR);
+}
+
+// ============================================================================
+// RASTER MODE TESTS
+// ============================================================================
+
 #[test]
 fn test_binary_golden_ripple_raster() {
     let pattern = patterns::Ripple::default();
     let (width, height) = pattern.default_dimensions();
     let raster = generate_pattern_raster(&pattern);
     let cmd = generate_raster_commands(width, height, &raster);
-
-    check_binary_golden("RIPPLE_RASTER", binary_hashes::RIPPLE_RASTER, &cmd);
+    check_binary_golden("ripple_raster", &cmd);
 }
 
 #[test]
@@ -409,8 +363,7 @@ fn test_binary_golden_waves_raster() {
     let (width, height) = pattern.default_dimensions();
     let raster = generate_pattern_raster(&pattern);
     let cmd = generate_raster_commands(width, height, &raster);
-
-    check_binary_golden("WAVES_RASTER", binary_hashes::WAVES_RASTER, &cmd);
+    check_binary_golden("waves_raster", &cmd);
 }
 
 #[test]
@@ -419,8 +372,7 @@ fn test_binary_golden_calibration_raster() {
     let (width, height) = pattern.default_dimensions();
     let raster = generate_pattern_raster(&pattern);
     let cmd = generate_raster_commands(width, height, &raster);
-
-    check_binary_golden("CALIBRATION_RASTER", binary_hashes::CALIBRATION_RASTER, &cmd);
+    check_binary_golden("calibration_raster", &cmd);
 }
 
 #[test]
@@ -429,19 +381,20 @@ fn test_binary_golden_sick_raster() {
     let (width, height) = pattern.default_dimensions();
     let raster = generate_pattern_raster(&pattern);
     let cmd = generate_raster_commands(width, height, &raster);
-
-    check_binary_golden("SICK_RASTER", binary_hashes::SICK_RASTER, &cmd);
+    check_binary_golden("sick_raster", &cmd);
 }
 
-// Band mode tests (--band flag)
+// ============================================================================
+// BAND MODE TESTS
+// ============================================================================
+
 #[test]
 fn test_binary_golden_ripple_band() {
     let pattern = patterns::Ripple::default();
     let (width, height) = pattern.default_dimensions();
     let raster = generate_pattern_raster(&pattern);
     let cmd = generate_band_commands(width, height, &raster);
-
-    check_binary_golden("RIPPLE_BAND", binary_hashes::RIPPLE_BAND, &cmd);
+    check_binary_golden("ripple_band", &cmd);
 }
 
 #[test]
@@ -450,8 +403,7 @@ fn test_binary_golden_waves_band() {
     let (width, height) = pattern.default_dimensions();
     let raster = generate_pattern_raster(&pattern);
     let cmd = generate_band_commands(width, height, &raster);
-
-    check_binary_golden("WAVES_BAND", binary_hashes::WAVES_BAND, &cmd);
+    check_binary_golden("waves_band", &cmd);
 }
 
 #[test]
@@ -460,8 +412,7 @@ fn test_binary_golden_calibration_band() {
     let (width, height) = pattern.default_dimensions();
     let raster = generate_pattern_raster(&pattern);
     let cmd = generate_band_commands(width, height, &raster);
-
-    check_binary_golden("CALIBRATION_BAND", binary_hashes::CALIBRATION_BAND, &cmd);
+    check_binary_golden("calibration_band", &cmd);
 }
 
 #[test]
@@ -470,22 +421,21 @@ fn test_binary_golden_sick_band() {
     let (width, height) = pattern.default_dimensions();
     let raster = generate_pattern_raster(&pattern);
     let cmd = generate_band_commands(width, height, &raster);
-
-    check_binary_golden("SICK_BAND", binary_hashes::SICK_BAND, &cmd);
+    check_binary_golden("sick_band", &cmd);
 }
 
 // ============================================================================
-// RECEIPT GOLDEN TESTS
+// RECEIPT TESTS
 // ============================================================================
 
 #[test]
 fn test_binary_golden_demo_receipt() {
     let cmd = receipt::demo_receipt();
-    check_binary_golden("DEMO_RECEIPT", binary_hashes::DEMO_RECEIPT, &cmd);
+    check_binary_golden("demo_receipt", &cmd);
 }
 
 #[test]
 fn test_binary_golden_full_receipt() {
     let cmd = receipt::full_receipt();
-    check_binary_golden("FULL_RECEIPT", binary_hashes::FULL_RECEIPT, &cmd);
+    check_binary_golden("full_receipt", &cmd);
 }
