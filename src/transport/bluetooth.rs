@@ -106,10 +106,9 @@ impl BluetoothTransport {
     pub fn open<P: AsRef<Path>>(device: P) -> Result<Self, EstrellaError> {
         let path = device.as_ref();
 
-        let file = OpenOptions::new()
-            .write(true)
-            .open(path)
-            .map_err(|e| EstrellaError::Transport(format!("Failed to open {}: {}", path.display(), e)))?;
+        let file = OpenOptions::new().write(true).open(path).map_err(|e| {
+            EstrellaError::Transport(format!("Failed to open {}: {}", path.display(), e))
+        })?;
 
         // Configure TTY for raw mode
         configure_tty_raw(file.as_raw_fd())?;

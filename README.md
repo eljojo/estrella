@@ -71,6 +71,164 @@ Full demo receipt with all features:
 - QR code
 - PDF417 barcode
 
+## Component Library
+
+Estrella includes a declarative component system for building receipts, inspired by React. Instead of manually constructing byte sequences, you describe *what* you want and the system figures out the optimal printer commands.
+
+### Architecture
+
+```mermaid
+flowchart LR
+    subgraph Components["Declarative Components"]
+        R[Receipt]
+        T[Text]
+        H[Header]
+        L[LineItem]
+        I[Image]
+        Q[QrCode]
+    end
+
+    subgraph IR["Intermediate Representation"]
+        O[Op::Init]
+        S[Op::SetBold]
+        X[Op::Text]
+        N[Op::Newline]
+        C[Op::Cut]
+    end
+
+    subgraph Optimizer["Optimizer Passes"]
+        P1["1. Remove redundant init"]
+        P2["2. Collapse style toggles"]
+        P3["3. Remove redundant styles"]
+        P4["4. Merge adjacent text"]
+    end
+
+    B[StarPRNT Bytes]
+
+    Components -->|emit| IR
+    IR --> P1 --> P2 --> P3 --> P4
+    P4 -->|codegen| B
+```
+
+### Optimization Example
+
+The optimizer removes redundant operations. For example, when two `Text` components with the same style are adjacent:
+
+```
+Before optimization:          After optimization:
+─────────────────────         ─────────────────────
+SetBold(true)                 SetBold(true)
+Text("Hello")                 Text("Hello World")
+Newline                       Newline
+SetBold(false)                SetBold(false)
+SetBold(true)      ──────►    [removed - collapsed]
+Text(" World")                [merged with above]
+Newline                       [merged with above]
+SetBold(false)                [removed - collapsed]
+```
+
+This produces **smaller output** while maintaining identical visual results.
+
+### Basic Example
+
+```rust
+use estrella::components::*;
+
+let receipt = Receipt::new()
+    .child(Text::new("HELLO WORLD").center().bold())
+    .child(Text::new("Welcome to Estrella"))
+    .cut();
+
+// Compile to optimized bytes
+let bytes = receipt.build();
+```
+
+### Full Receipt Example
+
+```rust
+use estrella::components::*;
+
+let receipt = Receipt::new()
+    // Header
+    .child(Text::new("CHURRA MART").center().bold().size(2, 2))
+    .child(Text::new("2024-01-20 12:00:00").center())
+    .child(Spacer::mm(3.0))
+
+    // Inverted banner
+    .child(Text::new(" TODAY ONLY: 50% OFF ").center().invert().bold())
+    .child(Spacer::mm(2.0))
+
+    // Line items
+    .child(LineItem::new("Espresso", 4.50))
+    .child(LineItem::new("Croissant", 3.25))
+    .child(Divider::dashed())
+
+    // Totals
+    .child(Total::labeled("SUBTOTAL:", 7.75))
+    .child(Total::labeled("TAX:", 1.01))
+    .child(Total::new(8.76).bold().double_width())
+    .child(Spacer::mm(3.0))
+
+    // QR code
+    .child(Text::new("Scan for rewards:").center())
+    .child(QrCode::new("https://example.com/rewards").cell_size(6))
+    .child(Spacer::mm(4.0))
+
+    // Footer
+    .child(Text::new("Thank you!").center().bold())
+    .child(Spacer::mm(6.0))
+    .cut();
+
+let bytes = receipt.build();
+```
+
+### Available Components
+
+| Component | Description |
+|-----------|-------------|
+| `Receipt` | Root container, handles init and optional cut |
+| `Text` | Styled text with alignment, bold, underline, size, etc. |
+| `Header` | Pre-styled centered bold header |
+| `LineItem` | Left name + right price formatting |
+| `Total` | Right-aligned totals with optional bold/double-width |
+| `Divider` | Horizontal line (dashed, solid, double, equals) |
+| `Spacer` | Vertical space in mm or line units |
+| `Image` | Raster graphics (band or raster mode) |
+| `Pattern` | Named pattern generator (ripple, waves, etc.) |
+| `QrCode` | QR code with configurable size and error correction |
+| `Pdf417` | PDF417 2D barcode |
+| `Barcode` | 1D barcodes (Code39, Code128, EAN-13, UPC-A, ITF) |
+| `Raw` | Escape hatch for direct IR ops or bytes |
+
+### Text Styling Methods
+
+```rust
+Text::new("content")
+    .center()           // Alignment: .left(), .center(), .right()
+    .bold()             // Emphasis
+    .underline()        // Underline
+    .upperline()        // Line above text
+    .invert()           // White on black
+    .double_width()     // 2x width
+    .double_height()    // 2x height
+    .size(2, 2)         // Custom size multiplier (0-7)
+    .font(Font::B)      // Font: A (12x24), B (9x24), C (9x17)
+    .upside_down()      // Rotate 180°
+    .smoothing()        // Enable character smoothing
+```
+
+### Graphics Modes
+
+For pattern/image printing, two modes are available:
+
+```rust
+// Raster mode (default) - arbitrary height, sent in chunks
+Image::from_raster(576, 500, data).raster_mode()
+
+// Band mode - 24-row chunks, matches original Python implementation
+Image::from_raster(576, 480, data).band_mode()
+```
+
 ## Development
 
 ```bash

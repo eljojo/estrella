@@ -28,12 +28,12 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
 use estrella::{
-    printer::PrinterConfig,
-    protocol::{commands, graphics, text},
+    EstrellaError,
+    components::{Component, ComponentExt, Image, Receipt, Spacer, Text},
+    ir::Op,
     receipt,
     render::patterns,
     transport::BluetoothTransport,
-    EstrellaError,
 };
 
 /// Estrella - Thermal receipt printer utility
@@ -161,7 +161,15 @@ fn run() -> Result<(), EstrellaError> {
                 save_png(&png_path, width, height, &raster_data)?;
                 println!("Saved to {}", png_path.display());
             } else {
-                print_pattern_to_device(&device, name, width as u16, height as u16, &raster_data, !no_title, band)?;
+                print_pattern_to_device(
+                    &device,
+                    name,
+                    width as u16,
+                    height as u16,
+                    &raster_data,
+                    !no_title,
+                    band,
+                )?;
                 println!("Printed successfully!");
             }
         }
@@ -171,12 +179,7 @@ fn run() -> Result<(), EstrellaError> {
 }
 
 /// Save raster data as a PNG image
-fn save_png(
-    path: &PathBuf,
-    width: usize,
-    height: usize,
-    data: &[u8],
-) -> Result<(), EstrellaError> {
+fn save_png(path: &PathBuf, width: usize, height: usize, data: &[u8]) -> Result<(), EstrellaError> {
     use image::{GrayImage, Luma};
 
     let mut img = GrayImage::new(width as u32, height as u32);
@@ -206,34 +209,44 @@ fn print_raw_to_device(device: &str, data: &[u8]) -> Result<(), EstrellaError> {
     Ok(())
 }
 
-/// Generate a title header for a pattern
-fn make_title(name: &str) -> Vec<u8> {
-    let mut data = Vec::new();
+/// A component for pattern title headers
+struct PatternTitle {
+    name: String,
+}
 
-    // Center align
-    data.extend(text::align_center());
+impl PatternTitle {
+    fn new(name: &str) -> Self {
+        Self {
+            name: name.to_uppercase(),
+        }
+    }
+}
 
-    // Horizontal rule
-    data.extend(b"================================\n");
+impl Component for PatternTitle {
+    fn emit(&self, ops: &mut Vec<Op>) {
+        // Centered horizontal rule
+        Text::new("================================")
+            .center()
+            .emit(ops);
 
-    // Pattern name in bold, double height
-    data.extend(text::bold_on());
-    data.extend(text::double_height_on());
-    data.extend(name.to_uppercase().as_bytes());
-    data.push(0x0A); // LF
-    data.extend(text::double_height_off());
-    data.extend(text::bold_off());
+        // Pattern name in bold, double height
+        Text::new(&self.name)
+            .center()
+            .bold()
+            .double_height()
+            .emit(ops);
 
-    // Horizontal rule
-    data.extend(b"================================\n");
+        // Horizontal rule
+        Text::new("================================")
+            .center()
+            .emit(ops);
 
-    // Small spacing before pattern
-    data.extend(commands::feed_mm(2.0));
+        // Small spacing before pattern
+        Spacer::mm(2.0).emit(ops);
 
-    // Reset alignment for pattern
-    data.extend(text::align_left());
-
-    data
+        // Reset alignment for pattern (left)
+        ops.push(Op::SetAlign(estrella::protocol::text::Alignment::Left));
+    }
 }
 
 /// Print pattern with optional title to the printer device
@@ -248,86 +261,23 @@ fn print_pattern_to_device(
     with_title: bool,
     use_band_mode: bool,
 ) -> Result<(), EstrellaError> {
-    // Build print sequence
-    let mut print_data = Vec::new();
-
-    // Initialize printer
-    print_data.extend(commands::init());
+    // Build print sequence using components
+    let mut receipt = Receipt::new();
 
     // Add title if requested
     if with_title {
-        print_data.extend(make_title(name));
+        receipt = receipt.child(PatternTitle::new(name));
     }
 
-    // Band mode: ESC k n1 0 + 24 rows of data + ESC J 12 feed
-    // Raster mode: ESC GS S (default, more efficient for large graphics)
-    // Spec: StarPRNT Command Spec Rev 4.10, Section 2.3.12
-    if use_band_mode {
-        print_band_mode(&mut print_data, width, height, data);
+    // Add the pattern image
+    let image = if use_band_mode {
+        Image::from_raster(width, height, data.to_vec()).band_mode()
     } else {
-        print_raster_mode(&mut print_data, width, height, data);
-    }
+        Image::from_raster(width, height, data.to_vec()).raster_mode()
+    };
+    receipt = receipt.child(image).cut();
 
-    // Cut paper
-    print_data.extend(commands::cut_full_feed());
-
-    // Send to printer
+    // Build and send to printer
+    let print_data = receipt.build();
     print_raw_to_device(device, &print_data)
-}
-
-/// Print using raster mode (ESC GS S)
-/// Spec: StarPRNT Command Spec Rev 4.10, Section 2.3.12, page 63
-fn print_raster_mode(print_data: &mut Vec<u8>, width: u16, height: u16, data: &[u8]) {
-    let config = PrinterConfig::TSP650II;
-    let width_bytes = (width as usize).div_ceil(8);
-    let chunk_rows = config.max_chunk_rows as usize;
-
-    let mut row_offset = 0;
-    while row_offset < height as usize {
-        let chunk_height = (height as usize - row_offset).min(chunk_rows);
-        let byte_start = row_offset * width_bytes;
-        let byte_end = (row_offset + chunk_height) * width_bytes;
-        let chunk_data = &data[byte_start..byte_end];
-
-        print_data.extend(graphics::raster(width, chunk_height as u16, chunk_data));
-
-        row_offset += chunk_height;
-    }
-}
-
-/// Print using band mode (ESC k) - 24 rows at a time with feed after each band
-/// Spec: StarPRNT Command Spec Rev 4.10, Section 2.3.12, page 61
-///
-/// This mode is more reliable for some patterns as it matches the original
-/// Python implementation of sick.py.
-fn print_band_mode(print_data: &mut Vec<u8>, width: u16, height: u16, data: &[u8]) {
-    const BAND_HEIGHT: usize = 24;
-    let width_bytes = (width as usize).div_ceil(8);
-    let full_band_size = width_bytes * BAND_HEIGHT;
-
-    let mut row_offset = 0;
-    while row_offset < height as usize {
-        let band_rows = (height as usize - row_offset).min(BAND_HEIGHT);
-        let byte_start = row_offset * width_bytes;
-        let byte_end = (row_offset + band_rows) * width_bytes;
-        let band_data = &data[byte_start..byte_end];
-
-        // ESC k n1 n2 (n2 is always 0)
-        // n1 = width in bytes (72 for 576 dots)
-        // Spec: k = (n1 + n2 × 256) × 24 bytes of data expected
-        // Pad last band to 24 rows if needed
-        if band_rows < BAND_HEIGHT {
-            let mut padded = band_data.to_vec();
-            padded.resize(full_band_size, 0x00); // Pad with white
-            print_data.extend(graphics::band(width_bytes as u8, &padded));
-        } else {
-            print_data.extend(graphics::band(width_bytes as u8, band_data));
-        }
-
-        // ESC J n - feed n/4 mm (n=12 → 3mm, matches 24 dots at ~8 dots/mm)
-        // Spec: StarPRNT Command Spec Rev 4.10, Section 2.2.1
-        print_data.extend(commands::feed_units(12));
-
-        row_offset += band_rows;
-    }
 }

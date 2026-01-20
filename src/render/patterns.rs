@@ -227,11 +227,7 @@ impl Pattern for Ripple {
             || yf < border_width
             || yf >= (height as f32 - border_width);
 
-        if on_border {
-            1.0
-        } else {
-            clamp01(v)
-        }
+        if on_border { 1.0 } else { clamp01(v) }
     }
 
     fn gamma(&self) -> f32 {
@@ -799,7 +795,11 @@ mod tests {
         // At y=20, expected_x for diag1 ≈ 20 * 575 / 239 ≈ 48
         let y = 20;
         let expected_x = (y as f32 * (w as f32 - 1.0) / (h as f32 - 1.0)) as usize;
-        assert_eq!(cal.shade(expected_x, y, w, h), 1.0, "Diagonal should be black");
+        assert_eq!(
+            cal.shade(expected_x, y, w, h),
+            1.0,
+            "Diagonal should be black"
+        );
     }
 
     #[test]
@@ -817,7 +817,11 @@ mod tests {
         assert_eq!(cal.shade(1, y, w, h), 1.0, "x=1 is border+bar");
 
         // Second bar block (48 <= x < 96) has width 3, so x=48,49,50 are in bar
-        assert_eq!(cal.shade(48, y, w, h), 1.0, "Second bar start should be black");
+        assert_eq!(
+            cal.shade(48, y, w, h),
+            1.0,
+            "Second bar start should be black"
+        );
         assert_eq!(cal.shade(49, y, w, h), 1.0, "Second bar should be black");
         assert_eq!(cal.shade(50, y, w, h), 1.0, "Second bar should be black");
 

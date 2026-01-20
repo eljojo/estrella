@@ -46,7 +46,7 @@
 //! | Resolution | 203 DPI (~8 dots/mm) |
 //! | Band height | 24 dots |
 
-use super::commands::{u16_le, ESC, GS};
+use super::commands::{ESC, GS, u16_le};
 
 // ============================================================================
 // BAND MODE GRAPHICS (ESC k)

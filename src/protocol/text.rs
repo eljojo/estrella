@@ -890,7 +890,11 @@ impl TextStyle {
             cmds.extend(size(h, w));
         }
         if let Some(u) = self.upside_down {
-            cmds.extend(if u { upside_down_on() } else { upside_down_off() });
+            cmds.extend(if u {
+                upside_down_on()
+            } else {
+                upside_down_off()
+            });
         }
         if let Some(s) = self.smoothing {
             cmds.extend(if s { smoothing_on() } else { smoothing_off() });
@@ -991,9 +995,7 @@ mod tests {
 
     #[test]
     fn test_text_style_builder() {
-        let style = TextStyle::new()
-            .alignment(Alignment::Center)
-            .bold(true);
+        let style = TextStyle::new().alignment(Alignment::Center).bold(true);
 
         let cmds = style.to_commands();
         assert!(cmds.len() > 0);

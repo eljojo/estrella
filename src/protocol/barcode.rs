@@ -157,9 +157,9 @@ pub mod barcode1d {
         match (hri_pos, hri_font, execute_linefeed) {
             (HriPosition::None, _, true) => 49,  // '1': No HRI, execute LF
             (HriPosition::None, _, false) => 51, // '3': No HRI, no LF
-            (HriPosition::Below, HriFont::FontA, true) => 50,  // '2': Font A, under, execute LF
+            (HriPosition::Below, HriFont::FontA, true) => 50, // '2': Font A, under, execute LF
             (HriPosition::Below, HriFont::FontA, false) => 52, // '4': Font A, under, no LF
-            (HriPosition::Above, HriFont::FontA, true) => 50,  // Fallback to under position
+            (HriPosition::Above, HriFont::FontA, true) => 50, // Fallback to under position
             (HriPosition::Above, HriFont::FontA, false) => 52,
             (HriPosition::Both, HriFont::FontA, true) => 50,
             (HriPosition::Both, HriFont::FontA, false) => 52,
@@ -264,7 +264,14 @@ pub mod barcode1d {
         hri_font: HriFont,
         module_width: ModuleWidth,
     ) -> Vec<u8> {
-        barcode(BarcodeType::Code39, data, height, hri_pos, hri_font, module_width)
+        barcode(
+            BarcodeType::Code39,
+            data,
+            height,
+            hri_pos,
+            hri_font,
+            module_width,
+        )
     }
 
     /// # Print Code128 Barcode
@@ -304,7 +311,14 @@ pub mod barcode1d {
         hri_font: HriFont,
         module_width: ModuleWidth,
     ) -> Vec<u8> {
-        barcode(BarcodeType::Code128, data, height, hri_pos, hri_font, module_width)
+        barcode(
+            BarcodeType::Code128,
+            data,
+            height,
+            hri_pos,
+            hri_font,
+            module_width,
+        )
     }
 
     /// # Print EAN-13 Barcode
@@ -698,7 +712,11 @@ pub mod pdf417 {
     /// - `columns`: Number of columns (0 for auto, or 1-30)
     pub fn set_size_fixed(rows: u8, columns: u8) -> Vec<u8> {
         let r = if rows == 0 { 0 } else { rows.clamp(3, 90) };
-        let c = if columns == 0 { 0 } else { columns.clamp(1, 30) };
+        let c = if columns == 0 {
+            0
+        } else {
+            columns.clamp(1, 30)
+        };
         vec![ESC, GS, b'x', b'S', b'0', 1, r, c]
     }
 
@@ -1017,19 +1035,10 @@ mod tests {
 
         #[test]
         fn test_set_cell_size() {
-            assert_eq!(
-                set_cell_size(4),
-                vec![0x1B, 0x1D, 0x79, 0x53, 0x32, 0x04]
-            );
+            assert_eq!(set_cell_size(4), vec![0x1B, 0x1D, 0x79, 0x53, 0x32, 0x04]);
             // Test clamping
-            assert_eq!(
-                set_cell_size(0),
-                vec![0x1B, 0x1D, 0x79, 0x53, 0x32, 0x01]
-            ); // Min is 1
-            assert_eq!(
-                set_cell_size(20),
-                vec![0x1B, 0x1D, 0x79, 0x53, 0x32, 0x08]
-            ); // Max is 8
+            assert_eq!(set_cell_size(0), vec![0x1B, 0x1D, 0x79, 0x53, 0x32, 0x01]); // Min is 1
+            assert_eq!(set_cell_size(20), vec![0x1B, 0x1D, 0x79, 0x53, 0x32, 0x08]); // Max is 8
         }
 
         #[test]
@@ -1081,15 +1090,9 @@ mod tests {
 
         #[test]
         fn test_set_ecc_level() {
-            assert_eq!(
-                set_ecc_level(2),
-                vec![0x1B, 0x1D, 0x78, 0x53, 0x31, 0x02]
-            );
+            assert_eq!(set_ecc_level(2), vec![0x1B, 0x1D, 0x78, 0x53, 0x31, 0x02]);
             // Test clamping
-            assert_eq!(
-                set_ecc_level(100),
-                vec![0x1B, 0x1D, 0x78, 0x53, 0x31, 0x08]
-            ); // Max is 8
+            assert_eq!(set_ecc_level(100), vec![0x1B, 0x1D, 0x78, 0x53, 0x31, 0x08]); // Max is 8
         }
 
         #[test]

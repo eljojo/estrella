@@ -20,9 +20,9 @@
 //! This runs both the CLI for PNGs and the `write_golden_binaries` test.
 
 use estrella::protocol::{commands, graphics};
-use estrella::render::{dither, patterns};
-use estrella::render::patterns::Pattern;
 use estrella::receipt;
+use estrella::render::patterns::Pattern;
+use estrella::render::{dither, patterns};
 use std::fs;
 
 /// Generate raster data for a pattern using its default dimensions
@@ -32,11 +32,7 @@ fn generate_pattern_raster(pattern: &dyn Pattern) -> Vec<u8> {
 }
 
 /// Generate raster data for a pattern with custom dimensions
-fn generate_pattern_raster_sized(
-    pattern: &dyn Pattern,
-    width: usize,
-    height: usize,
-) -> Vec<u8> {
+fn generate_pattern_raster_sized(pattern: &dyn Pattern, width: usize, height: usize) -> Vec<u8> {
     let gamma = pattern.gamma();
 
     dither::generate_raster(width, height, |x, y, w, h| {
@@ -47,7 +43,7 @@ fn generate_pattern_raster_sized(
 
 /// Convert raster data to PNG bytes (for comparison)
 fn raster_to_png(width: usize, height: usize, data: &[u8]) -> Vec<u8> {
-    use image::{GrayImage, Luma, ImageEncoder};
+    use image::{GrayImage, ImageEncoder, Luma};
 
     let mut img = GrayImage::new(width as u32, height as u32);
     let width_bytes = width.div_ceil(8);
@@ -83,11 +79,7 @@ fn test_ripple_golden() {
 
     // Verify raster dimensions
     let expected_bytes = width.div_ceil(8) * height;
-    assert_eq!(
-        raster.len(),
-        expected_bytes,
-        "Ripple raster size mismatch"
-    );
+    assert_eq!(raster.len(), expected_bytes, "Ripple raster size mismatch");
 
     let png = raster_to_png(width, height, &raster);
     assert!(!png.is_empty(), "PNG generation failed");
@@ -121,10 +113,7 @@ fn test_waves_golden() {
         golden.len(),
         "Waves PNG size differs from golden"
     );
-    assert_eq!(
-        png, golden,
-        "Waves PNG content differs from golden"
-    );
+    assert_eq!(png, golden, "Waves PNG content differs from golden");
 }
 
 #[test]
@@ -138,15 +127,8 @@ fn test_sick_golden() {
 
     let png = raster_to_png(width, height, &raster);
     let golden = include_bytes!("golden/sick_576x1920.png");
-    assert_eq!(
-        png.len(),
-        golden.len(),
-        "Sick PNG size differs from golden"
-    );
-    assert_eq!(
-        png, golden,
-        "Sick PNG content differs from golden"
-    );
+    assert_eq!(png.len(), golden.len(), "Sick PNG size differs from golden");
+    assert_eq!(png, golden, "Sick PNG content differs from golden");
 }
 
 #[test]
@@ -169,10 +151,7 @@ fn test_calibration_golden() {
         golden.len(),
         "Calibration PNG size differs from golden"
     );
-    assert_eq!(
-        png, golden,
-        "Calibration PNG content differs from golden"
-    );
+    assert_eq!(png, golden, "Calibration PNG content differs from golden");
 }
 
 /// Test that all patterns in list_patterns() can be retrieved by name
@@ -196,10 +175,7 @@ fn test_pattern_determinism() {
     let raster1 = generate_pattern_raster(&pattern);
     let raster2 = generate_pattern_raster(&pattern);
 
-    assert_eq!(
-        raster1, raster2,
-        "Pattern output should be deterministic"
-    );
+    assert_eq!(raster1, raster2, "Pattern output should be deterministic");
 }
 
 // ============================================================================
@@ -227,7 +203,11 @@ fn generate_raster_commands(width: usize, height: usize, raster_data: &[u8]) -> 
         let byte_end = (row_offset + chunk_height) * width_bytes;
         let chunk_data = &raster_data[byte_start..byte_end];
 
-        cmd.extend(graphics::raster(width as u16, chunk_height as u16, chunk_data));
+        cmd.extend(graphics::raster(
+            width as u16,
+            chunk_height as u16,
+            chunk_data,
+        ));
 
         row_offset += chunk_height;
     }

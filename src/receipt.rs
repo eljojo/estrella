@@ -3,58 +3,60 @@
 //! Pre-built receipt templates demonstrating StarPRNT text capabilities.
 //!
 //! These generate command sequences that can be sent directly to the printer.
+//! Receipts are built using the declarative component system and optimized
+//! for minimal byte output.
 
-use crate::protocol::{
-    barcode::{barcode1d, pdf417, qr},
-    commands,
-    text::{self, Font},
+use crate::components::{
+    Barcode, Component, ComponentExt, LineItem, Pdf417, QrCode, Raw, Receipt, Spacer, Text, Total,
 };
+use crate::ir::Op;
+use crate::protocol::text::{Alignment, Font};
 
-const LF: u8 = 0x0A;
 const COLS: usize = 48; // Characters per line for Font A on 576px paper
 
-/// Append text with line feed
-fn text_line(data: &mut Vec<u8>, s: &str) {
-    data.extend(s.as_bytes());
-    data.push(LF);
-}
+// ============================================================================
+// HELPER COMPONENTS
+// ============================================================================
 
-/// Append a formatted line item (left-aligned name, right-aligned price)
-fn item_line(data: &mut Vec<u8>, name: &str, price: f64) {
-    let price_str = format!("{:.2}", price);
-    let name_width = COLS - price_str.len() - 1; // -1 for space between
-    let line = format!("{:<width$} {}", name, price_str, width = name_width);
-    text_line(data, &line);
-}
+/// A custom component for the item table header.
+struct ItemTableHeader;
 
-/// Append a right-aligned label: value line
-fn total_line(data: &mut Vec<u8>, label: &str, value: f64) {
-    let value_str = format!("{:.2}", value);
-    let line = format!("{}  {}", label, value_str);
-    text_line(data, &line);
-}
-
-/// Append a horizontal rule
-fn hr(data: &mut Vec<u8>, ch: char, width: usize) {
-    for _ in 0..width {
-        data.push(ch as u8);
+impl Component for ItemTableHeader {
+    fn emit(&self, ops: &mut Vec<Op>) {
+        ops.push(Op::SetAlign(Alignment::Left));
+        ops.push(Op::SetBold(true));
+        let header = format!("{:<43}{:>5}", "ITEM", "CAD");
+        ops.push(Op::Text(header));
+        ops.push(Op::Newline);
+        ops.push(Op::SetBold(false));
     }
-    data.push(LF);
 }
 
-/// Reset all text styles to defaults
-fn reset_styles(data: &mut Vec<u8>) {
-    data.extend(text::invert_off());
-    data.extend(text::underline_off());
-    data.extend(text::upperline_off());
-    data.extend(text::bold_off());
-    data.extend(text::reduced_off());
-    data.extend(text::size_normal());
-    data.extend(text::smoothing_on());
-    data.extend(text::align_left());
+/// A custom component for a horizontal rule.
+struct Hr {
+    ch: char,
+    width: usize,
 }
 
-/// Generate a simple demo receipt (matches receipt.py)
+impl Hr {
+    fn new(ch: char) -> Self {
+        Self { ch, width: COLS }
+    }
+}
+
+impl Component for Hr {
+    fn emit(&self, ops: &mut Vec<Op>) {
+        let line: String = std::iter::repeat(self.ch).take(self.width).collect();
+        ops.push(Op::Text(line));
+        ops.push(Op::Newline);
+    }
+}
+
+// ============================================================================
+// RECEIPT TEMPLATES
+// ============================================================================
+
+/// Generate a simple demo receipt.
 ///
 /// Features demonstrated:
 /// - Text alignment (left, center, right)
@@ -62,117 +64,81 @@ fn reset_styles(data: &mut Vec<u8>) {
 /// - Underline and upperline
 /// - Inverted text (white on black)
 /// - Size scaling
-/// - Reduced printing (fine print)
 /// - Upside-down text
+/// - Font selection
 pub fn demo_receipt() -> Vec<u8> {
-    let mut data = Vec::new();
-
-    // Initialize printer
-    data.extend(commands::init());
-    reset_styles(&mut data);
-
-    // --- Header ---
-    data.extend(text::align_center());
-    data.extend(text::smoothing_on());
-    data.extend(text::bold_on());
-    data.extend(text::size(2, 2)); // 3x height and width
-    text_line(&mut data, "CHURRA MART");
-    data.extend(text::size_normal());
-    data.extend(text::bold_off());
-
-    data.extend(text::underline_on());
-    text_line(&mut data, "starprnt style demo receipt");
-    data.extend(text::underline_off());
-
-    // Timestamp
-    text_line(&mut data, "2026-01-20 12:00:00");
-    data.extend(commands::feed_mm(3.0));
-
-    // --- Inverted banner ---
-    data.extend(text::invert_on());
-    data.extend(text::bold_on());
-    text_line(&mut data, "  TODAY ONLY: 0% OFF EVERYTHING  ");
-    data.extend(text::bold_off());
-    data.extend(text::invert_off());
-
-    data.extend(commands::feed_mm(2.0));
-
-    // --- Items table ---
-    data.extend(text::align_left());
-    data.extend(text::bold_on());
-    // Header: ITEM left-aligned, CAD right-aligned
-    let header = format!("{:<43}{:>5}", "ITEM", "CAD");
-    text_line(&mut data, &header);
-    data.extend(text::bold_off());
-    hr(&mut data, '-', COLS);
-
-    item_line(&mut data, "Liminal Espresso", 4.50);
-    item_line(&mut data, "Basement Techno Vinyl", 29.00);
-    item_line(&mut data, "Thermal Paper (mystery)", 7.25);
-    item_line(&mut data, "Sticker: *****", 2.00);
-
-    hr(&mut data, '-', COLS);
-    data.extend(text::align_right());
-    data.extend(text::bold_on());
-    total_line(&mut data, "SUBTOTAL:", 42.75);
-    data.extend(text::bold_off());
-    total_line(&mut data, "HST (13%):", 5.56);
-    data.extend(text::bold_on());
-    data.extend(text::double_width_on());
-    total_line(&mut data, "TOTAL:", 48.31);
-    data.extend(text::double_width_off());
-    data.extend(text::bold_off());
-
-    data.extend(commands::feed_mm(3.0));
-
-    // --- Boxed thank you ---
-    data.extend(text::align_center());
-    data.extend(text::upperline_on());
-    data.extend(text::underline_on());
-    text_line(&mut data, "thank you for your vibes");
-    data.extend(text::upperline_off());
-    data.extend(text::underline_off());
-
-    data.extend(commands::feed_mm(2.5));
-
-    // --- Upside-down easter egg ---
-    data.push(LF);
-    data.extend(text::upside_down_on());
-    data.extend(text::align_center());
-    text_line(&mut data, "secret message from below");
-    data.extend(text::upside_down_off());
-    data.extend(text::align_left());
-
-    data.extend(commands::feed_mm(2.5));
-
-    // --- Fine print (using Font B for smaller text) ---
-    data.extend(text::align_left());
-    data.extend(text::font(Font::B));
-    text_line(
-        &mut data,
-        "fine print: this receipt exists to show StarPRNT text styling.",
-    );
-    text_line(
-        &mut data,
-        "note: some options depend on printer spec / memory switch settings.",
-    );
-    data.extend(text::font(Font::A));
-
-    data.extend(commands::feed_mm(4.5));
-
-    // --- Footer ---
-    data.extend(text::align_center());
-    data.extend(text::bold_on());
-    text_line(&mut data, "COME BACK SOON");
-    data.extend(text::bold_off());
-
-    data.extend(commands::feed_mm(6.0));
-    data.extend(commands::cut_full_feed());
-
-    data
+    Receipt::new()
+        // Header
+        .child(
+            Text::new("CHURRA MART")
+                .center()
+                .bold()
+                .smoothing()
+                .size(2, 2),
+        )
+        .child(
+            Text::new("starprnt style demo receipt")
+                .center()
+                .underline(),
+        )
+        .child(Text::new("2026-01-20 12:00:00").center())
+        .child(Spacer::mm(3.0))
+        // Inverted banner
+        .child(
+            Text::new("  TODAY ONLY: 0% OFF EVERYTHING  ")
+                .center()
+                .invert()
+                .bold(),
+        )
+        .child(Spacer::mm(2.0))
+        // Items table
+        .child(ItemTableHeader)
+        .child(Hr::new('-'))
+        .child(LineItem::new("Liminal Espresso", 4.50))
+        .child(LineItem::new("Basement Techno Vinyl", 29.00))
+        .child(LineItem::new("Thermal Paper (mystery)", 7.25))
+        .child(LineItem::new("Sticker: *****", 2.00))
+        .child(Hr::new('-'))
+        // Totals
+        .child(Total::labeled("SUBTOTAL:", 42.75).bold())
+        .child(Total::labeled("HST (13%):", 5.56))
+        .child(Total::labeled("TOTAL:", 48.31).bold().double_width())
+        .child(Spacer::mm(3.0))
+        // Boxed thank you
+        .child(
+            Text::new("thank you for your vibes")
+                .center()
+                .underline()
+                .upperline(),
+        )
+        .child(Spacer::mm(2.5))
+        // Upside down easter egg
+        .child(Text::new("")) // blank line
+        .child(
+            Text::new("secret message from below")
+                .center()
+                .upside_down(),
+        )
+        .child(Spacer::mm(2.5))
+        // Fine print
+        .child(
+            Text::new("fine print: this receipt exists to show StarPRNT text styling.")
+                .left()
+                .font(Font::B),
+        )
+        .child(
+            Text::new("note: some options depend on printer spec / memory switch settings.")
+                .font(Font::B),
+        )
+        .child(Spacer::mm(4.5))
+        // Footer
+        .child(Text::new("COME BACK SOON").center().bold())
+        .child(Spacer::mm(6.0))
+        .cut()
+        .build()
 }
 
-/// Generate a full demo receipt with barcodes (matches receipt2.py)
+/// Generate a full demo receipt with barcodes.
 ///
 /// Features demonstrated:
 /// - Everything from demo_receipt()
@@ -181,202 +147,106 @@ pub fn demo_receipt() -> Vec<u8> {
 /// - QR code
 /// - PDF417 barcode
 pub fn full_receipt() -> Vec<u8> {
-    let mut data = Vec::new();
-
-    // Initialize printer
-    data.extend(commands::init());
-    data.extend(text::codepage_raw(1)); // CP437
-    reset_styles(&mut data);
-
-    // --- Header ---
-    data.extend(text::align_center());
-    data.extend(text::font(Font::A));
-    data.extend(text::smoothing_on());
-    data.extend(text::bold_on());
-    data.extend(text::double_height_on());
-    data.extend(text::double_width_on());
-    text_line(&mut data, "CHURRA MART");
-    reset_styles(&mut data);
-
-    data.extend(text::align_center());
-    data.extend(text::underline_on());
-    text_line(&mut data, "StarPRNT style demo receipt");
-    data.extend(text::underline_off());
-
-    text_line(&mut data, "2026-01-20 12:00:00");
-    data.extend(commands::feed_mm(2.5));
-
-    // --- Inverted banner ---
-    data.extend(text::align_center());
-    data.extend(text::invert_on());
-    text_line(&mut data, " TODAY ONLY: 0% OFF EVERYTHING ");
-    data.extend(text::invert_off());
-
-    data.extend(commands::feed_mm(2.0));
-
-    // --- Font showcase ---
-    data.extend(text::align_left());
-    hr(&mut data, '-', COLS);
-
-    data.extend(text::bold_on());
-    text_line(&mut data, "FONTS:");
-    data.extend(text::bold_off());
-
-    data.extend(text::font(Font::A));
-    text_line(&mut data, "Font A (12x24): THE QUICK BROWN FOX 0123456789");
-    data.extend(text::font(Font::B));
-    text_line(&mut data, "Font B ( 9x24): THE QUICK BROWN FOX 0123456789");
-    data.extend(text::font(Font::C));
-    text_line(&mut data, "Font C ( 9x17): THE QUICK BROWN FOX 0123456789");
-    data.extend(text::font(Font::A));
-
-    data.extend(commands::feed_mm(2.0));
-
-    // --- Style showcase ---
-    hr(&mut data, '-', COLS);
-    data.extend(text::bold_on());
-    text_line(&mut data, "STYLES:");
-    data.extend(text::bold_off());
-
-    text_line(&mut data, "Normal text.");
-
-    data.extend(text::bold_on());
-    text_line(&mut data, "Emphasized (bold-ish).");
-    data.extend(text::bold_off());
-
-    data.extend(text::underline_on());
-    text_line(&mut data, "Underlined.");
-    data.extend(text::underline_off());
-
-    data.extend(text::invert_on());
-    text_line(&mut data, "White/black inverted.");
-    data.extend(text::invert_off());
-
-    data.extend(text::smoothing_on());
-    text_line(&mut data, "Smoothing ON (edges a bit softer).");
-    data.extend(text::smoothing_off());
-
-    data.extend(text::double_width_on());
-    text_line(&mut data, "Double-wide.");
-    data.extend(text::double_width_off());
-
-    data.extend(text::double_height_on());
-    text_line(&mut data, "Double-high.");
-    data.extend(text::double_height_off());
-
-    data.extend(text::double_width_on());
-    data.extend(text::double_height_on());
-    text_line(&mut data, "BIG BIG");
-    reset_styles(&mut data);
-
-    data.extend(text::upside_down_on());
-    data.extend(text::align_center());
-    text_line(&mut data, "upside-down message (SI)");
-    data.extend(text::upside_down_off());
-    data.extend(text::align_left());
-
-    data.extend(commands::feed_mm(2.0));
-
-    // --- Receipt body ---
-    hr(&mut data, '-', COLS);
-    data.extend(text::align_left());
-    data.extend(text::bold_on());
-    let header = format!("{:<43}{:>5}", "ITEM", "CAD");
-    text_line(&mut data, &header);
-    data.extend(text::bold_off());
-    hr(&mut data, '-', COLS);
-
-    item_line(&mut data, "Liminal Espresso", 4.50);
-    item_line(&mut data, "Basement Techno Vinyl", 29.00);
-    item_line(&mut data, "Thermal Paper (mystery)", 7.25);
-    item_line(&mut data, "Sticker: *****", 2.00);
-
-    hr(&mut data, '-', COLS);
-
-    data.extend(text::align_right());
-    total_line(&mut data, "SUBTOTAL:", 42.75);
-    total_line(&mut data, "HST (13%):", 5.56);
-
-    data.extend(text::bold_on());
-    data.extend(text::double_width_on());
-    total_line(&mut data, "TOTAL:", 48.31);
-    reset_styles(&mut data);
-
-    data.extend(commands::feed_mm(3.0));
-
-    // --- Barcodes ---
-    hr(&mut data, '-', COLS);
-    data.extend(text::align_center());
-    data.extend(text::bold_on());
-    text_line(&mut data, "CODES:");
-    data.extend(text::bold_off());
-
-    data.extend(text::align_left());
-    text_line(&mut data, "1D Barcode (Code39 + HRI):");
-    data.extend(barcode1d::code39(b"CHURRA-2026-0001", 80));
-    data.extend(commands::feed_mm(3.0));
-
-    data.extend(text::align_left());
-    text_line(&mut data, "QR Code:");
-    data.extend(text::align_center());
-    // QR code commands
-    data.extend(qr::set_model(qr::QrModel::Model2));
-    data.extend(qr::set_error_correction(qr::QrErrorLevel::M));
-    data.extend(qr::set_cell_size(6));
-    data.extend(qr::set_data(b"https://example.invalid/churra-mart"));
-    data.extend(qr::print());
-    data.extend(commands::feed_mm(3.0));
-
-    data.extend(text::align_left());
-    text_line(&mut data, "PDF417:");
-    data.extend(text::align_center());
-    // PDF417 commands
-    // Aspect ratio: p1=vertical, p2=horizontal proportion (spec page 92)
-    // Use 1:3 for horizontal barcode (3x wider than tall)
-    data.extend(pdf417::set_size_ratio(1, 3));
-    data.extend(pdf417::set_ecc_level(3));
-    data.extend(pdf417::set_module_width(2));
-    data.extend(pdf417::set_data(b"CHURRA|MART|ORDER|2026-0001|TOTAL|48.31"));
-    data.extend(pdf417::print());
-
-    data.extend(commands::feed_mm(4.0));
-
-    // --- Footer ---
-    hr(&mut data, '-', COLS);
-    data.extend(text::align_center());
-    data.extend(text::underline_on());
-    text_line(&mut data, "thank you for your vibes");
-    data.extend(text::underline_off());
-
-    data.extend(commands::feed_mm(2.0));
-
-    data.extend(text::align_left());
-    data.extend(text::font(Font::B));
-    text_line(
-        &mut data,
-        "fine print: this receipt exists to show StarPRNT text styling.",
-    );
-    text_line(
-        &mut data,
-        "note: some options depend on printer spec / memory switch settings.",
-    );
-    text_line(
-        &mut data,
-        "tip: avoid Unicode unless you really know your code page.",
-    );
-    data.extend(text::font(Font::A));
-
-    data.extend(commands::feed_mm(6.0));
-    data.extend(text::align_center());
-    data.extend(text::bold_on());
-    text_line(&mut data, "COME BACK SOON");
-    data.extend(text::bold_off());
-
-    data.extend(commands::feed_mm(10.0));
-    data.extend(commands::cut_full_feed());
-
-    data
+    Receipt::new()
+        // Set codepage
+        .child(Raw::op(Op::SetCodepage(1)))
+        // Header
+        .child(
+            Text::new("CHURRA MART")
+                .center()
+                .bold()
+                .smoothing()
+                .double_height()
+                .double_width(),
+        )
+        .child(
+            Text::new("StarPRNT style demo receipt")
+                .center()
+                .underline(),
+        )
+        .child(Text::new("2026-01-20 12:00:00").center())
+        .child(Spacer::mm(2.5))
+        // Inverted banner
+        .child(
+            Text::new(" TODAY ONLY: 0% OFF EVERYTHING ")
+                .center()
+                .invert(),
+        )
+        .child(Spacer::mm(2.0))
+        // Font showcase
+        .child(Hr::new('-'))
+        .child(Text::new("FONTS:").left().bold())
+        .child(Text::new("Font A (12x24): THE QUICK BROWN FOX 0123456789").font(Font::A))
+        .child(Text::new("Font B ( 9x24): THE QUICK BROWN FOX 0123456789").font(Font::B))
+        .child(Text::new("Font C ( 9x17): THE QUICK BROWN FOX 0123456789").font(Font::C))
+        .child(Spacer::mm(2.0))
+        // Style showcase
+        .child(Hr::new('-'))
+        .child(Text::new("STYLES:").left().bold())
+        .child(Text::new("Normal text."))
+        .child(Text::new("Emphasized (bold-ish).").bold())
+        .child(Text::new("Underlined.").underline())
+        .child(Text::new("White/black inverted.").invert())
+        .child(Text::new("Smoothing ON (edges a bit softer).").smoothing())
+        .child(Text::new("Double-wide.").double_width())
+        .child(Text::new("Double-high.").double_height())
+        .child(Text::new("BIG BIG").double_width().double_height())
+        .child(Text::new("upside-down message (SI)").center().upside_down())
+        .child(Spacer::mm(2.0))
+        // Receipt body
+        .child(Hr::new('-'))
+        .child(ItemTableHeader)
+        .child(Hr::new('-'))
+        .child(LineItem::new("Liminal Espresso", 4.50))
+        .child(LineItem::new("Basement Techno Vinyl", 29.00))
+        .child(LineItem::new("Thermal Paper (mystery)", 7.25))
+        .child(LineItem::new("Sticker: *****", 2.00))
+        .child(Hr::new('-'))
+        // Totals
+        .child(Total::labeled("SUBTOTAL:", 42.75))
+        .child(Total::labeled("HST (13%):", 5.56))
+        .child(Total::labeled("TOTAL:", 48.31).bold().double_width())
+        .child(Spacer::mm(3.0))
+        // Barcodes
+        .child(Hr::new('-'))
+        .child(Text::new("CODES:").center().bold())
+        .child(Text::new("1D Barcode (Code39 + HRI):").left())
+        .child(Barcode::code39("CHURRA-2026-0001").height(80))
+        .child(Spacer::mm(3.0))
+        .child(Text::new("QR Code:").left())
+        .child(QrCode::new("https://example.invalid/churra-mart").cell_size(6))
+        .child(Spacer::mm(3.0))
+        .child(Text::new("PDF417:").left())
+        .child(
+            Pdf417::new("CHURRA|MART|ORDER|2026-0001|TOTAL|48.31")
+                .module_width(2)
+                .ecc_level(3),
+        )
+        .child(Spacer::mm(4.0))
+        // Footer
+        .child(Hr::new('-'))
+        .child(Text::new("thank you for your vibes").center().underline())
+        .child(Spacer::mm(2.0))
+        .child(
+            Text::new("fine print: this receipt exists to show StarPRNT text styling.")
+                .left()
+                .font(Font::B),
+        )
+        .child(
+            Text::new("note: some options depend on printer spec / memory switch settings.")
+                .font(Font::B),
+        )
+        .child(Text::new("tip: avoid Unicode unless you really know your code page.").font(Font::B))
+        .child(Spacer::mm(6.0))
+        .child(Text::new("COME BACK SOON").center().bold())
+        .child(Spacer::mm(10.0))
+        .cut()
+        .build()
 }
+
+// ============================================================================
+// LOOKUP FUNCTIONS
+// ============================================================================
 
 /// List available receipt templates
 pub fn list_receipts() -> &'static [&'static str] {
@@ -447,5 +317,27 @@ mod tests {
         assert!(is_receipt("receipt"));
         assert!(is_receipt("receipt-full"));
         assert!(!is_receipt("ripple"));
+    }
+
+    #[test]
+    fn test_demo_receipt_size() {
+        let data = demo_receipt();
+        // Component-based version should be ~803 bytes (optimized)
+        assert!(
+            data.len() <= 850,
+            "demo_receipt should be optimized: {} bytes",
+            data.len()
+        );
+    }
+
+    #[test]
+    fn test_full_receipt_size() {
+        let data = full_receipt();
+        // Component-based version should be ~1687 bytes (optimized)
+        assert!(
+            data.len() <= 1700,
+            "full_receipt should be optimized: {} bytes",
+            data.len()
+        );
     }
 }
