@@ -227,6 +227,9 @@ fn make_title(name: &str) -> Vec<u8> {
 }
 
 /// Print pattern with optional title to the printer device
+///
+/// Uses band mode (ESC k) for "sick" pattern to match Python implementation,
+/// raster mode (ESC GS S) for other patterns.
 fn print_pattern_to_device(
     device: &str,
     name: &str,
@@ -235,8 +238,6 @@ fn print_pattern_to_device(
     data: &[u8],
     with_title: bool,
 ) -> Result<(), EstrellaError> {
-    let config = PrinterConfig::TSP650II;
-
     // Build print sequence
     let mut print_data = Vec::new();
 
@@ -248,7 +249,26 @@ fn print_pattern_to_device(
         print_data.extend(make_title(name));
     }
 
-    // Send raster in chunks to avoid Bluetooth buffer overflow
+    // Use band mode for "sick" pattern (matches Python sick.py behavior)
+    // Band mode: ESC k n1 0 + 24 rows of data + ESC J 12 feed
+    // Spec: StarPRNT Command Spec Rev 4.10, Section 2.3.12, page 61
+    if name.to_lowercase() == "sick" {
+        print_band_mode(&mut print_data, width, height, data);
+    } else {
+        print_raster_mode(&mut print_data, width, height, data);
+    }
+
+    // Cut paper
+    print_data.extend(commands::cut_full_feed());
+
+    // Send to printer
+    print_raw_to_device(device, &print_data)
+}
+
+/// Print using raster mode (ESC GS S)
+/// Spec: StarPRNT Command Spec Rev 4.10, Section 2.3.12, page 63
+fn print_raster_mode(print_data: &mut Vec<u8>, width: u16, height: u16, data: &[u8]) {
+    let config = PrinterConfig::TSP650II;
     let width_bytes = (width as usize).div_ceil(8);
     let chunk_rows = config.max_chunk_rows as usize;
 
@@ -263,10 +283,33 @@ fn print_pattern_to_device(
 
         row_offset += chunk_height;
     }
+}
 
-    // Cut paper
-    print_data.extend(commands::cut_full_feed());
+/// Print using band mode (ESC k) - 24 rows at a time with feed after each band
+/// Spec: StarPRNT Command Spec Rev 4.10, Section 2.3.12, page 61
+///
+/// This mode is more reliable for some patterns as it matches the original
+/// Python implementation of sick.py.
+fn print_band_mode(print_data: &mut Vec<u8>, width: u16, height: u16, data: &[u8]) {
+    const BAND_HEIGHT: usize = 24;
+    let width_bytes = (width as usize).div_ceil(8);
 
-    // Send to printer
-    print_raw_to_device(device, &print_data)
+    let mut row_offset = 0;
+    while row_offset < height as usize {
+        let band_rows = (height as usize - row_offset).min(BAND_HEIGHT);
+        let byte_start = row_offset * width_bytes;
+        let byte_end = (row_offset + band_rows) * width_bytes;
+        let band_data = &data[byte_start..byte_end];
+
+        // ESC k n1 n2 (n2 is always 0)
+        // n1 = width in bytes (72 for 576 dots)
+        // Spec: k = (n1 + n2 × 256) × 24 bytes of data expected
+        print_data.extend(graphics::band(width_bytes as u8, band_data));
+
+        // ESC J n - feed n/4 mm (n=12 → 3mm, matches 24 dots at ~8 dots/mm)
+        // Spec: StarPRNT Command Spec Rev 4.10, Section 2.2.1
+        print_data.extend(commands::feed_units(12));
+
+        row_offset += band_rows;
+    }
 }
