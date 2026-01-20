@@ -222,6 +222,17 @@ impl Text {
 
 impl Component for Text {
     fn emit(&self, ops: &mut Vec<Op>) {
+        // Auto-enable smoothing for scaled text (unless explicitly disabled)
+        let is_scaled = self.scaled_width > 0
+            || self.scaled_height > 0
+            || self.height_mult > 0
+            || self.width_mult > 0;
+        let should_smooth = match self.smoothing {
+            Some(explicit) => Some(explicit), // User explicitly set it
+            None if is_scaled => Some(true),  // Auto-enable for scaled text
+            None => None,                     // Normal text, no smoothing change
+        };
+
         // Emit style changes (order matters for compatibility)
         if let Some(align) = self.alignment {
             ops.push(Op::SetAlign(align));
@@ -229,8 +240,8 @@ impl Component for Text {
         if let Some(font) = self.font {
             ops.push(Op::SetFont(font));
         }
-        if let Some(smoothing) = self.smoothing {
-            ops.push(Op::SetSmoothing(smoothing));
+        if let Some(enabled) = should_smooth {
+            ops.push(Op::SetSmoothing(enabled));
         }
         if self.bold {
             ops.push(Op::SetBold(true));
@@ -300,7 +311,11 @@ impl Component for Text {
         if self.bold {
             ops.push(Op::SetBold(false));
         }
-        // Note: alignment, font, smoothing are NOT reset - they persist
+        // Reset auto-enabled smoothing (but not explicit smoothing)
+        if should_smooth == Some(true) && self.smoothing.is_none() {
+            ops.push(Op::SetSmoothing(false));
+        }
+        // Note: alignment and font are NOT reset - they persist
     }
 }
 
@@ -587,5 +602,48 @@ mod tests {
                 .iter()
                 .any(|op| *op == Op::SetAlign(Alignment::Right))
         );
+    }
+
+    #[test]
+    fn test_auto_smoothing_with_scale() {
+        // Scaled text should auto-enable smoothing
+        let text = Text::new("BIG").scale(1, 1);
+        let ir = text.compile();
+        assert!(ir.ops.contains(&Op::SetSmoothing(true)));
+        assert!(ir.ops.contains(&Op::SetSmoothing(false))); // And reset it
+    }
+
+    #[test]
+    fn test_auto_smoothing_with_size() {
+        // Sized text should auto-enable smoothing
+        let text = Text::new("BIG").size(2, 2);
+        let ir = text.compile();
+        assert!(ir.ops.contains(&Op::SetSmoothing(true)));
+        assert!(ir.ops.contains(&Op::SetSmoothing(false))); // And reset it
+    }
+
+    #[test]
+    fn test_no_auto_smoothing_normal_text() {
+        // Normal text should NOT enable smoothing
+        let text = Text::new("normal");
+        let ir = text.compile();
+        assert!(!ir.ops.iter().any(|op| matches!(op, Op::SetSmoothing(_))));
+    }
+
+    #[test]
+    fn test_explicit_smoothing_not_reset() {
+        // Explicitly enabled smoothing should NOT be reset
+        let text = Text::new("smooth").smoothing();
+        let ir = text.compile();
+        assert!(ir.ops.contains(&Op::SetSmoothing(true)));
+        assert!(!ir.ops.contains(&Op::SetSmoothing(false))); // Should NOT reset
+    }
+
+    #[test]
+    fn test_explicit_no_smoothing_overrides_auto() {
+        // Explicit no_smoothing should override auto-smoothing for scaled text
+        let text = Text::new("BIG").scale(1, 1).no_smoothing();
+        let ir = text.compile();
+        assert!(ir.ops.contains(&Op::SetSmoothing(false)));
     }
 }

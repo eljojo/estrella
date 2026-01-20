@@ -131,9 +131,45 @@ fn remove_redundant_styles(ops: Vec<Op>) -> Vec<Op> {
                     result.push(op);
                 }
             }
+            Op::SetUpperline(u) => {
+                if *u != state.upperline {
+                    state.upperline = *u;
+                    result.push(op);
+                }
+            }
             Op::SetInvert(i) => {
                 if *i != state.invert {
                     state.invert = *i;
+                    result.push(op);
+                }
+            }
+            Op::SetSmoothing(s) => {
+                if *s != state.smoothing {
+                    state.smoothing = *s;
+                    result.push(op);
+                }
+            }
+            Op::SetUpsideDown(u) => {
+                if *u != state.upside_down {
+                    state.upside_down = *u;
+                    result.push(op);
+                }
+            }
+            Op::SetReduced(r) => {
+                if *r != state.reduced {
+                    state.reduced = *r;
+                    result.push(op);
+                }
+            }
+            Op::SetExpandedWidth(w) => {
+                if *w != state.expanded_width {
+                    state.expanded_width = *w;
+                    result.push(op);
+                }
+            }
+            Op::SetExpandedHeight(h) => {
+                if *h != state.expanded_height {
+                    state.expanded_height = *h;
                     result.push(op);
                 }
             }
@@ -326,6 +362,55 @@ mod tests {
         assert_eq!(optimized.ops[3], Op::Newline);
         assert_eq!(optimized.ops[4], Op::SetBold(true));
         assert_eq!(optimized.ops[5], Op::Text("Bold".into()));
+    }
+
+    #[test]
+    fn test_remove_redundant_smoothing() {
+        let ops = vec![
+            Op::Init,
+            Op::SetSmoothing(true),
+            Op::Text("smooth".into()),
+            Op::SetSmoothing(true), // Redundant!
+            Op::Text("more".into()),
+        ];
+        let result = remove_redundant_styles(ops);
+        assert_eq!(result.len(), 4); // Init, SetSmoothing(true), Text, Text
+        assert!(result.iter().filter(|op| matches!(op, Op::SetSmoothing(true))).count() == 1);
+    }
+
+    #[test]
+    fn test_collapse_smoothing_toggle() {
+        let ops = vec![
+            Op::SetSmoothing(false),
+            Op::SetSmoothing(true),
+            Op::Text("text".into()),
+        ];
+        let result = collapse_style_toggles(ops);
+        assert_eq!(result.len(), 1); // Just Text, smoothing ops collapsed
+    }
+
+    #[test]
+    fn test_remove_redundant_expanded_width() {
+        let ops = vec![
+            Op::Init,
+            Op::SetExpandedWidth(2),
+            Op::Text("wide".into()),
+            Op::SetExpandedWidth(2), // Redundant!
+            Op::Text("more".into()),
+        ];
+        let result = remove_redundant_styles(ops);
+        assert_eq!(result.len(), 4); // Init, SetExpandedWidth, Text, Text
+    }
+
+    #[test]
+    fn test_collapse_expanded_width_toggle() {
+        let ops = vec![
+            Op::SetExpandedWidth(0),
+            Op::SetExpandedWidth(2),
+            Op::Text("text".into()),
+        ];
+        let result = collapse_style_toggles(ops);
+        assert_eq!(result.len(), 1); // Just Text, width toggle collapsed
     }
 
     #[test]

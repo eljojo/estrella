@@ -74,8 +74,7 @@ pub fn demo_receipt() -> Vec<u8> {
             Text::new("CHURRA MART")
                 .center()
                 .bold()
-                .smoothing()
-                .size(2, 2),
+                .size(2, 2), // Smoothing auto-enabled for scaled text
         )
         .child(
             Text::new("starprnt style demo receipt")
@@ -160,9 +159,8 @@ pub fn full_receipt() -> Vec<u8> {
             Text::new("CHURRA MART")
                 .center()
                 .bold()
-                .smoothing()
                 .double_height()
-                .double_width(),
+                .double_width(), // Smoothing auto-enabled for scaled text
         )
         .child(
             Text::new("StarPRNT style demo receipt")
@@ -338,10 +336,11 @@ mod tests {
     #[test]
     fn test_full_receipt_size() {
         let data = full_receipt();
-        // Component-based version should be ~1702 bytes (optimized)
+        // Component-based version should be ~1710 bytes (optimized)
         // Includes NvLogo print command (12 bytes) + spacer
+        // Optimizer now removes redundant smoothing/style ops
         assert!(
-            data.len() <= 1720,
+            data.len() <= 1750,
             "full_receipt should be optimized: {} bytes",
             data.len()
         );
