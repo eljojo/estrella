@@ -29,7 +29,7 @@ use std::path::PathBuf;
 
 use estrella::{
     printer::PrinterConfig,
-    protocol::{commands, graphics},
+    protocol::{commands, graphics, text},
     receipt,
     render::patterns,
     transport::BluetoothTransport,
@@ -49,7 +49,7 @@ struct Cli {
 enum Commands {
     /// Print a pattern to the thermal printer
     Print {
-        /// Pattern to print (omit to see available patterns)
+        /// Pattern or receipt to print (omit to see available options)
         pattern: Option<String>,
 
         /// List available patterns
@@ -75,6 +75,10 @@ enum Commands {
         /// Print width in dots
         #[arg(long, default_value = "576")]
         width: usize,
+
+        /// Skip printing title header
+        #[arg(long)]
+        no_title: bool,
     },
 }
 
@@ -97,6 +101,7 @@ fn run() -> Result<(), EstrellaError> {
             device,
             height,
             width,
+            no_title,
         } => {
             // List patterns if --list flag or no pattern specified
             if list || pattern.is_none() {
@@ -146,7 +151,7 @@ fn run() -> Result<(), EstrellaError> {
                 save_png(&png_path, width, height, &raster_data)?;
                 println!("Saved to {}", png_path.display());
             } else {
-                print_raster_to_device(&device, width as u16, height as u16, &raster_data)?;
+                print_pattern_to_device(&device, name, width as u16, height as u16, &raster_data, !no_title)?;
                 println!("Printed successfully!");
             }
         }
@@ -191,12 +196,44 @@ fn print_raw_to_device(device: &str, data: &[u8]) -> Result<(), EstrellaError> {
     Ok(())
 }
 
-/// Print raster data to the printer device
-fn print_raster_to_device(
+/// Generate a title header for a pattern
+fn make_title(name: &str) -> Vec<u8> {
+    let mut data = Vec::new();
+
+    // Center align
+    data.extend(text::align_center());
+
+    // Horizontal rule
+    data.extend(b"================================\n");
+
+    // Pattern name in bold, double height
+    data.extend(text::bold_on());
+    data.extend(text::double_height_on());
+    data.extend(name.to_uppercase().as_bytes());
+    data.push(0x0A); // LF
+    data.extend(text::double_height_off());
+    data.extend(text::bold_off());
+
+    // Horizontal rule
+    data.extend(b"================================\n");
+
+    // Small spacing before pattern
+    data.extend(commands::feed_mm(2.0));
+
+    // Reset alignment for pattern
+    data.extend(text::align_left());
+
+    data
+}
+
+/// Print pattern with optional title to the printer device
+fn print_pattern_to_device(
     device: &str,
+    name: &str,
     width: u16,
     height: u16,
     data: &[u8],
+    with_title: bool,
 ) -> Result<(), EstrellaError> {
     let config = PrinterConfig::TSP650II;
 
@@ -205,6 +242,11 @@ fn print_raster_to_device(
 
     // Initialize printer
     print_data.extend(commands::init());
+
+    // Add title if requested
+    if with_title {
+        print_data.extend(make_title(name));
+    }
 
     // Send raster in chunks to avoid Bluetooth buffer overflow
     let width_bytes = (width as usize).div_ceil(8);

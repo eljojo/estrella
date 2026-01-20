@@ -11,11 +11,27 @@ use crate::protocol::{
 };
 
 const LF: u8 = 0x0A;
+const COLS: usize = 48; // Characters per line for Font A on 576px paper
 
 /// Append text with line feed
 fn text_line(data: &mut Vec<u8>, s: &str) {
     data.extend(s.as_bytes());
     data.push(LF);
+}
+
+/// Append a formatted line item (left-aligned name, right-aligned price)
+fn item_line(data: &mut Vec<u8>, name: &str, price: f64) {
+    let price_str = format!("{:.2}", price);
+    let name_width = COLS - price_str.len() - 1; // -1 for space between
+    let line = format!("{:<width$} {}", name, price_str, width = name_width);
+    text_line(data, &line);
+}
+
+/// Append a right-aligned label: value line
+fn total_line(data: &mut Vec<u8>, label: &str, value: f64) {
+    let value_str = format!("{:.2}", value);
+    let line = format!("{}  {}", label, value_str);
+    text_line(data, &line);
 }
 
 /// Append a horizontal rule
@@ -84,24 +100,26 @@ pub fn demo_receipt() -> Vec<u8> {
     // --- Items table ---
     data.extend(text::align_left());
     data.extend(text::bold_on());
-    text_line(&mut data, "ITEM                          CAD");
+    // Header: ITEM left-aligned, CAD right-aligned
+    let header = format!("{:<43}{:>5}", "ITEM", "CAD");
+    text_line(&mut data, &header);
     data.extend(text::bold_off());
-    hr(&mut data, '-', 48);
+    hr(&mut data, '-', COLS);
 
-    text_line(&mut data, "Liminal Espresso              4.50");
-    text_line(&mut data, "Basement Techno Vinyl        29.00");
-    text_line(&mut data, "Thermal Paper (mystery)       7.25");
-    text_line(&mut data, "Sticker: *****                2.00");
+    item_line(&mut data, "Liminal Espresso", 4.50);
+    item_line(&mut data, "Basement Techno Vinyl", 29.00);
+    item_line(&mut data, "Thermal Paper (mystery)", 7.25);
+    item_line(&mut data, "Sticker: *****", 2.00);
 
-    hr(&mut data, '-', 48);
+    hr(&mut data, '-', COLS);
     data.extend(text::align_right());
     data.extend(text::bold_on());
-    text_line(&mut data, "SUBTOTAL:  42.75");
+    total_line(&mut data, "SUBTOTAL:", 42.75);
     data.extend(text::bold_off());
-    text_line(&mut data, "HST (13%):  5.56");
+    total_line(&mut data, "HST (13%):", 5.56);
     data.extend(text::bold_on());
     data.extend(text::double_width_on());
-    text_line(&mut data, "TOTAL:    48.31");
+    total_line(&mut data, "TOTAL:", 48.31);
     data.extend(text::double_width_off());
     data.extend(text::bold_off());
 
@@ -127,9 +145,9 @@ pub fn demo_receipt() -> Vec<u8> {
 
     data.extend(commands::feed_mm(2.5));
 
-    // --- Fine print ---
-    data.extend(text::reduced(1, 2)); // 67% width, 75% height
+    // --- Fine print (using Font B for smaller text) ---
     data.extend(text::align_left());
+    data.extend(text::font(Font::B));
     text_line(
         &mut data,
         "fine print: this receipt exists to show StarPRNT text styling.",
@@ -138,7 +156,7 @@ pub fn demo_receipt() -> Vec<u8> {
         &mut data,
         "note: some options depend on printer spec / memory switch settings.",
     );
-    data.extend(text::reduced_off());
+    data.extend(text::font(Font::A));
 
     data.extend(commands::feed_mm(4.5));
 
@@ -198,7 +216,7 @@ pub fn full_receipt() -> Vec<u8> {
 
     // --- Font showcase ---
     data.extend(text::align_left());
-    hr(&mut data, '-', 48);
+    hr(&mut data, '-', COLS);
 
     data.extend(text::bold_on());
     text_line(&mut data, "FONTS:");
@@ -215,7 +233,7 @@ pub fn full_receipt() -> Vec<u8> {
     data.extend(commands::feed_mm(2.0));
 
     // --- Style showcase ---
-    hr(&mut data, '-', 48);
+    hr(&mut data, '-', COLS);
     data.extend(text::bold_on());
     text_line(&mut data, "STYLES:");
     data.extend(text::bold_off());
@@ -260,33 +278,34 @@ pub fn full_receipt() -> Vec<u8> {
     data.extend(commands::feed_mm(2.0));
 
     // --- Receipt body ---
-    hr(&mut data, '-', 48);
+    hr(&mut data, '-', COLS);
     data.extend(text::align_left());
     data.extend(text::bold_on());
-    text_line(&mut data, "ITEM                            CAD");
+    let header = format!("{:<43}{:>5}", "ITEM", "CAD");
+    text_line(&mut data, &header);
     data.extend(text::bold_off());
-    hr(&mut data, '-', 48);
+    hr(&mut data, '-', COLS);
 
-    text_line(&mut data, "Liminal Espresso               4.50");
-    text_line(&mut data, "Basement Techno Vinyl         29.00");
-    text_line(&mut data, "Thermal Paper (mystery)        7.25");
-    text_line(&mut data, "Sticker: *****                 2.00");
+    item_line(&mut data, "Liminal Espresso", 4.50);
+    item_line(&mut data, "Basement Techno Vinyl", 29.00);
+    item_line(&mut data, "Thermal Paper (mystery)", 7.25);
+    item_line(&mut data, "Sticker: *****", 2.00);
 
-    hr(&mut data, '-', 48);
+    hr(&mut data, '-', COLS);
 
     data.extend(text::align_right());
-    text_line(&mut data, "SUBTOTAL:  42.75");
-    text_line(&mut data, "HST (13%):  5.56");
+    total_line(&mut data, "SUBTOTAL:", 42.75);
+    total_line(&mut data, "HST (13%):", 5.56);
 
     data.extend(text::bold_on());
     data.extend(text::double_width_on());
-    text_line(&mut data, "TOTAL:    48.31");
+    total_line(&mut data, "TOTAL:", 48.31);
     reset_styles(&mut data);
 
     data.extend(commands::feed_mm(3.0));
 
     // --- Barcodes ---
-    hr(&mut data, '-', 48);
+    hr(&mut data, '-', COLS);
     data.extend(text::align_center());
     data.extend(text::bold_on());
     text_line(&mut data, "CODES:");
@@ -321,7 +340,7 @@ pub fn full_receipt() -> Vec<u8> {
     data.extend(commands::feed_mm(4.0));
 
     // --- Footer ---
-    hr(&mut data, '-', 48);
+    hr(&mut data, '-', COLS);
     data.extend(text::align_center());
     data.extend(text::underline_on());
     text_line(&mut data, "thank you for your vibes");
