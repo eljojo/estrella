@@ -162,6 +162,75 @@ impl Component for Pattern {
     }
 }
 
+/// A component for printing NV (non-volatile) graphics.
+///
+/// NV graphics are stored in the printer's flash memory and can be
+/// recalled quickly. Use this component to print logos or other
+/// frequently-used images that have been stored with `estrella logo store`.
+///
+/// ## Example
+///
+/// ```ignore
+/// use estrella::components::{Receipt, NvLogo, Text};
+///
+/// let receipt = Receipt::new()
+///     .child(NvLogo::new("LG"))  // Print logo stored with key "LG"
+///     .child(Text::new("Thank you!").center())
+///     .cut();
+/// ```
+pub struct NvLogo {
+    key: String,
+    scale_x: u8,
+    scale_y: u8,
+}
+
+impl NvLogo {
+    /// Create an NV logo component with a 2-character key.
+    ///
+    /// The key must match a logo previously stored with `estrella logo store`.
+    pub fn new(key: impl Into<String>) -> Self {
+        Self {
+            key: key.into(),
+            scale_x: 1,
+            scale_y: 1,
+        }
+    }
+
+    /// Set horizontal scale (1 = 1x, 2 = 2x).
+    pub fn scale_x(mut self, scale: u8) -> Self {
+        self.scale_x = scale.clamp(1, 2);
+        self
+    }
+
+    /// Set vertical scale (1 = 1x, 2 = 2x).
+    pub fn scale_y(mut self, scale: u8) -> Self {
+        self.scale_y = scale.clamp(1, 2);
+        self
+    }
+
+    /// Set both horizontal and vertical scale.
+    pub fn scale(mut self, scale: u8) -> Self {
+        self.scale_x = scale.clamp(1, 2);
+        self.scale_y = scale.clamp(1, 2);
+        self
+    }
+
+    /// Double the size (2x scale in both dimensions).
+    pub fn double(self) -> Self {
+        self.scale(2)
+    }
+}
+
+impl Component for NvLogo {
+    fn emit(&self, ops: &mut Vec<Op>) {
+        ops.push(Op::NvPrint {
+            key: self.key.clone(),
+            scale_x: self.scale_x,
+            scale_y: self.scale_y,
+        });
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -230,5 +299,50 @@ mod tests {
         let ir = pattern.compile();
 
         assert!(ir.ops.iter().any(|op| matches!(op, Op::Band { .. })));
+    }
+
+    #[test]
+    fn test_nv_logo_default() {
+        let logo = NvLogo::new("A0");
+        let ir = logo.compile();
+
+        assert!(ir.ops.iter().any(|op| matches!(
+            op,
+            Op::NvPrint {
+                key,
+                scale_x: 1,
+                scale_y: 1,
+            } if key == "A0"
+        )));
+    }
+
+    #[test]
+    fn test_nv_logo_scaled() {
+        let logo = NvLogo::new("LG").scale(2);
+        let ir = logo.compile();
+
+        assert!(ir.ops.iter().any(|op| matches!(
+            op,
+            Op::NvPrint {
+                key,
+                scale_x: 2,
+                scale_y: 2,
+            } if key == "LG"
+        )));
+    }
+
+    #[test]
+    fn test_nv_logo_double() {
+        let logo = NvLogo::new("A0").double();
+        let ir = logo.compile();
+
+        assert!(ir.ops.iter().any(|op| matches!(
+            op,
+            Op::NvPrint {
+                scale_x: 2,
+                scale_y: 2,
+                ..
+            }
+        )));
     }
 }

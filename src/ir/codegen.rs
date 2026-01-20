@@ -4,7 +4,7 @@
 
 use super::ops::{BarcodeKind, Op, Program};
 use crate::printer::PrinterConfig;
-use crate::protocol::{barcode, commands, graphics, text};
+use crate::protocol::{barcode, commands, graphics, nv_graphics, text};
 
 impl Program {
     /// Compile the IR program to StarPRNT bytes.
@@ -182,9 +182,29 @@ impl Program {
                 }
 
                 // ===== NV Graphics =====
-                Op::NvStore { .. } | Op::NvPrint { .. } | Op::NvDelete { .. } => {
-                    // TODO: Implement NV graphics commands
-                    // These require the nv_graphics protocol module
+                Op::NvStore {
+                    key,
+                    width,
+                    height,
+                    data,
+                } => {
+                    if let Some(cmd) = nv_graphics::define(key, *width, *height, data) {
+                        out.extend(cmd);
+                    }
+                }
+                Op::NvPrint {
+                    key,
+                    scale_x,
+                    scale_y,
+                } => {
+                    if let Some(cmd) = nv_graphics::print(key, *scale_x, *scale_y) {
+                        out.extend(cmd);
+                    }
+                }
+                Op::NvDelete { key } => {
+                    if let Some(cmd) = nv_graphics::erase(key) {
+                        out.extend(cmd);
+                    }
                 }
             }
         }

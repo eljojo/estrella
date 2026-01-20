@@ -7,7 +7,8 @@
 //! for minimal byte output.
 
 use crate::components::{
-    Barcode, Component, ComponentExt, LineItem, Pdf417, QrCode, Raw, Receipt, Spacer, Text, Total,
+    Barcode, Component, ComponentExt, LineItem, NvLogo, Pdf417, QrCode, Raw, Receipt, Spacer, Text,
+    Total,
 };
 use crate::ir::Op;
 use crate::protocol::text::{Alignment, Font};
@@ -142,6 +143,7 @@ pub fn demo_receipt() -> Vec<u8> {
 ///
 /// Features demonstrated:
 /// - Everything from demo_receipt()
+/// - NV logo (if stored with key "A0")
 /// - Font selection (A, B, C)
 /// - Code39 barcode
 /// - QR code
@@ -150,6 +152,9 @@ pub fn full_receipt() -> Vec<u8> {
     Receipt::new()
         // Set codepage
         .child(Raw::op(Op::SetCodepage(1)))
+        // NV Logo (if stored)
+        .child(NvLogo::new("A0"))
+        .child(Spacer::mm(2.0))
         // Header
         .child(
             Text::new("CHURRA MART")
@@ -333,9 +338,10 @@ mod tests {
     #[test]
     fn test_full_receipt_size() {
         let data = full_receipt();
-        // Component-based version should be ~1687 bytes (optimized)
+        // Component-based version should be ~1702 bytes (optimized)
+        // Includes NvLogo print command (12 bytes) + spacer
         assert!(
-            data.len() <= 1700,
+            data.len() <= 1720,
             "full_receipt should be optimized: {} bytes",
             data.len()
         );

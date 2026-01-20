@@ -46,4 +46,5 @@
 pub mod barcode;
 pub mod commands;
 pub mod graphics;
+pub mod nv_graphics;
 pub mod text;

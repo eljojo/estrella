@@ -22,16 +22,25 @@
 //!
 //! # Print full receipt with barcodes
 //! estrella print receipt-full
+//!
+//! # Store a logo in printer's NV memory
+//! estrella logo store --key A0 logo.png
+//!
+//! # Delete a stored logo
+//! estrella logo delete --key A0
 //! ```
 
 use clap::{Parser, Subcommand};
+use std::io::{self, Write};
 use std::path::PathBuf;
 
 use estrella::{
     EstrellaError,
     components::{Component, ComponentExt, Image, Receipt, Spacer, Text},
     ir::Op,
+    protocol::{commands, nv_graphics},
     receipt,
+    render::dither,
     render::patterns,
     transport::BluetoothTransport,
 };
@@ -83,6 +92,55 @@ enum Commands {
         /// Use band mode instead of raster mode for graphics
         #[arg(long)]
         band: bool,
+    },
+
+    /// Manage logos stored in printer's NV (non-volatile) memory
+    Logo {
+        #[command(subcommand)]
+        action: LogoAction,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum LogoAction {
+    /// Store a logo image in the printer's NV memory
+    Store {
+        /// PNG image file to store
+        image: PathBuf,
+
+        /// 2-character key to identify the logo (e.g., "A0", "LG")
+        #[arg(long, default_value = "A0")]
+        key: String,
+
+        /// Printer device path
+        #[arg(long, default_value = "/dev/rfcomm0")]
+        device: String,
+
+        /// Print width in dots (image will be centered/scaled to fit)
+        #[arg(long, default_value = "576")]
+        width: usize,
+    },
+
+    /// Delete a logo from the printer's NV memory
+    Delete {
+        /// 2-character key of the logo to delete (e.g., "A0", "LG")
+        #[arg(long, default_value = "A0")]
+        key: String,
+
+        /// Printer device path
+        #[arg(long, default_value = "/dev/rfcomm0")]
+        device: String,
+    },
+
+    /// Delete ALL logos from the printer's NV memory
+    DeleteAll {
+        /// Printer device path
+        #[arg(long, default_value = "/dev/rfcomm0")]
+        device: String,
+
+        /// Skip confirmation prompt
+        #[arg(long)]
+        force: bool,
     },
 }
 
@@ -173,6 +231,23 @@ fn run() -> Result<(), EstrellaError> {
                 println!("Printed successfully!");
             }
         }
+
+        Commands::Logo { action } => match action {
+            LogoAction::Store {
+                image,
+                key,
+                device,
+                width,
+            } => {
+                logo_store(&image, &key, &device, width)?;
+            }
+            LogoAction::Delete { key, device } => {
+                logo_delete(&key, &device)?;
+            }
+            LogoAction::DeleteAll { device, force } => {
+                logo_delete_all(&device, force)?;
+            }
+        },
     }
 
     Ok(())
@@ -280,4 +355,145 @@ fn print_pattern_to_device(
     // Build and send to printer
     let print_data = receipt.build();
     print_raw_to_device(device, &print_data)
+}
+
+// ============================================================================
+// LOGO COMMANDS
+// ============================================================================
+
+/// Store a logo image in the printer's NV memory.
+fn logo_store(
+    image_path: &PathBuf,
+    key: &str,
+    device: &str,
+    target_width: usize,
+) -> Result<(), EstrellaError> {
+    use image::ImageReader;
+    use image::GenericImageView;
+
+    // Validate key
+    if nv_graphics::validate_key(key).is_none() {
+        return Err(EstrellaError::Pattern(format!(
+            "Invalid key '{}'. Key must be exactly 2 printable ASCII characters (e.g., 'A0', 'LG').",
+            key
+        )));
+    }
+
+    // Load the image
+    println!("Loading image: {}", image_path.display());
+    let img = ImageReader::open(image_path)
+        .map_err(|e| EstrellaError::Image(format!("Failed to open image: {}", e)))?
+        .decode()
+        .map_err(|e| EstrellaError::Image(format!("Failed to decode image: {}", e)))?;
+
+    let (img_width, img_height) = img.dimensions();
+    println!("Image dimensions: {}x{}", img_width, img_height);
+
+    // Convert to grayscale
+    let gray = img.to_luma8();
+
+    // Calculate dimensions for printer
+    // Scale image to fit target width while maintaining aspect ratio
+    let scale = target_width as f32 / img_width as f32;
+    let scaled_height = (img_height as f32 * scale).round() as u32;
+
+    // Resize image
+    let resized = image::imageops::resize(
+        &gray,
+        target_width as u32,
+        scaled_height,
+        image::imageops::FilterType::Lanczos3,
+    );
+
+    println!(
+        "Scaled to {}x{} for printer",
+        target_width, scaled_height
+    );
+
+    // Dither the image
+    let width_bytes = target_width.div_ceil(8);
+    let mut raster_data = vec![0u8; width_bytes * scaled_height as usize];
+
+    for y in 0..scaled_height as usize {
+        for x in 0..target_width {
+            let pixel = resized.get_pixel(x as u32, y as u32).0[0];
+            // Invert: 255 (white) -> 0.0, 0 (black) -> 1.0
+            let intensity = 1.0 - (pixel as f32 / 255.0);
+
+            // Apply dithering
+            let dithered = dither::should_print(x, y, intensity);
+
+            if dithered {
+                let byte_idx = y * width_bytes + x / 8;
+                let bit_idx = 7 - (x % 8);
+                raster_data[byte_idx] |= 1 << bit_idx;
+            }
+        }
+    }
+
+    // Generate NV store command
+    let store_cmd = nv_graphics::define(key, target_width as u16, scaled_height as u16, &raster_data)
+        .ok_or_else(|| {
+            EstrellaError::Pattern("Failed to generate NV store command".to_string())
+        })?;
+
+    // Send to printer with init
+    println!("Storing logo with key '{}' ({} bytes)...", key, store_cmd.len());
+    let mut data = commands::init();
+    data.extend(store_cmd);
+
+    print_raw_to_device(device, &data)?;
+    println!("Logo stored successfully!");
+    println!("Use 'NvLogo::new(\"{}\")' in code or print with scale: estrella logo print --key {}", key, key);
+
+    Ok(())
+}
+
+/// Delete a logo from the printer's NV memory.
+fn logo_delete(key: &str, device: &str) -> Result<(), EstrellaError> {
+    // Validate key
+    if nv_graphics::validate_key(key).is_none() {
+        return Err(EstrellaError::Pattern(format!(
+            "Invalid key '{}'. Key must be exactly 2 printable ASCII characters.",
+            key
+        )));
+    }
+
+    let delete_cmd = nv_graphics::erase(key).ok_or_else(|| {
+        EstrellaError::Pattern("Failed to generate NV delete command".to_string())
+    })?;
+
+    println!("Deleting logo with key '{}'...", key);
+    let mut data = commands::init();
+    data.extend(delete_cmd);
+
+    print_raw_to_device(device, &data)?;
+    println!("Logo deleted successfully!");
+
+    Ok(())
+}
+
+/// Delete ALL logos from the printer's NV memory.
+fn logo_delete_all(device: &str, force: bool) -> Result<(), EstrellaError> {
+    if !force {
+        print!("WARNING: This will delete ALL stored logos. Continue? [y/N] ");
+        io::stdout().flush().unwrap();
+
+        let mut input = String::new();
+        io::stdin().read_line(&mut input).unwrap();
+
+        if !input.trim().eq_ignore_ascii_case("y") {
+            println!("Aborted.");
+            return Ok(());
+        }
+    }
+
+    println!("Deleting ALL logos...");
+    let mut data = commands::init();
+    data.extend(nv_graphics::erase_all());
+
+    print_raw_to_device(device, &data)?;
+    println!("All logos deleted successfully!");
+
+    Ok(())
 }

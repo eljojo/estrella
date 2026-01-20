@@ -26,6 +26,15 @@ estrella print receipt
 
 # Print full receipt with barcodes (Code39, QR, PDF417)
 estrella print receipt-full
+
+# Store a logo in printer's NV (non-volatile) memory
+estrella logo store mylogo.png --key A0
+
+# Delete a stored logo
+estrella logo delete --key A0
+
+# Delete ALL stored logos (with confirmation)
+estrella logo delete-all
 ```
 
 ## Patterns
@@ -68,6 +77,7 @@ Simple demo receipt showcasing text styling:
 ### receipt-full
 Full demo receipt with all features:
 - Everything from `receipt`
+- NV logo (prints logo stored with key "A0" if available)
 - Font showcase (A, B, C)
 - Style showcase (all text effects)
 - Code39 barcode with HRI
@@ -198,6 +208,7 @@ let bytes = receipt.build();
 | `Spacer` | Vertical space in mm or line units |
 | `Image` | Raster graphics (band or raster mode) |
 | `Pattern` | Named pattern generator (ripple, waves, etc.) |
+| `NvLogo` | Print logo from NV (non-volatile) memory with optional scaling |
 | `QrCode` | QR code with configurable size and error correction |
 | `Pdf417` | PDF417 2D barcode |
 | `Barcode` | 1D barcodes (Code39, Code128, EAN-13, UPC-A, ITF) |
@@ -231,6 +242,88 @@ Image::from_raster(576, 500, data).raster_mode()
 // Band mode - 24-row chunks, matches original Python implementation
 Image::from_raster(576, 480, data).band_mode()
 ```
+
+## NV Graphics (Logos)
+
+NV (Non-Volatile) graphics are images stored in the printer's flash memory. They persist across power cycles and can be recalled instantly, making them perfect for logos and frequently-used graphics.
+
+### Storing a Logo
+
+Use the CLI to store a PNG image in the printer's memory:
+
+```bash
+# Store logo with key "A0" (default)
+estrella logo store mylogo.png
+
+# Store with custom key
+estrella logo store company-logo.png --key LG
+
+# Store at different width
+estrella logo store badge.png --key B1 --width 288
+```
+
+The image will be:
+- Converted to grayscale
+- Scaled to fit the specified width (maintaining aspect ratio)
+- Dithered using Bayer 8x8 ordered dithering
+- Stored in the printer's NV memory with the specified 2-character key
+
+### Using Logos in Code
+
+```rust
+use estrella::components::*;
+
+let receipt = Receipt::new()
+    // Print stored logo at 1x scale
+    .child(NvLogo::new("A0"))
+    .child(Spacer::mm(3.0))
+
+    .child(Text::new("ACME CORP").center().bold())
+    .child(Text::new("Thank you for your business!").center())
+    .cut();
+```
+
+### Logo Scaling
+
+Logos can be scaled 1x or 2x:
+
+```rust
+// 1x scale (default)
+NvLogo::new("A0")
+
+// 2x scale (double size)
+NvLogo::new("A0").scale(2)
+NvLogo::new("A0").double()  // shorthand
+
+// Custom horizontal/vertical scaling
+NvLogo::new("A0").scale_x(2).scale_y(1)
+```
+
+### Managing Logos
+
+```bash
+# Delete a specific logo
+estrella logo delete --key A0
+
+# Delete all logos (with confirmation)
+estrella logo delete-all
+
+# Skip confirmation
+estrella logo delete-all --force
+```
+
+### Key Format
+
+Logo keys must be exactly 2 printable ASCII characters (32-126):
+- Valid: `A0`, `LG`, `01`, `__`, `~~`
+- Invalid: `A` (too short), `ABC` (too long)
+
+### Notes
+
+- Logos persist in printer memory until explicitly deleted or power is lost
+- The printer has limited NV storage; exact capacity varies by model
+- If a logo key doesn't exist, the print command is silently ignored
+- Logos are printed at the current line position and advance the paper
 
 ## Development
 
