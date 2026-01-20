@@ -66,19 +66,11 @@ impl Program {
                 Op::SetSize { height, width } => {
                     out.extend(text::size(*height, *width));
                 }
-                Op::SetDoubleWidth(enabled) => {
-                    if *enabled {
-                        out.extend(text::double_width_on());
-                    } else {
-                        out.extend(text::double_width_off());
-                    }
+                Op::SetExpandedWidth(mult) => {
+                    out.extend(text::expanded_width(*mult));
                 }
-                Op::SetDoubleHeight(enabled) => {
-                    if *enabled {
-                        out.extend(text::double_height_on());
-                    } else {
-                        out.extend(text::double_height_off());
-                    }
+                Op::SetExpandedHeight(mult) => {
+                    out.extend(text::expanded_height(*mult));
                 }
                 Op::SetSmoothing(enabled) => {
                     if *enabled {

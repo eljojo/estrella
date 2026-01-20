@@ -452,9 +452,9 @@ pub fn size_double() -> Vec<u8> {
     size(1, 1)
 }
 
-/// # Double Width Mode (ESC W n)
+/// # Expanded Width Mode (ESC W n)
 ///
-/// Enables or disables double-width characters.
+/// Sets character width expansion.
 ///
 /// ## Protocol Details
 ///
@@ -466,25 +466,37 @@ pub fn size_double() -> Vec<u8> {
 ///
 /// ## Parameters
 ///
-/// - `n = 0`: Normal width
-/// - `n = 1`: Double width
+/// - `n = 0`: Normal width (1×)
+/// - `n = 1`: 2× width
+/// - `n = 2`: 3× width
+/// - `n = 3`: 4× width
+/// - `n = 4`: 5× width
+/// - `n = 5`: 6× width
+///
+/// **Note:** Some printer specs support up to n=7 (8× width).
 ///
 /// ## Reference
 ///
 /// StarPRNT Command Spec Rev 4.10, Section 2.3.3
-#[inline]
-pub fn double_width_on() -> Vec<u8> {
-    vec![ESC, b'W', 1]
+pub fn expanded_width(mult: u8) -> Vec<u8> {
+    vec![ESC, b'W', mult.min(7)]
 }
 
+/// Convenience: Normal width (1×)
 #[inline]
 pub fn double_width_off() -> Vec<u8> {
-    vec![ESC, b'W', 0]
+    expanded_width(0)
 }
 
-/// # Double Height Mode (ESC h n)
+/// Convenience: Double width (2×)
+#[inline]
+pub fn double_width_on() -> Vec<u8> {
+    expanded_width(1)
+}
+
+/// # Expanded Height Mode (ESC h n)
 ///
-/// Enables or disables double-height characters.
+/// Sets character height expansion.
 ///
 /// ## Protocol Details
 ///
@@ -496,20 +508,32 @@ pub fn double_width_off() -> Vec<u8> {
 ///
 /// ## Parameters
 ///
-/// - `n = 0`: Normal height
-/// - `n = 1`: Double height
+/// - `n = 0`: Normal height (1×)
+/// - `n = 1`: 2× height
+/// - `n = 2`: 3× height
+/// - `n = 3`: 4× height
+/// - `n = 4`: 5× height
+/// - `n = 5`: 6× height
+///
+/// **Note:** Some printer specs support up to n=7 (8× height).
 ///
 /// ## Reference
 ///
 /// StarPRNT Command Spec Rev 4.10, Section 2.3.3
-#[inline]
-pub fn double_height_on() -> Vec<u8> {
-    vec![ESC, b'h', 1]
+pub fn expanded_height(mult: u8) -> Vec<u8> {
+    vec![ESC, b'h', mult.min(7)]
 }
 
+/// Convenience: Normal height (1×)
 #[inline]
 pub fn double_height_off() -> Vec<u8> {
-    vec![ESC, b'h', 0]
+    expanded_height(0)
+}
+
+/// Convenience: Double height (2×)
+#[inline]
+pub fn double_height_on() -> Vec<u8> {
+    expanded_height(1)
 }
 
 // ============================================================================

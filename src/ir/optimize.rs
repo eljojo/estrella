@@ -44,8 +44,8 @@ fn collapse_style_toggles(ops: Vec<Op>) -> Vec<Op> {
                 (Op::SetInvert(false), Op::SetInvert(true)) => true,
                 (Op::SetUpsideDown(false), Op::SetUpsideDown(true)) => true,
                 (Op::SetReduced(false), Op::SetReduced(true)) => true,
-                (Op::SetDoubleWidth(false), Op::SetDoubleWidth(true)) => true,
-                (Op::SetDoubleHeight(false), Op::SetDoubleHeight(true)) => true,
+                (Op::SetExpandedWidth(0), Op::SetExpandedWidth(w)) if *w > 0 => true,
+                (Op::SetExpandedHeight(0), Op::SetExpandedHeight(h)) if *h > 0 => true,
                 (Op::SetSmoothing(false), Op::SetSmoothing(true)) => true,
                 // Also collapse size resets followed by same size
                 (

@@ -103,15 +103,17 @@ pub enum Op {
     /// Enable/disable inverted (white on black).
     SetInvert(bool),
 
-    /// Set character size multiplier.
+    /// Set character size multiplier (ESC i n1 n2).
     /// height/width: 0 = 1x, 1 = 2x, ... 7 = 8x
     SetSize { height: u8, width: u8 },
 
-    /// Enable/disable double width only.
-    SetDoubleWidth(bool),
+    /// Set expanded width multiplier (ESC W n).
+    /// 0 = 1x, 1 = 2x, ... 7 = 8x (spec dependent: may be limited to 5 or 7)
+    SetExpandedWidth(u8),
 
-    /// Enable/disable double height only.
-    SetDoubleHeight(bool),
+    /// Set expanded height multiplier (ESC h n).
+    /// 0 = 1x, 1 = 2x, ... 7 = 8x (spec dependent: may be limited to 5 or 7)
+    SetExpandedHeight(u8),
 
     /// Enable/disable character smoothing.
     SetSmoothing(bool),

@@ -32,8 +32,8 @@ pub struct Text {
     smoothing: Option<bool>,
     upside_down: bool,
     reduced: bool,
-    double_width: bool,
-    double_height: bool,
+    scaled_width: u8,
+    scaled_height: u8,
     font: Option<Font>,
     alignment: Option<Alignment>,
     height_mult: u8,
@@ -53,8 +53,8 @@ impl Text {
             smoothing: None,
             upside_down: false,
             reduced: false,
-            double_width: false,
-            double_height: false,
+            scaled_width: 0,
+            scaled_height: 0,
             font: None,
             alignment: None,
             height_mult: 0,
@@ -74,8 +74,8 @@ impl Text {
             smoothing: None,
             upside_down: false,
             reduced: false,
-            double_width: false,
-            double_height: false,
+            scaled_width: 0,
+            scaled_height: 0,
             font: None,
             alignment: None,
             height_mult: 0,
@@ -137,15 +137,35 @@ impl Text {
         self
     }
 
-    /// Double the width only.
+    /// Double the width only (uses ESC W command).
     pub fn double_width(mut self) -> Self {
-        self.double_width = true;
+        self.scaled_width = 1; // 0=1x, 1=2x
         self
     }
 
-    /// Double the height only.
+    /// Double the height only (uses ESC h command).
     pub fn double_height(mut self) -> Self {
-        self.double_height = true;
+        self.scaled_height = 1; // 0=1x, 1=2x
+        self
+    }
+
+    /// Set character scale using ESC W (width) and ESC h (height).
+    /// This uses separate width/height commands and may render differently than size().
+    ///
+    /// ## Parameters
+    /// - height: 0=1x, 1=2x, 2=3x, ... 7=8x
+    /// - width: 0=1x, 1=2x, 2=3x, ... 7=8x
+    ///
+    /// ## Example
+    /// ```
+    /// use estrella::components::Text;
+    ///
+    /// let big = Text::new("BIG").scale(1, 1);  // 2x2 using ESC W + ESC h
+    /// let huge = Text::new("HUGE").scale(3, 3);  // 4x4
+    /// ```
+    pub fn scale(mut self, height: u8, width: u8) -> Self {
+        self.scaled_height = height.min(7);
+        self.scaled_width = width.min(7);
         self
     }
 
@@ -230,11 +250,11 @@ impl Component for Text {
         if self.reduced {
             ops.push(Op::SetReduced(true));
         }
-        if self.double_width {
-            ops.push(Op::SetDoubleWidth(true));
+        if self.scaled_width > 0 {
+            ops.push(Op::SetExpandedWidth(self.scaled_width));
         }
-        if self.double_height {
-            ops.push(Op::SetDoubleHeight(true));
+        if self.scaled_height > 0 {
+            ops.push(Op::SetExpandedHeight(self.scaled_height));
         }
         if self.height_mult > 0 || self.width_mult > 0 {
             ops.push(Op::SetSize {
@@ -256,11 +276,11 @@ impl Component for Text {
                 width: 0,
             });
         }
-        if self.double_height {
-            ops.push(Op::SetDoubleHeight(false));
+        if self.scaled_height > 0 {
+            ops.push(Op::SetExpandedHeight(0));
         }
-        if self.double_width {
-            ops.push(Op::SetDoubleWidth(false));
+        if self.scaled_width > 0 {
+            ops.push(Op::SetExpandedWidth(0));
         }
         if self.reduced {
             ops.push(Op::SetReduced(false));
@@ -388,7 +408,7 @@ pub struct Total {
     label: String,
     amount: f64,
     bold: bool,
-    double_width: bool,
+    scaled_width: u8,
     right_align: bool,
 }
 
@@ -399,7 +419,7 @@ impl Total {
             label: "TOTAL:".into(),
             amount,
             bold: true,
-            double_width: false,
+            scaled_width: 0,
             right_align: true,
         }
     }
@@ -410,7 +430,7 @@ impl Total {
             label: label.into(),
             amount,
             bold: false,
-            double_width: false,
+            scaled_width: 0,
             right_align: true,
         }
     }
@@ -429,7 +449,7 @@ impl Total {
 
     /// Enable double width for emphasis.
     pub fn double_width(mut self) -> Self {
-        self.double_width = true;
+        self.scaled_width = 1; // 0=1x, 1=2x
         self
     }
 
@@ -452,13 +472,13 @@ impl Component for Total {
         if self.bold {
             ops.push(Op::SetBold(true));
         }
-        if self.double_width {
-            ops.push(Op::SetDoubleWidth(true));
+        if self.scaled_width > 0 {
+            ops.push(Op::SetExpandedWidth(self.scaled_width));
         }
         ops.push(Op::Text(line));
         ops.push(Op::Newline);
-        if self.double_width {
-            ops.push(Op::SetDoubleWidth(false));
+        if self.scaled_width > 0 {
+            ops.push(Op::SetExpandedWidth(0));
         }
         if self.bold {
             ops.push(Op::SetBold(false));
