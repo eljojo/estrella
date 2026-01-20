@@ -2,5 +2,14 @@
 name = "estrella"
 version = "0.1.0"
 edition = "2024"
+description = "Thermal receipt printer library for Star Micronics printers via Bluetooth"
+license = "MIT"
 
 [dependencies]
+clap = { version = "4", features = ["derive"] }
+thiserror = "1"
+image = "0.25"
+libc = "0.2"
+
+[dev-dependencies]
+pretty_assertions = "1"
