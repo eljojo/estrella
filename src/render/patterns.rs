@@ -82,6 +82,14 @@ pub trait Pattern: Send + Sync {
         1.35
     }
 
+    /// Default dimensions (width, height) for this pattern.
+    ///
+    /// Returns the canonical dimensions that should be used by both
+    /// the CLI and golden tests to ensure consistency.
+    fn default_dimensions(&self) -> (usize, usize) {
+        (576, 500)
+    }
+
     /// Compute the final intensity with gamma correction applied.
     fn intensity(&self, x: usize, y: usize, width: usize, height: usize) -> f32 {
         let shade = self.shade(x, y, width, height);
@@ -371,6 +379,11 @@ impl Default for Sick {
 }
 
 impl Pattern for Sick {
+    fn default_dimensions(&self) -> (usize, usize) {
+        // 4 sections * section_height to show all visual styles
+        (576, self.section_height * 4)
+    }
+
     fn shade(&self, x: usize, y: usize, width: usize, height: usize) -> f32 {
         let xf = x as f32;
         let yf = y as f32;
@@ -595,8 +608,7 @@ impl Pattern for Calibration {
 ///
 /// - "ripple" - Concentric circles with wobble
 /// - "waves" - Multi-oscillator interference
-/// - "sick" - Multi-section visual showcase (uses band mode for reliable printing)
-/// - "sick-raster" - Same as sick but forces raster mode (for testing)
+/// - "sick" - Multi-section visual showcase
 /// - "calibration" - Diagnostic pattern with borders, diagonals, bars
 ///
 /// ## Returns
@@ -606,7 +618,7 @@ pub fn by_name(name: &str) -> Option<Box<dyn Pattern>> {
     match name.to_lowercase().as_str() {
         "ripple" => Some(Box::new(Ripple::default())),
         "waves" => Some(Box::new(Waves::default())),
-        "sick" | "sick-raster" => Some(Box::new(Sick::default())),
+        "sick" => Some(Box::new(Sick::default())),
         "calibration" | "demo" => Some(Box::new(Calibration::default())),
         _ => None,
     }
@@ -614,7 +626,7 @@ pub fn by_name(name: &str) -> Option<Box<dyn Pattern>> {
 
 /// List all available pattern names.
 pub fn list_patterns() -> &'static [&'static str] {
-    &["ripple", "waves", "sick", "sick-raster", "calibration"]
+    &["ripple", "waves", "sick", "calibration"]
 }
 
 // ============================================================================

@@ -13,3 +13,5 @@ libc = "0.2"
 
 [dev-dependencies]
 pretty_assertions = "1"
+sha2 = "0.10"
+hex = "0.4"

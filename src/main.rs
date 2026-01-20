@@ -68,9 +68,9 @@ enum Commands {
         #[arg(long, default_value = "/dev/rfcomm0")]
         device: String,
 
-        /// Pattern height in rows
-        #[arg(long, default_value = "500")]
-        height: usize,
+        /// Pattern height in rows (defaults to pattern's recommended height, or 500)
+        #[arg(long)]
+        height: Option<usize>,
 
         /// Print width in dots
         #[arg(long, default_value = "576")]
@@ -79,6 +79,10 @@ enum Commands {
         /// Skip printing title header
         #[arg(long)]
         no_title: bool,
+
+        /// Use band mode instead of raster mode for graphics
+        #[arg(long)]
+        band: bool,
     },
 }
 
@@ -102,6 +106,7 @@ fn run() -> Result<(), EstrellaError> {
             height,
             width,
             no_title,
+            band,
         } => {
             // List patterns if --list flag or no pattern specified
             if list || pattern.is_none() {
@@ -141,6 +146,11 @@ fn run() -> Result<(), EstrellaError> {
                 ))
             })?;
 
+            // Use pattern's default dimensions if user didn't specify
+            let (default_width, default_height) = pattern_impl.default_dimensions();
+            let width = if width != 576 { width } else { default_width };
+            let height = height.unwrap_or(default_height);
+
             println!("Generating {} pattern ({}x{})...", name, width, height);
 
             // Render pattern
@@ -151,7 +161,7 @@ fn run() -> Result<(), EstrellaError> {
                 save_png(&png_path, width, height, &raster_data)?;
                 println!("Saved to {}", png_path.display());
             } else {
-                print_pattern_to_device(&device, name, width as u16, height as u16, &raster_data, !no_title)?;
+                print_pattern_to_device(&device, name, width as u16, height as u16, &raster_data, !no_title, band)?;
                 println!("Printed successfully!");
             }
         }
@@ -228,8 +238,7 @@ fn make_title(name: &str) -> Vec<u8> {
 
 /// Print pattern with optional title to the printer device
 ///
-/// Uses band mode (ESC k) for "sick" pattern to match Python implementation,
-/// raster mode (ESC GS S) for other patterns.
+/// Uses raster mode (ESC GS S) by default, or band mode (ESC k) if requested.
 fn print_pattern_to_device(
     device: &str,
     name: &str,
@@ -237,6 +246,7 @@ fn print_pattern_to_device(
     height: u16,
     data: &[u8],
     with_title: bool,
+    use_band_mode: bool,
 ) -> Result<(), EstrellaError> {
     // Build print sequence
     let mut print_data = Vec::new();
@@ -249,12 +259,10 @@ fn print_pattern_to_device(
         print_data.extend(make_title(name));
     }
 
-    // Use band mode for "sick" pattern (matches Python sick.py behavior)
-    // Use raster mode for "sick-raster" to test if TTY fixes help
     // Band mode: ESC k n1 0 + 24 rows of data + ESC J 12 feed
-    // Spec: StarPRNT Command Spec Rev 4.10, Section 2.3.12, page 61
-    let name_lower = name.to_lowercase();
-    if name_lower == "sick" {
+    // Raster mode: ESC GS S (default, more efficient for large graphics)
+    // Spec: StarPRNT Command Spec Rev 4.10, Section 2.3.12
+    if use_band_mode {
         print_band_mode(&mut print_data, width, height, data);
     } else {
         print_raster_mode(&mut print_data, width, height, data);
@@ -295,6 +303,7 @@ fn print_raster_mode(print_data: &mut Vec<u8>, width: u16, height: u16, data: &[
 fn print_band_mode(print_data: &mut Vec<u8>, width: u16, height: u16, data: &[u8]) {
     const BAND_HEIGHT: usize = 24;
     let width_bytes = (width as usize).div_ceil(8);
+    let full_band_size = width_bytes * BAND_HEIGHT;
 
     let mut row_offset = 0;
     while row_offset < height as usize {
@@ -306,7 +315,14 @@ fn print_band_mode(print_data: &mut Vec<u8>, width: u16, height: u16, data: &[u8
         // ESC k n1 n2 (n2 is always 0)
         // n1 = width in bytes (72 for 576 dots)
         // Spec: k = (n1 + n2 × 256) × 24 bytes of data expected
-        print_data.extend(graphics::band(width_bytes as u8, band_data));
+        // Pad last band to 24 rows if needed
+        if band_rows < BAND_HEIGHT {
+            let mut padded = band_data.to_vec();
+            padded.resize(full_band_size, 0x00); // Pad with white
+            print_data.extend(graphics::band(width_bytes as u8, &padded));
+        } else {
+            print_data.extend(graphics::band(width_bytes as u8, band_data));
+        }
 
         // ESC J n - feed n/4 mm (n=12 → 3mm, matches 24 dots at ~8 dots/mm)
         // Spec: StarPRNT Command Spec Rev 4.10, Section 2.2.1
