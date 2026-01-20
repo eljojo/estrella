@@ -19,7 +19,7 @@
 //!
 //! This runs both the CLI for PNGs and the `write_golden_binaries` test.
 
-use estrella::protocol::{commands, graphics};
+use estrella::components::{ComponentExt, Pattern as PatternComponent, Receipt};
 use estrella::receipt;
 use estrella::render::patterns::Pattern;
 use estrella::render::{dither, patterns};
@@ -185,75 +185,20 @@ fn test_pattern_determinism() {
 /// Path to golden test directory
 const GOLDEN_DIR: &str = "tests/golden";
 
-/// Generate printer commands using raster mode (ESC GS S)
-fn generate_raster_commands(width: usize, height: usize, raster_data: &[u8]) -> Vec<u8> {
-    let mut cmd = Vec::new();
-
-    // Initialize printer
-    cmd.extend(commands::init());
-
-    // Send raster in 256-row chunks (matching main.rs behavior)
-    let width_bytes = width.div_ceil(8);
-    let chunk_rows = 256;
-
-    let mut row_offset = 0;
-    while row_offset < height {
-        let chunk_height = (height - row_offset).min(chunk_rows);
-        let byte_start = row_offset * width_bytes;
-        let byte_end = (row_offset + chunk_height) * width_bytes;
-        let chunk_data = &raster_data[byte_start..byte_end];
-
-        cmd.extend(graphics::raster(
-            width as u16,
-            chunk_height as u16,
-            chunk_data,
-        ));
-
-        row_offset += chunk_height;
-    }
-
-    // Cut paper
-    cmd.extend(commands::cut_full_feed());
-
-    cmd
+/// Generate printer commands using raster mode via component system
+fn generate_raster_commands(name: &str, height: usize) -> Vec<u8> {
+    Receipt::new()
+        .child(PatternComponent::new(name, height).raster_mode())
+        .cut()
+        .build()
 }
 
-/// Generate printer commands using band mode (ESC k)
-fn generate_band_commands(width: usize, height: usize, raster_data: &[u8]) -> Vec<u8> {
-    let mut cmd = Vec::new();
-
-    // Initialize printer
-    cmd.extend(commands::init());
-
-    // Send in 24-row bands (matching Python sick.py behavior)
-    let width_bytes = width.div_ceil(8);
-    let band_height = 24;
-    let full_band_size = width_bytes * band_height;
-
-    let mut row_offset = 0;
-    while row_offset < height {
-        let band_rows = (height - row_offset).min(band_height);
-        let byte_start = row_offset * width_bytes;
-        let byte_end = (row_offset + band_rows) * width_bytes;
-        let band_data = &raster_data[byte_start..byte_end];
-
-        // Pad last band to 24 rows if needed (ESC k requires exactly 24 rows)
-        if band_rows < band_height {
-            let mut padded = band_data.to_vec();
-            padded.resize(full_band_size, 0x00); // Pad with white
-            cmd.extend(graphics::band(width_bytes as u8, &padded));
-        } else {
-            cmd.extend(graphics::band(width_bytes as u8, band_data));
-        }
-        cmd.extend(commands::feed_units(12)); // 3mm feed
-
-        row_offset += band_rows;
-    }
-
-    // Cut paper
-    cmd.extend(commands::cut_full_feed());
-
-    cmd
+/// Generate printer commands using band mode via component system
+fn generate_band_commands(name: &str, height: usize) -> Vec<u8> {
+    Receipt::new()
+        .child(PatternComponent::new(name, height).band_mode())
+        .cut()
+        .build()
 }
 
 /// Write binary data to a golden file
@@ -302,18 +247,17 @@ fn check_binary_golden(name: &str, data: &[u8]) {
 #[test]
 #[ignore]
 fn write_golden_binaries() {
-    // Pattern raster commands
+    // Pattern raster commands (using component system -> codegen)
     for name in ["ripple", "waves", "calibration", "sick"] {
         let pattern = patterns::by_name(name).unwrap();
-        let (width, height) = pattern.default_dimensions();
-        let raster = pattern.render(width, height);
+        let (_width, height) = pattern.default_dimensions();
 
         // Raster mode
-        let cmd = generate_raster_commands(width, height, &raster);
+        let cmd = generate_raster_commands(name, height);
         write_golden_binary(&format!("{}_raster", name), &cmd);
 
         // Band mode
-        let cmd = generate_band_commands(width, height, &raster);
+        let cmd = generate_band_commands(name, height);
         write_golden_binary(&format!("{}_band", name), &cmd);
     }
 
@@ -331,36 +275,32 @@ fn write_golden_binaries() {
 #[test]
 fn test_binary_golden_ripple_raster() {
     let pattern = patterns::Ripple::default();
-    let (width, height) = pattern.default_dimensions();
-    let raster = generate_pattern_raster(&pattern);
-    let cmd = generate_raster_commands(width, height, &raster);
+    let (_width, height) = pattern.default_dimensions();
+    let cmd = generate_raster_commands("ripple", height);
     check_binary_golden("ripple_raster", &cmd);
 }
 
 #[test]
 fn test_binary_golden_waves_raster() {
     let pattern = patterns::Waves::default();
-    let (width, height) = pattern.default_dimensions();
-    let raster = generate_pattern_raster(&pattern);
-    let cmd = generate_raster_commands(width, height, &raster);
+    let (_width, height) = pattern.default_dimensions();
+    let cmd = generate_raster_commands("waves", height);
     check_binary_golden("waves_raster", &cmd);
 }
 
 #[test]
 fn test_binary_golden_calibration_raster() {
     let pattern = patterns::Calibration::default();
-    let (width, height) = pattern.default_dimensions();
-    let raster = generate_pattern_raster(&pattern);
-    let cmd = generate_raster_commands(width, height, &raster);
+    let (_width, height) = pattern.default_dimensions();
+    let cmd = generate_raster_commands("calibration", height);
     check_binary_golden("calibration_raster", &cmd);
 }
 
 #[test]
 fn test_binary_golden_sick_raster() {
     let pattern = patterns::Sick::default();
-    let (width, height) = pattern.default_dimensions();
-    let raster = generate_pattern_raster(&pattern);
-    let cmd = generate_raster_commands(width, height, &raster);
+    let (_width, height) = pattern.default_dimensions();
+    let cmd = generate_raster_commands("sick", height);
     check_binary_golden("sick_raster", &cmd);
 }
 
@@ -371,36 +311,32 @@ fn test_binary_golden_sick_raster() {
 #[test]
 fn test_binary_golden_ripple_band() {
     let pattern = patterns::Ripple::default();
-    let (width, height) = pattern.default_dimensions();
-    let raster = generate_pattern_raster(&pattern);
-    let cmd = generate_band_commands(width, height, &raster);
+    let (_width, height) = pattern.default_dimensions();
+    let cmd = generate_band_commands("ripple", height);
     check_binary_golden("ripple_band", &cmd);
 }
 
 #[test]
 fn test_binary_golden_waves_band() {
     let pattern = patterns::Waves::default();
-    let (width, height) = pattern.default_dimensions();
-    let raster = generate_pattern_raster(&pattern);
-    let cmd = generate_band_commands(width, height, &raster);
+    let (_width, height) = pattern.default_dimensions();
+    let cmd = generate_band_commands("waves", height);
     check_binary_golden("waves_band", &cmd);
 }
 
 #[test]
 fn test_binary_golden_calibration_band() {
     let pattern = patterns::Calibration::default();
-    let (width, height) = pattern.default_dimensions();
-    let raster = generate_pattern_raster(&pattern);
-    let cmd = generate_band_commands(width, height, &raster);
+    let (_width, height) = pattern.default_dimensions();
+    let cmd = generate_band_commands("calibration", height);
     check_binary_golden("calibration_band", &cmd);
 }
 
 #[test]
 fn test_binary_golden_sick_band() {
     let pattern = patterns::Sick::default();
-    let (width, height) = pattern.default_dimensions();
-    let raster = generate_pattern_raster(&pattern);
-    let cmd = generate_band_commands(width, height, &raster);
+    let (_width, height) = pattern.default_dimensions();
+    let cmd = generate_band_commands("sick", height);
     check_binary_golden("sick_band", &cmd);
 }
 

@@ -132,18 +132,39 @@ impl Program {
                     height,
                     data,
                 } => {
-                    out.extend(graphics::raster(*width, *height, data));
+                    // Chunk large raster images to avoid printer buffer overflow
+                    // Max chunk: 256 rows (matches golden test behavior)
+                    let width_bytes = width.div_ceil(8) as usize;
+                    let chunk_rows = 256usize;
+                    let total_height = *height as usize;
+
+                    let mut row_offset = 0;
+                    while row_offset < total_height {
+                        let chunk_height = (total_height - row_offset).min(chunk_rows);
+                        let byte_start = row_offset * width_bytes;
+                        let byte_end = (row_offset + chunk_height) * width_bytes;
+                        let chunk_data = &data[byte_start..byte_end];
+
+                        out.extend(graphics::raster(*width, chunk_height as u16, chunk_data));
+                        row_offset += chunk_height;
+                    }
                 }
                 Op::Band { width_bytes, data } => {
-                    // Band mode requires data in 24-row chunks
-                    // If data is larger, we need to split it
-                    let chunk_size = *width_bytes as usize * 24;
-                    for chunk in data.chunks(chunk_size) {
-                        if chunk.len() == chunk_size {
+                    // Band mode: 24-row chunks with feed after each band
+                    // Matches Python sick.py behavior
+                    let band_size = *width_bytes as usize * 24;
+
+                    for chunk in data.chunks(band_size) {
+                        if chunk.len() == band_size {
                             out.extend(graphics::band(*width_bytes, chunk));
+                        } else {
+                            // Pad last band to 24 rows with white
+                            let mut padded = chunk.to_vec();
+                            padded.resize(band_size, 0x00);
+                            out.extend(graphics::band(*width_bytes, &padded));
                         }
-                        // Note: partial chunks at the end are silently dropped
-                        // The optimizer should ensure proper alignment
+                        // Feed 3mm after each band (12 units = 3mm)
+                        out.extend(commands::feed_units(12));
                     }
                 }
 
