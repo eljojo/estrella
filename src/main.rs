@@ -5,6 +5,9 @@
 //! ## Usage
 //!
 //! ```bash
+//! # List available patterns
+//! estrella print
+//!
 //! # Print a ripple pattern
 //! estrella print ripple
 //!
@@ -13,9 +16,6 @@
 //!
 //! # Save as PNG instead of printing
 //! estrella print --png output.png ripple
-//!
-//! # List available patterns
-//! estrella print --list
 //! ```
 
 use clap::{Parser, Subcommand};
@@ -42,8 +42,7 @@ struct Cli {
 enum Commands {
     /// Print a pattern to the thermal printer
     Print {
-        /// Pattern to print (ripple, waves, sick)
-        #[arg(required_unless_present = "list")]
+        /// Pattern to print (omit to see available patterns)
         pattern: Option<String>,
 
         /// List available patterns
@@ -92,8 +91,8 @@ fn run() -> Result<(), EstrellaError> {
             height,
             width,
         } => {
-            // List patterns
-            if list {
+            // List patterns if --list flag or no pattern specified
+            if list || pattern.is_none() {
                 println!("Available patterns:");
                 for name in patterns::list_patterns() {
                     println!("  {}", name);
@@ -102,7 +101,7 @@ fn run() -> Result<(), EstrellaError> {
             }
 
             // Get pattern
-            let pattern_name = pattern.as_deref().unwrap_or("ripple");
+            let pattern_name = pattern.as_deref().unwrap();
             let pattern_impl = patterns::by_name(pattern_name).ok_or_else(|| {
                 EstrellaError::Pattern(format!(
                     "Unknown pattern '{}'. Use --list to see available patterns.",
