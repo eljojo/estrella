@@ -204,7 +204,7 @@ pub fn should_print(x: usize, y: usize, intensity: f32) -> bool {
 /// assert_eq!(pack_row(&row), vec![0xFF, 0xF0]); // 11111111 11110000
 /// ```
 pub fn pack_row(pixels: &[bool]) -> Vec<u8> {
-    let num_bytes = (pixels.len() + 7) / 8;
+    let num_bytes = pixels.len().div_ceil(8);
     let mut bytes = vec![0u8; num_bytes];
 
     for (i, &pixel) in pixels.iter().enumerate() {
@@ -247,7 +247,7 @@ pub fn generate_raster<F>(width: usize, height: usize, intensity_fn: F) -> Vec<u
 where
     F: Fn(usize, usize, usize, usize) -> f32,
 {
-    let width_bytes = (width + 7) / 8;
+    let width_bytes = width.div_ceil(8);
     let mut data = Vec::with_capacity(width_bytes * height);
 
     for y in 0..height {

@@ -233,7 +233,7 @@ pub fn band(width_bytes: u8, data: &[u8]) -> Vec<u8> {
 ///
 /// StarPRNT Command Spec Rev 4.10, Section 2.3.12 (ESC GS S)
 pub fn raster(width_dots: u16, height: u16, data: &[u8]) -> Vec<u8> {
-    let width_bytes = (width_dots + 7) / 8;
+    let width_bytes = width_dots.div_ceil(8);
     let expected_len = width_bytes as usize * height as usize;
 
     debug_assert!(

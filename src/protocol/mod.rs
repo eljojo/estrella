@@ -7,17 +7,26 @@
 //!
 //! - [`commands`]: Basic printer commands (init, cut, feed)
 //! - [`graphics`]: Bit image and raster graphics commands
+//! - [`text`]: Text styling (alignment, fonts, bold, underline, etc.)
+//! - [`barcode`]: QR codes and PDF417 barcodes
 //!
 //! ## Usage Example
 //!
 //! ```
-//! use estrella::protocol::{commands, graphics};
+//! use estrella::protocol::{commands, graphics, text, barcode};
 //!
 //! // Build a simple print sequence
 //! let mut data = Vec::new();
 //!
 //! // Initialize printer
 //! data.extend(commands::init());
+//!
+//! // Set text style
+//! data.extend(text::align_center());
+//! data.extend(text::bold_on());
+//! data.extend(b"RECEIPT\n");
+//! data.extend(text::bold_off());
+//! data.extend(text::align_left());
 //!
 //! // Print a 24-row graphics band
 //! let band_data = vec![0xAA; 72 * 24]; // Vertical stripes
@@ -34,5 +43,7 @@
 //! This implementation is based on "StarPRNT Command Specifications Rev. 4.10"
 //! by Star Micronics Co., Ltd.
 
+pub mod barcode;
 pub mod commands;
 pub mod graphics;
+pub mod text;

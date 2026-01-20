@@ -142,7 +142,7 @@ fn save_png(
     use image::{GrayImage, Luma};
 
     let mut img = GrayImage::new(width as u32, height as u32);
-    let width_bytes = (width + 7) / 8;
+    let width_bytes = width.div_ceil(8);
 
     for y in 0..height {
         for x in 0..width {
@@ -180,7 +180,7 @@ fn print_to_device(
     print_data.extend(commands::init());
 
     // Send raster in chunks to avoid Bluetooth buffer overflow
-    let width_bytes = (width as usize + 7) / 8;
+    let width_bytes = (width as usize).div_ceil(8);
     let chunk_rows = config.max_chunk_rows as usize;
 
     let mut row_offset = 0;

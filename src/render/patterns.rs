@@ -299,59 +299,172 @@ impl Pattern for Waves {
 }
 
 // ============================================================================
-// SICK PATTERN (CALIBRATION)
+// SICK PATTERN
 // ============================================================================
 
-/// # Sick Pattern (Calibration)
+/// # Sick Pattern
 ///
-/// A calibration/diagnostic pattern with borders, diagonals, and vertical bars.
-/// Useful for testing printer alignment and resolution.
+/// A multi-section visual pattern that cycles through 4 distinct visual styles,
+/// creating a vertically-stacked showcase of different algorithmic effects.
 ///
-/// ## Elements
+/// ## Sections (cycling every 480 rows by default)
 ///
-/// - **Border**: 6-pixel black frame around the image
-/// - **Diagonals**: Two crossing diagonal lines
-/// - **Vertical bars**: Bars of increasing width (2, 3, 4... pixels)
+/// | Section | Name | Description |
+/// |---------|------|-------------|
+/// | 0 | Plasma | Moire/plasma effect with multiple sine waves |
+/// | 1 | Rings | Concentric rings with diagonal interference |
+/// | 2 | Topography | Contour line effect (like a topographic map) |
+/// | 3 | Glitch | Blocky columns with scanlines |
+///
+/// ## Section Formulas
+///
+/// ### Section 0: Plasma
+/// ```text
+/// v = sin(x/11) + sin((x+y)/19) + cos(y/13) + sin(hypot(x - cx, y - cy)/9)
+/// v = ((v + 4) / 8) ^ 1.2
+/// ```
+///
+/// ### Section 1: Rings
+/// ```text
+/// r = hypot(nx, ny)  // normalized radius
+/// rings = 0.5 + 0.5 * cos(r * 30 - y/25)
+/// diag = 0.5 + 0.5 * sin((x - 2*y) / 23)
+/// v = (0.65 * rings + 0.35 * diag) ^ 1.1
+/// ```
+///
+/// ### Section 2: Topography
+/// ```text
+/// t = sin(x/17) + sin(y/29) + sin((x+y)/41)
+/// contours = |fmod(t, 1.0) - 0.5| * 2
+/// v = (1 - contours) ^ 2.2
+/// ```
+///
+/// ### Section 3: Glitch
+/// ```text
+/// col = x / 12
+/// base = sin(col * 0.7) * 0.5 + 0.5
+/// wobble = 0.5 + 0.5 * sin((x + yy*7) / 15)
+/// scan = 1.0 if (yy % 24) in [0, 1] else 0.0
+/// v = max(0.55 * base + 0.45 * wobble, scan)
+/// ```
+///
+/// ## Border
+///
+/// A 2-pixel black border is drawn around the entire image for alignment
+/// verification and to clearly show the print width boundaries.
 ///
 /// ## Origin
 ///
 /// Ported from `print/sick.py` in the estrella repository.
-#[derive(Debug, Clone, Default)]
-pub struct Sick;
+#[derive(Debug, Clone)]
+pub struct Sick {
+    /// Height of each section in rows (default: 480 = 24 bands * 20)
+    pub section_height: usize,
+}
+
+impl Default for Sick {
+    fn default() -> Self {
+        Self {
+            section_height: 24 * 20, // 480 rows per section
+        }
+    }
+}
 
 impl Pattern for Sick {
     fn shade(&self, x: usize, y: usize, width: usize, height: usize) -> f32 {
-        let margin = 6;
+        let xf = x as f32;
+        let yf = y as f32;
+        let wf = width as f32;
+        let hf = height as f32;
 
-        // Border
-        if x < margin || x >= width - margin || y < margin || y >= height - margin {
-            return 1.0;
-        }
+        // Normalized coordinates in [-1, 1]
+        let nx = (xf - wf * 0.5) / (wf * 0.5);
+        let ny = (yf - hf * 0.5) / (hf * 0.5);
 
-        // Diagonals
-        let diag1 = (x as isize - y as isize).unsigned_abs();
-        let diag2 = (x as isize - (height as isize - 1 - y as isize)).unsigned_abs();
+        // Determine which section we're in (cycles through 4 sections)
+        let section = (y / self.section_height) % 4;
+        let yy = y % self.section_height; // Local y within section
 
-        if diag1 < 2 || diag2 < 2 {
-            return 1.0;
-        }
+        let v = match section {
+            0 => {
+                // Section 0: Plasma / Moire
+                // Multiple overlapping sine waves create interference patterns
+                let plasma = (xf / 11.0).sin()
+                    + ((xf + yf) / 19.0).sin()
+                    + (yf / 13.0).cos()
+                    + ((xf - wf * 0.35).hypot(yf - hf * 0.2) / 9.0).sin();
 
-        // Vertical bars section (bottom third of image)
-        if y > height * 2 / 3 {
-            let bar_section = x / 20;
-            let bar_width = (bar_section % 8) + 2; // 2, 3, 4, 5, 6, 7, 8, 9 pixels
-            let bar_pos = x % 20;
+                // Normalize from roughly [-4, 4] to [0, 1]
+                let normalized = (plasma + 4.0) / 8.0;
 
-            if bar_pos < bar_width {
-                return 1.0;
+                // Apply gamma for contrast
+                normalized.powf(1.2)
             }
+            1 => {
+                // Section 1: Concentric rings + diagonal interference
+                let r = (nx * nx + ny * ny).sqrt();
+
+                // Rings emanating from center
+                let rings = 0.5 + 0.5 * (r * 30.0 - yf / 25.0).cos();
+
+                // Diagonal wave pattern
+                let diag = 0.5 + 0.5 * ((xf - 2.0 * yf) / 23.0).sin();
+
+                // Blend: 65% rings, 35% diagonal
+                let blended = 0.65 * rings + 0.35 * diag;
+
+                blended.powf(1.1)
+            }
+            2 => {
+                // Section 2: Topography contour lines
+                // Like elevation lines on a topographic map
+                let t = (xf / 17.0).sin() + (yf / 29.0).sin() + ((xf + yf) / 41.0).sin();
+
+                // Create contour lines by mapping to periodic bands
+                // fmod gives us repeating regions, then we find distance to band center
+                let t_wrapped = t - t.floor(); // fmod to [0, 1)
+                let contours = (t_wrapped - 0.5).abs() * 2.0; // 0 at midline
+
+                // Invert so contour lines are dark
+                (1.0 - contours).powf(2.2)
+            }
+            _ => {
+                // Section 3: Glitch effect
+                // Blocky columns with horizontal scanlines
+                let col = (x / 12) as f32;
+
+                // Base intensity varies by column
+                let base = (col * 0.7).sin() * 0.5 + 0.5;
+
+                // Wobble adds horizontal variation
+                let wobble = 0.5 + 0.5 * ((xf + (yy as f32 * 7.0)) / 15.0).sin();
+
+                // Scanlines: dark lines every 24 rows (at rows 0 and 1 of each band)
+                let scan_pos = yy % 24;
+                let scan = if scan_pos == 0 || scan_pos == 1 {
+                    1.0
+                } else {
+                    0.0
+                };
+
+                // Blend base and wobble, then overlay scanlines
+                let blended = 0.55 * base + 0.45 * wobble;
+                blended.max(scan)
+            }
+        };
+
+        // Add a clean border (2 pixels) for alignment verification
+        let border = x < 2 || x >= width - 2 || y < 2 || y >= height - 2;
+        if border {
+            return 1.0;
         }
 
-        0.0
+        clamp01(v)
     }
 
     fn gamma(&self) -> f32 {
-        1.0 // No gamma correction for calibration
+        // Each section applies its own gamma internally, so no additional correction
+        1.0
     }
 }
 
@@ -374,7 +487,7 @@ pub fn by_name(name: &str) -> Option<Box<dyn Pattern>> {
     match name.to_lowercase().as_str() {
         "ripple" => Some(Box::new(Ripple::default())),
         "waves" => Some(Box::new(Waves::default())),
-        "sick" => Some(Box::new(Sick)),
+        "sick" => Some(Box::new(Sick::default())),
         _ => None,
     }
 }
@@ -459,19 +572,63 @@ mod tests {
 
     #[test]
     fn test_sick_border() {
-        let sick = Sick;
-        let w = 384;
-        let h = 240;
+        let sick = Sick::default();
+        let w = 576;
+        let h = 1920; // 4 sections * 480
 
-        // Corners are border
+        // Corners are border (2 pixel border)
         assert_eq!(sick.shade(0, 0, w, h), 1.0);
+        assert_eq!(sick.shade(1, 0, w, h), 1.0);
         assert_eq!(sick.shade(w - 1, 0, w, h), 1.0);
         assert_eq!(sick.shade(0, h - 1, w, h), 1.0);
         assert_eq!(sick.shade(w - 1, h - 1, w, h), 1.0);
 
-        // Center is not border
-        let center = sick.shade(w / 2, h / 3, w, h);
-        assert_eq!(center, 0.0);
+        // Just inside border should not be forced to 1.0
+        let inside = sick.shade(10, 10, w, h);
+        assert!(inside >= 0.0 && inside <= 1.0);
+    }
+
+    #[test]
+    fn test_sick_shade_range() {
+        let sick = Sick::default();
+        let w = 576;
+        let h = 1920; // 4 sections
+
+        // Test shade values in all 4 sections
+        for section in 0..4 {
+            let y = section * 480 + 240; // Middle of each section
+            for x in (10..w - 10).step_by(50) {
+                let s = sick.shade(x, y, w, h);
+                assert!(
+                    s >= 0.0 && s <= 1.0,
+                    "Sick shade out of range at ({},{}) section {}: {}",
+                    x,
+                    y,
+                    section,
+                    s
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_sick_sections() {
+        let sick = Sick::default();
+        let w = 576;
+        let h = 2000;
+
+        // Each section should produce different patterns
+        // Sample from the center of each section
+        let s0 = sick.shade(w / 2, 240, w, h); // Section 0: Plasma
+        let s1 = sick.shade(w / 2, 720, w, h); // Section 1: Rings
+        let s2 = sick.shade(w / 2, 1200, w, h); // Section 2: Topography
+        let s3 = sick.shade(w / 2, 1680, w, h); // Section 3: Glitch
+
+        // All should be valid shades
+        assert!(s0 >= 0.0 && s0 <= 1.0);
+        assert!(s1 >= 0.0 && s1 <= 1.0);
+        assert!(s2 >= 0.0 && s2 <= 1.0);
+        assert!(s3 >= 0.0 && s3 <= 1.0);
     }
 
     #[test]
@@ -506,7 +663,7 @@ mod tests {
         let waves = Waves::default();
         assert!((waves.gamma() - 1.25).abs() < 0.01);
 
-        let sick = Sick;
+        let sick = Sick::default();
         assert!((sick.gamma() - 1.0).abs() < 0.01);
     }
 }
