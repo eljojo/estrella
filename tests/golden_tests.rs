@@ -28,6 +28,7 @@
 use estrella::protocol::{commands, graphics};
 use estrella::render::{dither, patterns};
 use estrella::render::patterns::Pattern;
+use estrella::receipt;
 use sha2::{Sha256, Digest};
 
 /// Generate raster data for a pattern using its default dimensions
@@ -225,6 +226,10 @@ mod binary_hashes {
     pub const WAVES_BAND: &str = "4f837115c5ba04563d3d574302c59886e499b06bc972ec20dd4ebe572f3cc969";
     pub const CALIBRATION_BAND: &str = "826cdd180dccd22a0342f827db74281d44ff1412791445b885a6a5932c510855";
     pub const SICK_BAND: &str = "3e9c8a9e806c6c04e3f68c46262255ddcb5edf3ea82a6efe5acad44f6681c11e";
+
+    // Receipt command sequences (text + barcodes)
+    pub const DEMO_RECEIPT: &str = "e83fa288b30403dd9ef8f39619a7d8e84f38c7ef8cc9e58c5e28f5dc3bf84b54";
+    pub const FULL_RECEIPT: &str = "4095e4a3ee25ccf40cda63776cf7123a97bb44bc78bad54b2990ed83cfeb63d8";
 }
 
 /// Generate printer commands using raster mode (ESC GS S)
@@ -467,4 +472,20 @@ fn test_binary_golden_sick_band() {
     let cmd = generate_band_commands(width, height, &raster);
 
     check_binary_golden("SICK_BAND", binary_hashes::SICK_BAND, &cmd);
+}
+
+// ============================================================================
+// RECEIPT GOLDEN TESTS
+// ============================================================================
+
+#[test]
+fn test_binary_golden_demo_receipt() {
+    let cmd = receipt::demo_receipt();
+    check_binary_golden("DEMO_RECEIPT", binary_hashes::DEMO_RECEIPT, &cmd);
+}
+
+#[test]
+fn test_binary_golden_full_receipt() {
+    let cmd = receipt::full_receipt();
+    check_binary_golden("FULL_RECEIPT", binary_hashes::FULL_RECEIPT, &cmd);
 }

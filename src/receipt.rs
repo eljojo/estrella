@@ -331,7 +331,9 @@ pub fn full_receipt() -> Vec<u8> {
     text_line(&mut data, "PDF417:");
     data.extend(text::align_center());
     // PDF417 commands
-    data.extend(pdf417::set_size_ratio(6, 3));
+    // Aspect ratio: p1=vertical, p2=horizontal proportion (spec page 92)
+    // Use 1:3 for horizontal barcode (3x wider than tall)
+    data.extend(pdf417::set_size_ratio(1, 3));
     data.extend(pdf417::set_ecc_level(3));
     data.extend(pdf417::set_module_width(2));
     data.extend(pdf417::set_data(b"CHURRA|MART|ORDER|2026-0001|TOTAL|48.31"));

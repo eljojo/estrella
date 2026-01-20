@@ -140,17 +140,37 @@ pub mod barcode1d {
 
     /// Build n2 parameter from HRI options
     ///
-    /// n2 encodes: font selection, HRI position, and line feed behavior
-    /// Bit layout: 0b00FPPLLL
-    /// - F: Font (0=A, 1=B)
-    /// - PP: Position (0=none, 1=above, 2=below, 3=both)
-    /// - LLL: Line feed (0=execute, others vary)
-    fn build_n2(hri_pos: HriPosition, hri_font: HriFont) -> u8 {
-        // For Code39 and similar: n2 = 48 + font*16 + pos*4 + linefeed
-        // Default: Font A, Below, Execute line feed = 48 + 0 + 2*4 + 0 = 50
-        let font_bits = (hri_font as u8) << 4;
-        let pos_bits = (hri_pos as u8) << 2;
-        48 + font_bits + pos_bits
+    /// n2 encodes: font selection, HRI position, and line feed behavior.
+    /// According to StarPRNT Command Spec Rev 4.10, Section 2.3.14 (page 80),
+    /// n2 is a lookup table value, not a bitfield:
+    ///
+    /// | n2     | Font   | Position | Line feed    |
+    /// |--------|--------|----------|--------------|
+    /// | 1, 49  | ---    | None     | Execute      |
+    /// | 2, 50  | Font A | Under    | Execute      |
+    /// | 3, 51  | ---    | None     | Not execute  |
+    /// | 4, 52  | Font A | Under    | Not execute  |
+    ///
+    /// Note: Values 1-4 and 49-52 ('1'-'4') are equivalent.
+    fn build_n2(hri_pos: HriPosition, hri_font: HriFont, execute_linefeed: bool) -> u8 {
+        // Use ASCII digit values (48+) for clarity
+        match (hri_pos, hri_font, execute_linefeed) {
+            (HriPosition::None, _, true) => 49,  // '1': No HRI, execute LF
+            (HriPosition::None, _, false) => 51, // '3': No HRI, no LF
+            (HriPosition::Below, HriFont::FontA, true) => 50,  // '2': Font A, under, execute LF
+            (HriPosition::Below, HriFont::FontA, false) => 52, // '4': Font A, under, no LF
+            (HriPosition::Above, HriFont::FontA, true) => 50,  // Fallback to under position
+            (HriPosition::Above, HriFont::FontA, false) => 52,
+            (HriPosition::Both, HriFont::FontA, true) => 50,
+            (HriPosition::Both, HriFont::FontA, false) => 52,
+            // Font B options - use Font A as fallback (spec doesn't list Font B for Code39)
+            (HriPosition::Below, HriFont::FontB, true) => 50,
+            (HriPosition::Below, HriFont::FontB, false) => 52,
+            (HriPosition::Above, HriFont::FontB, true) => 50,
+            (HriPosition::Above, HriFont::FontB, false) => 52,
+            (HriPosition::Both, HriFont::FontB, true) => 50,
+            (HriPosition::Both, HriFont::FontB, false) => 52,
+        }
     }
 
     /// # Print 1D Barcode (ESC b n1 n2 n3 n4 data RS)
@@ -186,7 +206,7 @@ pub mod barcode1d {
         module_width: ModuleWidth,
     ) -> Vec<u8> {
         let n1 = barcode_type as u8;
-        let n2 = build_n2(hri_pos, hri_font);
+        let n2 = build_n2(hri_pos, hri_font, true); // Execute line feed after printing
         let n3 = 48 + module_width as u8; // Mode byte: 48 + width
         let n4 = height.max(1);
 
@@ -878,7 +898,8 @@ mod tests {
             assert_eq!(cmd[0], 0x1B); // ESC
             assert_eq!(cmd[1], b'b'); // b
             assert_eq!(cmd[2], 52); // n1 = Code39
-            assert_eq!(cmd[3], 56); // n2 = Font A + Below + line feed
+            // n2=50 ('2'): Font A, Under position, Execute line feed (spec page 80)
+            assert_eq!(cmd[3], 50);
             assert_eq!(cmd[4], 49); // n3 = 48 + 1 (Dots2)
             assert_eq!(cmd[5], 80); // n4 = height
             assert_eq!(&cmd[6..10], b"TEST"); // data
@@ -924,16 +945,16 @@ mod tests {
 
         #[test]
         fn test_hri_options() {
-            // Test HRI above with Font B
+            // Test HRI below with Font A (spec-compliant combination)
             let cmd = code39_with_options(
                 b"TEST",
                 80,
-                HriPosition::Above,
-                HriFont::FontB,
+                HriPosition::Below,
+                HriFont::FontA,
                 ModuleWidth::Dots3,
             );
-            // n2 = 48 + 16 (font B) + 4 (above) = 68
-            assert_eq!(cmd[3], 68);
+            // n2=50 ('2'): Font A, Under position, Execute line feed (spec page 80)
+            assert_eq!(cmd[3], 50);
             // n3 = 48 + 2 (Dots3) = 50
             assert_eq!(cmd[4], 50);
         }
@@ -947,8 +968,8 @@ mod tests {
                 HriFont::FontA,
                 ModuleWidth::Dots2,
             );
-            // n2 = 48 + 0 (font A) + 0 (none) = 48
-            assert_eq!(cmd[3], 48);
+            // n2=49 ('1'): No HRI, Execute line feed (spec page 80)
+            assert_eq!(cmd[3], 49);
         }
 
         #[test]
