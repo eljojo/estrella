@@ -64,6 +64,7 @@
 pub mod error;
 pub mod printer;
 pub mod protocol;
+pub mod receipt;
 pub mod render;
 pub mod transport;
 

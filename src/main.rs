@@ -5,17 +5,23 @@
 //! ## Usage
 //!
 //! ```bash
-//! # List available patterns
+//! # List available patterns and receipts
 //! estrella print
 //!
-//! # Print a ripple pattern
+//! # Print a visual pattern
 //! estrella print ripple
 //!
 //! # Print with custom height
 //! estrella print --height 1000 waves
 //!
-//! # Save as PNG instead of printing
+//! # Save pattern as PNG (patterns only)
 //! estrella print --png output.png ripple
+//!
+//! # Print a demo receipt
+//! estrella print receipt
+//!
+//! # Print full receipt with barcodes
+//! estrella print receipt-full
 //! ```
 
 use clap::{Parser, Subcommand};
@@ -24,6 +30,7 @@ use std::path::PathBuf;
 use estrella::{
     printer::PrinterConfig,
     protocol::{commands, graphics},
+    receipt,
     render::patterns,
     transport::BluetoothTransport,
     EstrellaError,
@@ -97,22 +104,39 @@ fn run() -> Result<(), EstrellaError> {
                 for name in patterns::list_patterns() {
                     println!("  {}", name);
                 }
+                println!("\nAvailable receipts:");
+                for name in receipt::list_receipts() {
+                    println!("  {}", name);
+                }
                 return Ok(());
             }
 
-            // Get pattern
-            let pattern_name = pattern.as_deref().unwrap();
-            let pattern_impl = patterns::by_name(pattern_name).ok_or_else(|| {
+            let name = pattern.as_deref().unwrap();
+
+            // Check if it's a receipt template
+            if receipt::is_receipt(name) {
+                if png.is_some() {
+                    return Err(EstrellaError::Pattern(
+                        "PNG preview is not available for receipts (text-based output)".to_string(),
+                    ));
+                }
+
+                println!("Printing {} receipt...", name);
+                let receipt_data = receipt::by_name(name).unwrap();
+                print_raw_to_device(&device, &receipt_data)?;
+                println!("Printed successfully!");
+                return Ok(());
+            }
+
+            // It's a visual pattern
+            let pattern_impl = patterns::by_name(name).ok_or_else(|| {
                 EstrellaError::Pattern(format!(
-                    "Unknown pattern '{}'. Use --list to see available patterns.",
-                    pattern_name
+                    "Unknown pattern or receipt '{}'. Run without arguments to see available options.",
+                    name
                 ))
             })?;
 
-            println!(
-                "Generating {} pattern ({}x{})...",
-                pattern_name, width, height
-            );
+            println!("Generating {} pattern ({}x{})...", name, width, height);
 
             // Render pattern
             let raster_data = pattern_impl.render(width, height);
@@ -122,7 +146,7 @@ fn run() -> Result<(), EstrellaError> {
                 save_png(&png_path, width, height, &raster_data)?;
                 println!("Saved to {}", png_path.display());
             } else {
-                print_to_device(&device, width as u16, height as u16, &raster_data)?;
+                print_raster_to_device(&device, width as u16, height as u16, &raster_data)?;
                 println!("Printed successfully!");
             }
         }
@@ -160,17 +184,21 @@ fn save_png(
     Ok(())
 }
 
+/// Print raw command data to the printer device
+fn print_raw_to_device(device: &str, data: &[u8]) -> Result<(), EstrellaError> {
+    let mut transport = BluetoothTransport::open(device)?;
+    transport.write_all(data)?;
+    Ok(())
+}
+
 /// Print raster data to the printer device
-fn print_to_device(
+fn print_raster_to_device(
     device: &str,
     width: u16,
     height: u16,
     data: &[u8],
 ) -> Result<(), EstrellaError> {
     let config = PrinterConfig::TSP650II;
-
-    // Open transport
-    let mut transport = BluetoothTransport::open(device)?;
 
     // Build print sequence
     let mut print_data = Vec::new();
@@ -198,7 +226,5 @@ fn print_to_device(
     print_data.extend(commands::cut_full_feed());
 
     // Send to printer
-    transport.write_all(&print_data)?;
-
-    Ok(())
+    print_raw_to_device(device, &print_data)
 }
