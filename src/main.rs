@@ -65,10 +65,6 @@ enum Commands {
         #[arg(long)]
         list: bool,
 
-        /// Enable kitchensink mode (demo patterns)
-        #[arg(long)]
-        kitchensink: bool,
-
         /// Output to PNG file instead of printing
         #[arg(long, value_name = "FILE")]
         png: Option<PathBuf>,
@@ -158,7 +154,6 @@ fn run() -> Result<(), EstrellaError> {
         Commands::Print {
             pattern,
             list,
-            kitchensink: _,
             png,
             device,
             height,
