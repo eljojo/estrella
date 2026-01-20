@@ -3,6 +3,9 @@ estrella
 
 A print server for the [StarPRNT](https://starmicronics.com/support/download/starprnt-command-specifications/) protocol, targetting the [Star Micronics TSP650II](https://star-m.jp/eng/products/s_print/tsp650ii/index.html) thermal printer.
 
+![IMG_7320](https://github.com/user-attachments/assets/30b569ec-d311-492a-9333-d069e9234289)
+
+
 ## Usage
 
 ```bash
@@ -78,7 +81,7 @@ Estrella includes a declarative component system for building receipts, inspired
 ### Architecture
 
 ```mermaid
-flowchart LR
+flowchart TD
     subgraph Components["Declarative Components"]
         R[Receipt]
         T[Text]
