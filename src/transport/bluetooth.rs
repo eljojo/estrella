@@ -180,10 +180,13 @@ impl BluetoothTransport {
 ///
 /// ## What Gets Disabled
 ///
-/// - **Input flags**: IGNBRK, BRKINT, PARMRK, ISTRIP, INLCR, IGNCR, ICRNL, IXON
+/// - **Input flags**: IGNBRK, BRKINT, PARMRK, ISTRIP, INLCR, IGNCR, ICRNL, IXON, IXOFF, IXANY
 /// - **Output flags**: OPOST
 /// - **Local flags**: ECHO, ECHONL, ICANON, ISIG, IEXTEN
 /// - **Control flags**: CSIZE, PARENB (then CS8 is set)
+///
+/// Note: IXON/IXOFF/IXANY disable XON/XOFF software flow control. This is critical
+/// because 0x11 (XON/DC1) and 0x13 (XOFF/DC3) can appear in binary raster data.
 #[cfg(unix)]
 fn configure_tty_raw(fd: i32) -> Result<(), EstrellaError> {
     use std::mem::MaybeUninit;
@@ -200,6 +203,8 @@ fn configure_tty_raw(fd: i32) -> Result<(), EstrellaError> {
     let mut termios = unsafe { termios.assume_init() };
 
     // Input flags: disable all processing
+    // IXON/IXOFF/IXANY: disable XON/XOFF flow control (0x11/0x13 could appear in binary data)
+    // Matches Python: attrs[0] &= ~(... | IXON | IXOFF | IXANY)
     termios.c_iflag &= !(libc::IGNBRK
         | libc::BRKINT
         | libc::PARMRK
@@ -207,7 +212,9 @@ fn configure_tty_raw(fd: i32) -> Result<(), EstrellaError> {
         | libc::INLCR
         | libc::IGNCR
         | libc::ICRNL
-        | libc::IXON);
+        | libc::IXON
+        | libc::IXOFF
+        | libc::IXANY);
 
     // Output flags: disable post-processing
     termios.c_oflag &= !libc::OPOST;

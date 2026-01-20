@@ -250,9 +250,11 @@ fn print_pattern_to_device(
     }
 
     // Use band mode for "sick" pattern (matches Python sick.py behavior)
+    // Use raster mode for "sick-raster" to test if TTY fixes help
     // Band mode: ESC k n1 0 + 24 rows of data + ESC J 12 feed
     // Spec: StarPRNT Command Spec Rev 4.10, Section 2.3.12, page 61
-    if name.to_lowercase() == "sick" {
+    let name_lower = name.to_lowercase();
+    if name_lower == "sick" {
         print_band_mode(&mut print_data, width, height, data);
     } else {
         print_raster_mode(&mut print_data, width, height, data);

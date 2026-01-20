@@ -595,7 +595,8 @@ impl Pattern for Calibration {
 ///
 /// - "ripple" - Concentric circles with wobble
 /// - "waves" - Multi-oscillator interference
-/// - "sick" - Multi-section visual showcase
+/// - "sick" - Multi-section visual showcase (uses band mode for reliable printing)
+/// - "sick-raster" - Same as sick but forces raster mode (for testing)
 /// - "calibration" - Diagnostic pattern with borders, diagonals, bars
 ///
 /// ## Returns
@@ -605,7 +606,7 @@ pub fn by_name(name: &str) -> Option<Box<dyn Pattern>> {
     match name.to_lowercase().as_str() {
         "ripple" => Some(Box::new(Ripple::default())),
         "waves" => Some(Box::new(Waves::default())),
-        "sick" => Some(Box::new(Sick::default())),
+        "sick" | "sick-raster" => Some(Box::new(Sick::default())),
         "calibration" | "demo" => Some(Box::new(Calibration::default())),
         _ => None,
     }
@@ -613,7 +614,7 @@ pub fn by_name(name: &str) -> Option<Box<dyn Pattern>> {
 
 /// List all available pattern names.
 pub fn list_patterns() -> &'static [&'static str] {
-    &["ripple", "waves", "sick", "calibration"]
+    &["ripple", "waves", "sick", "sick-raster", "calibration"]
 }
 
 // ============================================================================
