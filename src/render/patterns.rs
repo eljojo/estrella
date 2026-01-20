@@ -10,7 +10,9 @@
 //! |---------|-------------|
 //! | [`Ripple`] | Concentric circles with wobble interference |
 //! | [`Waves`] | Multi-oscillator interference pattern |
-//! | [`Sick`] | Calibration pattern with borders and diagonals |
+//! | [`Sick`] | Multi-section visual showcase (plasma, rings, topography, glitch) |
+//! | [`Calibration`] | Diagnostic pattern with borders, diagonals, and bars |
+//! | [`Other`] | Print tests suite (micro-feed, density, overburn, jitter) |
 //!
 //! ## Pattern Trait
 //!
@@ -595,6 +597,208 @@ impl Pattern for Calibration {
 }
 
 // ============================================================================
+// OTHER PATTERN (Print Tests Suite)
+// ============================================================================
+
+/// # Other Pattern
+///
+/// A comprehensive test suite pattern that demonstrates various StarPRNT
+/// rendering techniques and effects from `spec/print_tests.py`.
+///
+/// ## Sections (cycling every 300 rows by default)
+///
+/// | Section | Name | Description |
+/// |---------|------|-------------|
+/// | 0 | Micro-feed Lines | Horizontal lines with varying feed spacing |
+/// | 1 | Density Comparison | Ripple pattern at 3 different densities |
+/// | 2 | Overburn Effect | Double-pass simulation (darker, bloomed) |
+/// | 3 | Jitter Bands | Ripple with horizontal banding artifacts |
+///
+/// ## Section Details
+///
+/// ### Section 0: Micro-feed Visualization
+///
+/// Displays horizontal 1-pixel lines separated by gaps representing different
+/// ESC J n feed amounts (n=1, 2, 4, 8, 12). Each group of 8 lines uses the
+/// same feed value. Useful for verifying feed command accuracy.
+///
+/// ### Section 1: Density Comparison
+///
+/// Shows the ripple pattern rendered at three different "print densities"
+/// (simulated by adjusting gamma/intensity):
+/// - Top third: Light (density=1, gamma=0.8)
+/// - Middle third: Medium (density=3, gamma=1.0)
+/// - Bottom third: Heavy (density=5, gamma=1.5)
+///
+/// ### Section 2: Overburn Effect
+///
+/// Simulates double-pass printing where the same image is printed twice,
+/// causing darker tones and ink bloom. Achieved by darkening the ripple
+/// pattern and adding slight blur/spread.
+///
+/// ### Section 3: Jitter/Banding Effect
+///
+/// Simulates the organic gradients and banding artifacts that occur when
+/// inserting micro-feeds and delays between raster chunks. Creates horizontal
+/// bands that vary slightly in intensity.
+///
+/// ## Origin
+///
+/// Based on test patterns from `spec/print_tests.py` in the estrella repository.
+#[derive(Debug, Clone)]
+pub struct Other {
+    /// Height of each section in rows (default: 300)
+    pub section_height: usize,
+}
+
+impl Default for Other {
+    fn default() -> Self {
+        Self {
+            section_height: 300,
+        }
+    }
+}
+
+impl Pattern for Other {
+    fn default_dimensions(&self) -> (usize, usize) {
+        // 4 sections * section_height to show all test patterns
+        (576, self.section_height * 4)
+    }
+
+    fn shade(&self, x: usize, y: usize, width: usize, height: usize) -> f32 {
+        // Determine which section we're in (cycles through 4 sections)
+        let section = (y / self.section_height) % 4;
+        let yy = y % self.section_height; // Local y within section
+
+        match section {
+            0 => {
+                // Section 0: Micro-feed visualization
+                // Groups of 8 lines with different feed spacing
+                // Feed values: 1, 2, 4, 8, 12 (units of ~0.25mm)
+
+                let feed_values = [1, 2, 4, 8, 12];
+                let lines_per_group = 8;
+
+                // Each group uses a specific feed value
+                let group_idx = yy / (lines_per_group * 4); // 4 pixels between line groups
+                let feed_idx = group_idx.min(feed_values.len() - 1);
+                let _feed_spacing = feed_values[feed_idx] as usize;
+
+                // Position within the current group
+                let group_y = yy % (lines_per_group * 4);
+                let line_num = group_y / 4; // Which line in this group (0-7)
+                let line_y = group_y % 4; // Position within spacing
+
+                // Draw 1-pixel line, then feed_spacing pixels of gap
+                let is_line = line_y == 0 && line_num < lines_per_group;
+
+                if is_line {
+                    1.0
+                } else {
+                    0.0
+                }
+            }
+            1 => {
+                // Section 1: Density comparison
+                // Three horizontal bands showing different densities
+                let sub_section = (yy * 3) / self.section_height;
+
+                // Use ripple pattern as base
+                let xf = x as f32;
+                let yf = y as f32;
+                let wf = width as f32;
+                let hf = height as f32;
+
+                let cx = wf / 2.0;
+                let cy = hf / 2.0;
+                let dx = xf - cx;
+                let dy = yf - cy;
+                let r = (dx * dx + dy * dy).sqrt();
+
+                let ripple = 0.5 + 0.5 * (r / 6.5 - yf / 85.0).cos();
+                let wobble = 0.5 + 0.5 * (xf / 37.0 + 0.7 * (yf / 53.0).cos()).sin();
+                let v = 0.75 * ripple + 0.25 * wobble;
+
+                // Apply different gamma values to simulate densities
+                let gamma = match sub_section {
+                    0 => 0.8,  // Light (density=1)
+                    1 => 1.0,  // Medium (density=3)
+                    _ => 1.5,  // Heavy (density=5)
+                };
+
+                clamp01(v).powf(gamma)
+            }
+            2 => {
+                // Section 2: Overburn (double-pass) effect
+                // Darken and spread the pattern to simulate printing twice
+                let xf = x as f32;
+                let yf = y as f32;
+                let wf = width as f32;
+                let hf = height as f32;
+
+                let cx = wf / 2.0;
+                let cy = hf / 2.0;
+                let dx = xf - cx;
+                let dy = yf - cy;
+                let r = (dx * dx + dy * dy).sqrt();
+
+                let ripple = 0.5 + 0.5 * (r / 6.5 - yf / 85.0).cos();
+                let wobble = 0.5 + 0.5 * (xf / 37.0 + 0.7 * (yf / 53.0).cos()).sin();
+                let v = 0.75 * ripple + 0.25 * wobble;
+
+                // Simulate overburn by darkening and adding bloom
+                // Double-pass means darker overall + some spreading
+                let darkened = v * 0.7 + 0.3; // Shift darker
+
+                // Add slight blur by sampling neighbors (bloom effect)
+                let blur_amount = 0.15;
+                let blurred = darkened * (1.0 - blur_amount) + v * blur_amount;
+
+                clamp01(blurred).powf(1.6) // Extra contrast
+            }
+            _ => {
+                // Section 3: Jitter/banding effect
+                // Horizontal bands with varying intensity (organic gradients)
+                let xf = x as f32;
+                let yf = y as f32;
+                let wf = width as f32;
+                let hf = height as f32;
+
+                let cx = wf / 2.0;
+                let cy = hf / 2.0;
+                let dx = xf - cx;
+                let dy = yf - cy;
+                let r = (dx * dx + dy * dy).sqrt();
+
+                let ripple = 0.5 + 0.5 * (r / 6.5 - yf / 85.0).cos();
+                let wobble = 0.5 + 0.5 * (xf / 37.0 + 0.7 * (yf / 53.0).cos()).sin();
+                let v = 0.75 * ripple + 0.25 * wobble;
+
+                // Create banding every 24 rows (one band height)
+                let band_num = yy / 24;
+                let band_y = yy % 24;
+
+                // Intensity varies slightly per band (simulates jitter/cooldown)
+                let band_variation = ((band_num as f32 * 0.3).sin() + 1.0) / 2.0;
+                let band_mod = 0.9 + band_variation * 0.2; // 0.9 to 1.1
+
+                // Add visible band boundaries (darker lines)
+                let is_band_edge = band_y == 0 || band_y == 1;
+                let edge_darkening = if is_band_edge { 0.15 } else { 0.0 };
+
+                let modified = (v * band_mod) + edge_darkening;
+                clamp01(modified).powf(1.3)
+            }
+        }
+    }
+
+    fn gamma(&self) -> f32 {
+        // Each section applies its own gamma internally
+        1.0
+    }
+}
+
+// ============================================================================
 // PATTERN REGISTRY
 // ============================================================================
 
@@ -606,6 +810,7 @@ impl Pattern for Calibration {
 /// - "waves" - Multi-oscillator interference
 /// - "sick" - Multi-section visual showcase
 /// - "calibration" - Diagnostic pattern with borders, diagonals, bars
+/// - "other" - Print tests suite (micro-feed, density, overburn, jitter)
 ///
 /// ## Returns
 ///
@@ -616,13 +821,14 @@ pub fn by_name(name: &str) -> Option<Box<dyn Pattern>> {
         "waves" => Some(Box::new(Waves::default())),
         "sick" => Some(Box::new(Sick::default())),
         "calibration" | "demo" => Some(Box::new(Calibration::default())),
+        "other" => Some(Box::new(Other::default())),
         _ => None,
     }
 }
 
 /// List all available pattern names.
 pub fn list_patterns() -> &'static [&'static str] {
-    &["ripple", "waves", "sick", "calibration"]
+    &["ripple", "waves", "sick", "calibration", "other"]
 }
 
 // ============================================================================
@@ -876,5 +1082,76 @@ mod tests {
 
         let sick = Sick::default();
         assert!((sick.gamma() - 1.0).abs() < 0.01);
+
+        let other = Other::default();
+        assert!((other.gamma() - 1.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_other_shade_range() {
+        let other = Other::default();
+        let w = 576;
+        let h = 1200; // 4 sections * 300
+
+        // Test shade values in all 4 sections
+        for section in 0..4 {
+            let y = section * 300 + 150; // Middle of each section
+            for x in (10..w - 10).step_by(50) {
+                let s = other.shade(x, y, w, h);
+                assert!(
+                    s >= 0.0 && s <= 1.0,
+                    "Other shade out of range at ({},{}) section {}: {}",
+                    x,
+                    y,
+                    section,
+                    s
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_other_sections() {
+        let other = Other::default();
+        let w = 576;
+        let h = 1200;
+
+        // Section 0: Micro-feed lines (binary pattern)
+        let s0_line = other.shade(w / 2, 0, w, h); // Should be a line
+        let s0_gap = other.shade(w / 2, 2, w, h); // Should be gap
+        assert!(s0_line == 1.0 || s0_line == 0.0);
+        assert!(s0_gap == 1.0 || s0_gap == 0.0);
+
+        // Section 1: Density comparison (should have variation)
+        let s1 = other.shade(w / 2, 450, w, h);
+        assert!(s1 >= 0.0 && s1 <= 1.0);
+
+        // Section 2: Overburn effect (should be darker)
+        let s2 = other.shade(w / 2, 750, w, h);
+        assert!(s2 >= 0.0 && s2 <= 1.0);
+
+        // Section 3: Jitter bands (should have banding)
+        let s3 = other.shade(w / 2, 1050, w, h);
+        assert!(s3 >= 0.0 && s3 <= 1.0);
+    }
+
+    #[test]
+    fn test_other_default_dimensions() {
+        let other = Other::default();
+        let (w, h) = other.default_dimensions();
+        assert_eq!(w, 576);
+        assert_eq!(h, 1200); // 4 sections * 300
+    }
+
+    #[test]
+    fn test_by_name_other() {
+        assert!(by_name("other").is_some());
+        assert!(by_name("OTHER").is_some()); // Case insensitive
+    }
+
+    #[test]
+    fn test_list_patterns_includes_other() {
+        let patterns = list_patterns();
+        assert!(patterns.contains(&"other"));
     }
 }

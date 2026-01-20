@@ -154,6 +154,25 @@ fn test_calibration_golden() {
     assert_eq!(png, golden, "Calibration PNG content differs from golden");
 }
 
+#[test]
+fn test_other_golden() {
+    let pattern = patterns::Other::default();
+    let (width, height) = pattern.default_dimensions();
+    let raster = generate_pattern_raster(&pattern);
+
+    let expected_bytes = width.div_ceil(8) * height;
+    assert_eq!(raster.len(), expected_bytes, "Other raster size mismatch");
+
+    let png = raster_to_png(width, height, &raster);
+    let golden = include_bytes!("golden/other_576x1200.png");
+    assert_eq!(
+        png.len(),
+        golden.len(),
+        "Other PNG size differs from golden"
+    );
+    assert_eq!(png, golden, "Other PNG content differs from golden");
+}
+
 /// Test that all patterns in list_patterns() can be retrieved by name
 #[test]
 fn test_all_patterns_accessible() {
@@ -248,7 +267,7 @@ fn check_binary_golden(name: &str, data: &[u8]) {
 #[ignore]
 fn write_golden_binaries() {
     // Pattern raster commands (using component system -> codegen)
-    for name in ["ripple", "waves", "calibration", "sick"] {
+    for name in ["ripple", "waves", "calibration", "sick", "other"] {
         let pattern = patterns::by_name(name).unwrap();
         let (_width, height) = pattern.default_dimensions();
 
@@ -304,6 +323,14 @@ fn test_binary_golden_sick_raster() {
     check_binary_golden("sick_raster", &cmd);
 }
 
+#[test]
+fn test_binary_golden_other_raster() {
+    let pattern = patterns::Other::default();
+    let (_width, height) = pattern.default_dimensions();
+    let cmd = generate_raster_commands("other", height);
+    check_binary_golden("other_raster", &cmd);
+}
+
 // ============================================================================
 // BAND MODE TESTS
 // ============================================================================
@@ -338,6 +365,14 @@ fn test_binary_golden_sick_band() {
     let (_width, height) = pattern.default_dimensions();
     let cmd = generate_band_commands("sick", height);
     check_binary_golden("sick_band", &cmd);
+}
+
+#[test]
+fn test_binary_golden_other_band() {
+    let pattern = patterns::Other::default();
+    let (_width, height) = pattern.default_dimensions();
+    let cmd = generate_band_commands("other", height);
+    check_binary_golden("other_band", &cmd);
 }
 
 // ============================================================================
