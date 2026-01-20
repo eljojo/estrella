@@ -1,5 +1,5 @@
 {
-  description = "printd development environment";
+  description = "estrella";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -25,9 +25,32 @@
         pkgs = import nixpkgs {
           inherit system overlays;
         };
+        rustToolchain = pkgs.rust-bin.selectLatestNightlyWith (
+          toolchain:
+          toolchain.default.override {
+            extensions = [
+              "rust-src"
+              "rust-analyzer"
+            ];
+            targets = [ "wasm32-unknown-unknown" ];
+          }
+        );
+        rustPlatform = pkgs.makeRustPlatform {
+          cargo = rustToolchain;
+          rustc = rustToolchain;
+        };
       in
       with pkgs;
       {
+        packages.default = rustPlatform.buildRustPackage {
+          pname = "estrella";
+          version = "0.1.0";
+          src = ./.;
+          cargoLock.lockFile = ./Cargo.lock;
+          nativeBuildInputs = [ pkg-config ];
+          buildInputs = [ openssl ];
+        };
+
         devShells.default = mkShell rec {
           buildInputs =
             [
@@ -37,23 +60,11 @@
               cargo
               rustfmt
               openssl
-              (rust-bin.selectLatestNightlyWith (
-                toolchain:
-                toolchain.default.override {
-                  extensions = [
-                    "rust-src"
-                    "rust-analyzer"
-                  ];
-                  targets = [ "wasm32-unknown-unknown" ];
-                }
-              ))
-            ]
-            ++ pkgs.lib.optionals pkg.stdenv.isDarwin [
-              #darwin.apple_sdk.frameworks.SystemConfiguration
+              rustToolchain
             ];
           shellHook = ''
             export CARGO_TARGET_DIR="$PWD/.cargo/target"
-            echo "Welcome to printd"
+            echo "Welcome to estrella"
           '';
           LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath buildInputs;
         };
