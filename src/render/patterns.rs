@@ -469,6 +469,123 @@ impl Pattern for Sick {
 }
 
 // ============================================================================
+// CALIBRATION PATTERN
+// ============================================================================
+
+/// # Calibration Pattern
+///
+/// A diagnostic pattern for verifying print width, alignment, and dot accuracy.
+/// Features clear geometric shapes that make it easy to spot issues.
+///
+/// ## Visual Elements
+///
+/// ```text
+/// ████████████████████████████████████████
+/// █                                      █
+/// █ ██                              ██   █
+/// █   ██    ▌▌ ▌▌▌ ▌▌▌▌ ▌▌▌▌▌    ██     █
+/// █     ██  ▌▌ ▌▌▌ ▌▌▌▌ ▌▌▌▌▌  ██       █
+/// █       ██▌▌ ▌▌▌ ▌▌▌▌ ▌▌▌▌▌██         █
+/// █         ██ ▌▌▌ ▌▌▌▌ ▌▌▌██           █
+/// █       ██  ▌▌▌▌ ▌▌▌▌ ▌██             █
+/// █     ██    ▌▌▌▌ ▌▌▌▌██               █
+/// █   ██      ▌▌▌▌ ▌▌██                 █
+/// █ ██        ▌▌▌▌██                    █
+/// █                                      █
+/// ████████████████████████████████████████
+/// ```
+///
+/// ## Components
+///
+/// | Element | Description | Purpose |
+/// |---------|-------------|---------|
+/// | Border | 6-pixel frame | Shows true print width |
+/// | Diagonals | X-shaped cross | Tests diagonal accuracy |
+/// | Bars | Width-increasing columns | Tests dot precision |
+///
+/// ## Bar Widths
+///
+/// Bars increase in width every 48 pixels:
+/// - Column 0: 2 dots wide
+/// - Column 1: 3 dots wide
+/// - Column 2: 4 dots wide
+/// - ... up to 9+ dots wide
+///
+/// ## Origin
+///
+/// Ported from `print/demo.py` in the estrella repository.
+#[derive(Debug, Clone)]
+pub struct Calibration {
+    /// Border width in pixels (default: 6)
+    pub border_width: usize,
+
+    /// Diagonal line thickness (default: 2)
+    pub diagonal_thickness: usize,
+
+    /// Column width for bar groups (default: 48)
+    pub bar_column_width: usize,
+
+    /// Base bar width (default: 2)
+    pub bar_base_width: usize,
+
+    /// Vertical margin for bars (default: 20)
+    pub bar_margin: usize,
+}
+
+impl Default for Calibration {
+    fn default() -> Self {
+        Self {
+            border_width: 6,
+            diagonal_thickness: 2,
+            bar_column_width: 48,
+            bar_base_width: 2,
+            bar_margin: 20,
+        }
+    }
+}
+
+impl Pattern for Calibration {
+    fn shade(&self, x: usize, y: usize, width: usize, height: usize) -> f32 {
+        let yf = y as f32;
+        let wf = width as f32;
+        let hf = height as f32;
+
+        // Border check
+        let border = x < self.border_width
+            || x >= width - self.border_width
+            || y < self.border_width
+            || y >= height - self.border_width;
+
+        // Diagonal from top-left to bottom-right
+        // Line equation: x/W = y/H, so x*H = y*W
+        // Distance from point to line: |x*H - y*W| / sqrt(H² + W²)
+        let expected_x = (yf * (wf - 1.0) / (hf - 1.0)) as isize;
+        let diag1 = (x as isize - expected_x).unsigned_abs() <= self.diagonal_thickness;
+
+        // Diagonal from top-right to bottom-left
+        let expected_x2 = ((wf - 1.0) - yf * (wf - 1.0) / (hf - 1.0)) as isize;
+        let diag2 = (x as isize - expected_x2).unsigned_abs() <= self.diagonal_thickness;
+
+        // Vertical bars that get thicker every bar_column_width pixels
+        let bar_block = x / self.bar_column_width;
+        let bar_width = self.bar_base_width + bar_block;
+        let in_bar_region = y >= self.bar_margin && y < height - self.bar_margin;
+        let bars = (x % self.bar_column_width) < bar_width && in_bar_region;
+
+        if border || diag1 || diag2 || bars {
+            1.0
+        } else {
+            0.0
+        }
+    }
+
+    fn gamma(&self) -> f32 {
+        // No gamma correction needed for binary pattern
+        1.0
+    }
+}
+
+// ============================================================================
 // PATTERN REGISTRY
 // ============================================================================
 
@@ -478,7 +595,8 @@ impl Pattern for Sick {
 ///
 /// - "ripple" - Concentric circles with wobble
 /// - "waves" - Multi-oscillator interference
-/// - "sick" - Calibration pattern
+/// - "sick" - Multi-section visual showcase
+/// - "calibration" - Diagnostic pattern with borders, diagonals, bars
 ///
 /// ## Returns
 ///
@@ -488,13 +606,14 @@ pub fn by_name(name: &str) -> Option<Box<dyn Pattern>> {
         "ripple" => Some(Box::new(Ripple::default())),
         "waves" => Some(Box::new(Waves::default())),
         "sick" => Some(Box::new(Sick::default())),
+        "calibration" | "demo" => Some(Box::new(Calibration::default())),
         _ => None,
     }
 }
 
 /// List all available pattern names.
 pub fn list_patterns() -> &'static [&'static str] {
-    &["ripple", "waves", "sick"]
+    &["ripple", "waves", "sick", "calibration"]
 }
 
 // ============================================================================
@@ -639,11 +758,85 @@ mod tests {
     }
 
     #[test]
+    fn test_calibration_border() {
+        let cal = Calibration::default();
+        let w = 576;
+        let h = 240;
+
+        // Corners are border (6 pixel border)
+        assert_eq!(cal.shade(0, 0, w, h), 1.0);
+        assert_eq!(cal.shade(5, 5, w, h), 1.0);
+        assert_eq!(cal.shade(w - 1, 0, w, h), 1.0);
+        assert_eq!(cal.shade(0, h - 1, w, h), 1.0);
+
+        // Just inside border should be white (unless on diagonal/bar)
+        // Check center area which should be empty
+        let inside = cal.shade(w / 2, h / 2, w, h);
+        // Could be on diagonal, so just check it's valid
+        assert!(inside >= 0.0 && inside <= 1.0);
+    }
+
+    #[test]
+    fn test_calibration_diagonals() {
+        let cal = Calibration::default();
+        let w = 576;
+        let h = 240;
+
+        // Top-left corner region (just inside border) should have diagonal
+        // At y=20, expected_x for diag1 ≈ 20 * 575 / 239 ≈ 48
+        let y = 20;
+        let expected_x = (y as f32 * (w as f32 - 1.0) / (h as f32 - 1.0)) as usize;
+        assert_eq!(cal.shade(expected_x, y, w, h), 1.0, "Diagonal should be black");
+    }
+
+    #[test]
+    fn test_calibration_bars() {
+        let cal = Calibration::default();
+        let w = 576;
+        let h = 240;
+
+        // Bars are in the middle region (y between 20 and h-20)
+        let y = h / 2;
+
+        // First bar block (x < 48) has width 2, so x=0,1 are in bar
+        // But those overlap with border. x=7 is NOT in bar (7 % 48 = 7 >= 2)
+        assert_eq!(cal.shade(0, y, w, h), 1.0, "x=0 is border+bar");
+        assert_eq!(cal.shade(1, y, w, h), 1.0, "x=1 is border+bar");
+
+        // Second bar block (48 <= x < 96) has width 3, so x=48,49,50 are in bar
+        assert_eq!(cal.shade(48, y, w, h), 1.0, "Second bar start should be black");
+        assert_eq!(cal.shade(49, y, w, h), 1.0, "Second bar should be black");
+        assert_eq!(cal.shade(50, y, w, h), 1.0, "Second bar should be black");
+
+        // x=51 in second block (width 3), so should be white
+        assert_eq!(cal.shade(51, y, w, h), 0.0, "After bar should be white");
+    }
+
+    #[test]
+    fn test_calibration_shade_range() {
+        let cal = Calibration::default();
+        for y in 0..100 {
+            for x in 0..100 {
+                let s = cal.shade(x, y, 576, 240);
+                assert!(
+                    s == 0.0 || s == 1.0,
+                    "Calibration should be binary at ({},{}): {}",
+                    x,
+                    y,
+                    s
+                );
+            }
+        }
+    }
+
+    #[test]
     fn test_by_name() {
         assert!(by_name("ripple").is_some());
         assert!(by_name("RIPPLE").is_some()); // Case insensitive
         assert!(by_name("waves").is_some());
         assert!(by_name("sick").is_some());
+        assert!(by_name("calibration").is_some());
+        assert!(by_name("demo").is_some()); // Alias
         assert!(by_name("unknown").is_none());
     }
 
@@ -653,6 +846,7 @@ mod tests {
         assert!(patterns.contains(&"ripple"));
         assert!(patterns.contains(&"waves"));
         assert!(patterns.contains(&"sick"));
+        assert!(patterns.contains(&"calibration"));
     }
 
     #[test]

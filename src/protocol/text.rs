@@ -587,6 +587,156 @@ pub fn upside_down_off() -> Vec<u8> {
 }
 
 // ============================================================================
+// REDUCED PRINTING
+// ============================================================================
+
+/// # Set Reduced Printing (ESC GS c h v)
+///
+/// Enables reduced (condensed) character printing.
+///
+/// ## Protocol Details
+///
+/// | Format  | Bytes |
+/// |---------|-------|
+/// | ASCII   | ESC GS c h v |
+/// | Hex     | 1B 1D 63 h v |
+/// | Decimal | 27 29 99 h v |
+///
+/// ## Parameters
+///
+/// - `h`: Horizontal reduction
+///   - 0 = Normal width (100%)
+///   - 1 = Reduced width (~67%)
+///
+/// - `v`: Vertical reduction
+///   - 0 = Normal height (100%)
+///   - 1 = Reduced height (~50%)
+///   - 2 = Reduced height (~75%)
+///
+/// ## Effect
+///
+/// ```text
+/// Normal (0,0):     HELLO WORLD
+/// Reduced (1,2):    HELLO WORLD  (smaller, condensed)
+/// ```
+///
+/// ## Use Cases
+///
+/// - Fine print / legal text
+/// - Fitting more text per line
+/// - Receipts with dense information
+///
+/// ## Example
+///
+/// ```
+/// use estrella::protocol::text::{reduced, reduced_off};
+///
+/// let mut data = Vec::new();
+/// data.extend(reduced(1, 2)); // 67% width, 75% height
+/// data.extend(b"Fine print text");
+/// data.extend(reduced_off());
+/// ```
+///
+/// ## Reference
+///
+/// StarPRNT Command Spec Rev 4.10, Section 2.3.3
+pub fn reduced(horizontal: u8, vertical: u8) -> Vec<u8> {
+    let h = horizontal.min(1);
+    let v = vertical.min(2);
+    vec![ESC, GS, b'c', h, v]
+}
+
+/// Disable reduced printing (return to normal size)
+#[inline]
+pub fn reduced_off() -> Vec<u8> {
+    reduced(0, 0)
+}
+
+// ============================================================================
+// CODE PAGE SELECTION
+// ============================================================================
+
+/// Code page selection values
+///
+/// Common code pages for receipt printing. The TSP650II supports many more
+/// code pages; see the StarPRNT Command Spec for the full list.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+pub enum CodePage {
+    /// Code Page 437 (US English)
+    Cp437 = 1,
+    /// Katakana
+    Katakana = 2,
+    /// Code Page 858 (Multilingual + Euro)
+    Cp858 = 3,
+    /// Code Page 852 (Central European)
+    Cp852 = 4,
+    /// Code Page 860 (Portuguese)
+    Cp860 = 5,
+    /// Code Page 861 (Icelandic)
+    Cp861 = 6,
+    /// Code Page 863 (Canadian French)
+    Cp863 = 7,
+    /// Code Page 865 (Nordic)
+    Cp865 = 8,
+    /// Code Page 866 (Cyrillic)
+    Cp866 = 9,
+    /// Code Page 1252 (Windows Latin-1)
+    Cp1252 = 32,
+}
+
+/// # Set Code Page (ESC GS t n)
+///
+/// Selects the international character code page.
+///
+/// ## Protocol Details
+///
+/// | Format  | Bytes |
+/// |---------|-------|
+/// | ASCII   | ESC GS t n |
+/// | Hex     | 1B 1D 74 n |
+/// | Decimal | 27 29 116 n |
+///
+/// ## Common Code Pages
+///
+/// | n | Code Page | Characters |
+/// |---|-----------|------------|
+/// | 1 | CP437 | US English (default) |
+/// | 2 | Katakana | Japanese half-width |
+/// | 3 | CP858 | Western European + Euro |
+/// | 9 | CP866 | Cyrillic |
+/// | 32 | CP1252 | Windows Latin-1 |
+///
+/// ## Example
+///
+/// ```
+/// use estrella::protocol::text::{codepage, codepage_raw, CodePage};
+///
+/// // Set to Code Page 437 for standard ASCII + box drawing
+/// let cmd = codepage(CodePage::Cp437);
+/// assert_eq!(cmd, vec![0x1B, 0x1D, 0x74, 0x01]);
+///
+/// // Or use raw value for unsupported code pages
+/// let cmd = codepage_raw(1);
+/// assert_eq!(cmd, vec![0x1B, 0x1D, 0x74, 0x01]);
+/// ```
+///
+/// ## Reference
+///
+/// StarPRNT Command Spec Rev 4.10, Section 2.3.2
+pub fn codepage(cp: CodePage) -> Vec<u8> {
+    vec![ESC, GS, b't', cp as u8]
+}
+
+/// Set code page using raw value
+///
+/// Use this for code pages not in the `CodePage` enum.
+#[inline]
+pub fn codepage_raw(n: u8) -> Vec<u8> {
+    vec![ESC, GS, b't', n]
+}
+
+// ============================================================================
 // SMOOTHING
 // ============================================================================
 
@@ -859,5 +1009,28 @@ mod tests {
         let reset = TextStyle::reset();
         // Should contain multiple commands
         assert!(reset.len() > 10);
+    }
+
+    #[test]
+    fn test_reduced() {
+        // Normal (off)
+        assert_eq!(reduced(0, 0), vec![0x1B, 0x1D, 0x63, 0x00, 0x00]);
+        // Horizontal 67%, vertical 75%
+        assert_eq!(reduced(1, 2), vec![0x1B, 0x1D, 0x63, 0x01, 0x02]);
+        // Test clamping
+        assert_eq!(reduced(10, 10), vec![0x1B, 0x1D, 0x63, 0x01, 0x02]);
+    }
+
+    #[test]
+    fn test_codepage() {
+        assert_eq!(codepage(CodePage::Cp437), vec![0x1B, 0x1D, 0x74, 0x01]);
+        assert_eq!(codepage(CodePage::Cp866), vec![0x1B, 0x1D, 0x74, 0x09]);
+        assert_eq!(codepage(CodePage::Cp1252), vec![0x1B, 0x1D, 0x74, 0x20]);
+    }
+
+    #[test]
+    fn test_codepage_raw() {
+        assert_eq!(codepage_raw(1), vec![0x1B, 0x1D, 0x74, 0x01]);
+        assert_eq!(codepage_raw(255), vec![0x1B, 0x1D, 0x74, 0xFF]);
     }
 }

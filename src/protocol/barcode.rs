@@ -48,11 +48,314 @@
 //! data.extend(pdf417::print());
 //! ```
 //!
+//! ## 1D Barcode Usage
+//!
+//! ```
+//! use estrella::protocol::barcode::barcode1d;
+//!
+//! let mut data = Vec::new();
+//!
+//! // Print a Code39 barcode with human-readable text
+//! data.extend(barcode1d::code39(b"HELLO123", 80));
+//! ```
+//!
 //! ## Protocol Reference
 //!
-//! Based on "StarPRNT Command Specifications Rev. 4.10", Sections 2.3.15-2.3.16.
+//! Based on "StarPRNT Command Specifications Rev. 4.10", Sections 2.3.14-2.3.16.
 
-use super::commands::{ESC, GS};
+use super::commands::{ESC, GS, RS};
+
+// ============================================================================
+// 1D BARCODE COMMANDS (ESC b)
+// ============================================================================
+
+/// 1D Barcode command builders
+///
+/// Prints traditional linear barcodes like Code39, Code128, UPC, etc.
+/// These barcodes encode data in varying width bars and spaces.
+pub mod barcode1d {
+    use super::{ESC, RS};
+
+    /// 1D Barcode type codes
+    ///
+    /// Each barcode type has different character sets and capacities.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    #[repr(u8)]
+    pub enum BarcodeType {
+        /// UPC-E (6 digits, compressed UPC-A)
+        UpcE = 48,
+        /// UPC-A (12 digits)
+        UpcA = 49,
+        /// EAN-8 / JAN-8 (8 digits)
+        Ean8 = 50,
+        /// EAN-13 / JAN-13 (13 digits)
+        Ean13 = 51,
+        /// Code39 (A-Z, 0-9, space, -.$/%+)
+        Code39 = 52,
+        /// ITF (Interleaved 2 of 5, numeric pairs)
+        Itf = 53,
+        /// Code128 (full ASCII)
+        Code128 = 54,
+        /// Code93 (full ASCII, more compact than Code39)
+        Code93 = 55,
+        /// NW-7 / Codabar
+        Nw7 = 56,
+    }
+
+    /// HRI (Human Readable Interpretation) position
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+    pub enum HriPosition {
+        /// No HRI text printed
+        None = 0,
+        /// HRI above barcode
+        Above = 1,
+        /// HRI below barcode (default)
+        #[default]
+        Below = 2,
+        /// HRI both above and below
+        Both = 3,
+    }
+
+    /// HRI font selection
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+    pub enum HriFont {
+        /// Font A (12×24 dots)
+        #[default]
+        FontA = 0,
+        /// Font B (9×24 dots)
+        FontB = 1,
+    }
+
+    /// Barcode module (bar) width
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+    pub enum ModuleWidth {
+        /// 2 dots minimum (narrowest)
+        Dots2 = 1,
+        /// 3 dots minimum (default)
+        #[default]
+        Dots3 = 2,
+        /// 4 dots minimum (wider)
+        Dots4 = 3,
+    }
+
+    /// Build n2 parameter from HRI options
+    ///
+    /// n2 encodes: font selection, HRI position, and line feed behavior
+    /// Bit layout: 0b00FPPLLL
+    /// - F: Font (0=A, 1=B)
+    /// - PP: Position (0=none, 1=above, 2=below, 3=both)
+    /// - LLL: Line feed (0=execute, others vary)
+    fn build_n2(hri_pos: HriPosition, hri_font: HriFont) -> u8 {
+        // For Code39 and similar: n2 = 48 + font*16 + pos*4 + linefeed
+        // Default: Font A, Below, Execute line feed = 48 + 0 + 2*4 + 0 = 50
+        let font_bits = (hri_font as u8) << 4;
+        let pos_bits = (hri_pos as u8) << 2;
+        48 + font_bits + pos_bits
+    }
+
+    /// # Print 1D Barcode (ESC b n1 n2 n3 n4 data RS)
+    ///
+    /// Prints a 1D linear barcode.
+    ///
+    /// ## Protocol Details
+    ///
+    /// | Format  | Bytes |
+    /// |---------|-------|
+    /// | ASCII   | ESC b n1 n2 n3 n4 data RS |
+    /// | Hex     | 1B 62 n1 n2 n3 n4 data 1E |
+    /// | Decimal | 27 98 n1 n2 n3 n4 data 30 |
+    ///
+    /// ## Parameters
+    ///
+    /// - `n1`: Barcode type (see `BarcodeType`)
+    /// - `n2`: HRI options (position, font, line feed)
+    /// - `n3`: Mode (module width, etc.)
+    /// - `n4`: Height in dots (1-255)
+    /// - `data`: Barcode content
+    /// - `RS`: Terminator (0x1E)
+    ///
+    /// ## Reference
+    ///
+    /// StarPRNT Command Spec Rev 4.10, Section 2.3.14
+    pub fn barcode(
+        barcode_type: BarcodeType,
+        data: &[u8],
+        height: u8,
+        hri_pos: HriPosition,
+        hri_font: HriFont,
+        module_width: ModuleWidth,
+    ) -> Vec<u8> {
+        let n1 = barcode_type as u8;
+        let n2 = build_n2(hri_pos, hri_font);
+        let n3 = 48 + module_width as u8; // Mode byte: 48 + width
+        let n4 = height.max(1);
+
+        let mut cmd = Vec::with_capacity(6 + data.len() + 1);
+        cmd.push(ESC);
+        cmd.push(b'b');
+        cmd.push(n1);
+        cmd.push(n2);
+        cmd.push(n3);
+        cmd.push(n4);
+        cmd.extend_from_slice(data);
+        cmd.push(RS);
+        cmd
+    }
+
+    /// # Print Code39 Barcode
+    ///
+    /// Code39 is a common alphanumeric barcode supporting:
+    /// - Characters: A-Z, 0-9, space, - . $ / % +
+    /// - Self-checking (no checksum required)
+    ///
+    /// ## Example
+    ///
+    /// ```
+    /// use estrella::protocol::barcode::barcode1d;
+    ///
+    /// // Simple Code39 with default settings
+    /// let cmd = barcode1d::code39(b"HELLO-123", 80);
+    ///
+    /// // With custom options
+    /// let cmd = barcode1d::code39_with_options(
+    ///     b"TEST",
+    ///     80,
+    ///     barcode1d::HriPosition::Below,
+    ///     barcode1d::HriFont::FontA,
+    ///     barcode1d::ModuleWidth::Dots3,
+    /// );
+    /// ```
+    pub fn code39(data: &[u8], height: u8) -> Vec<u8> {
+        barcode(
+            BarcodeType::Code39,
+            data,
+            height,
+            HriPosition::Below,
+            HriFont::FontA,
+            ModuleWidth::Dots2,
+        )
+    }
+
+    /// Print Code39 barcode with custom options
+    pub fn code39_with_options(
+        data: &[u8],
+        height: u8,
+        hri_pos: HriPosition,
+        hri_font: HriFont,
+        module_width: ModuleWidth,
+    ) -> Vec<u8> {
+        barcode(BarcodeType::Code39, data, height, hri_pos, hri_font, module_width)
+    }
+
+    /// # Print Code128 Barcode
+    ///
+    /// Code128 is a high-density barcode supporting full ASCII.
+    /// More compact than Code39 for the same data.
+    ///
+    /// ## Character Sets
+    ///
+    /// - Code A: ASCII 0-95 + control characters
+    /// - Code B: ASCII 32-127 (default)
+    /// - Code C: Numeric pairs (00-99)
+    ///
+    /// ## Example
+    ///
+    /// ```
+    /// use estrella::protocol::barcode::barcode1d;
+    ///
+    /// let cmd = barcode1d::code128(b"Hello World 123", 80);
+    /// ```
+    pub fn code128(data: &[u8], height: u8) -> Vec<u8> {
+        barcode(
+            BarcodeType::Code128,
+            data,
+            height,
+            HriPosition::Below,
+            HriFont::FontA,
+            ModuleWidth::Dots2,
+        )
+    }
+
+    /// Print Code128 barcode with custom options
+    pub fn code128_with_options(
+        data: &[u8],
+        height: u8,
+        hri_pos: HriPosition,
+        hri_font: HriFont,
+        module_width: ModuleWidth,
+    ) -> Vec<u8> {
+        barcode(BarcodeType::Code128, data, height, hri_pos, hri_font, module_width)
+    }
+
+    /// # Print EAN-13 Barcode
+    ///
+    /// EAN-13 is the standard retail barcode (13 digits).
+    /// Also known as JAN-13 in Japan.
+    ///
+    /// ## Example
+    ///
+    /// ```
+    /// use estrella::protocol::barcode::barcode1d;
+    ///
+    /// // 12 digits (checksum auto-calculated) or 13 digits
+    /// let cmd = barcode1d::ean13(b"5901234123457", 80);
+    /// ```
+    pub fn ean13(data: &[u8], height: u8) -> Vec<u8> {
+        barcode(
+            BarcodeType::Ean13,
+            data,
+            height,
+            HriPosition::Below,
+            HriFont::FontA,
+            ModuleWidth::Dots3,
+        )
+    }
+
+    /// # Print UPC-A Barcode
+    ///
+    /// UPC-A is the standard US retail barcode (12 digits).
+    ///
+    /// ## Example
+    ///
+    /// ```
+    /// use estrella::protocol::barcode::barcode1d;
+    ///
+    /// let cmd = barcode1d::upca(b"012345678905", 80);
+    /// ```
+    pub fn upca(data: &[u8], height: u8) -> Vec<u8> {
+        barcode(
+            BarcodeType::UpcA,
+            data,
+            height,
+            HriPosition::Below,
+            HriFont::FontA,
+            ModuleWidth::Dots3,
+        )
+    }
+
+    /// # Print ITF (Interleaved 2 of 5) Barcode
+    ///
+    /// ITF is a numeric-only barcode that encodes digit pairs.
+    /// Data length must be even.
+    ///
+    /// ## Example
+    ///
+    /// ```
+    /// use estrella::protocol::barcode::barcode1d;
+    ///
+    /// let cmd = barcode1d::itf(b"12345678", 80);
+    /// ```
+    pub fn itf(data: &[u8], height: u8) -> Vec<u8> {
+        barcode(
+            BarcodeType::Itf,
+            data,
+            height,
+            HriPosition::Below,
+            HriFont::FontA,
+            ModuleWidth::Dots3,
+        )
+    }
+}
 
 // ============================================================================
 // QR CODE COMMANDS
@@ -565,6 +868,96 @@ pub mod pdf417 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    mod barcode1d_tests {
+        use super::barcode1d::*;
+
+        #[test]
+        fn test_code39_header() {
+            let cmd = code39(b"TEST", 80);
+            assert_eq!(cmd[0], 0x1B); // ESC
+            assert_eq!(cmd[1], b'b'); // b
+            assert_eq!(cmd[2], 52); // n1 = Code39
+            assert_eq!(cmd[3], 56); // n2 = Font A + Below + line feed
+            assert_eq!(cmd[4], 49); // n3 = 48 + 1 (Dots2)
+            assert_eq!(cmd[5], 80); // n4 = height
+            assert_eq!(&cmd[6..10], b"TEST"); // data
+            assert_eq!(cmd[10], 0x1E); // RS terminator
+        }
+
+        #[test]
+        fn test_code39_total_length() {
+            let data = b"HELLO-123";
+            let cmd = code39(data, 100);
+            // 6 header bytes + data length + 1 RS terminator
+            assert_eq!(cmd.len(), 6 + data.len() + 1);
+        }
+
+        #[test]
+        fn test_code128() {
+            let cmd = code128(b"Hello", 80);
+            assert_eq!(cmd[0], 0x1B);
+            assert_eq!(cmd[1], b'b');
+            assert_eq!(cmd[2], 54); // Code128
+            assert_eq!(cmd[5], 80); // height
+            assert_eq!(*cmd.last().unwrap(), 0x1E); // RS
+        }
+
+        #[test]
+        fn test_ean13() {
+            let cmd = ean13(b"5901234123457", 80);
+            assert_eq!(cmd[2], 51); // EAN13
+            assert_eq!(cmd.len(), 6 + 13 + 1);
+        }
+
+        #[test]
+        fn test_upca() {
+            let cmd = upca(b"012345678905", 80);
+            assert_eq!(cmd[2], 49); // UPC-A
+        }
+
+        #[test]
+        fn test_itf() {
+            let cmd = itf(b"12345678", 80);
+            assert_eq!(cmd[2], 53); // ITF
+        }
+
+        #[test]
+        fn test_hri_options() {
+            // Test HRI above with Font B
+            let cmd = code39_with_options(
+                b"TEST",
+                80,
+                HriPosition::Above,
+                HriFont::FontB,
+                ModuleWidth::Dots3,
+            );
+            // n2 = 48 + 16 (font B) + 4 (above) = 68
+            assert_eq!(cmd[3], 68);
+            // n3 = 48 + 2 (Dots3) = 50
+            assert_eq!(cmd[4], 50);
+        }
+
+        #[test]
+        fn test_hri_none() {
+            let cmd = code39_with_options(
+                b"TEST",
+                80,
+                HriPosition::None,
+                HriFont::FontA,
+                ModuleWidth::Dots2,
+            );
+            // n2 = 48 + 0 (font A) + 0 (none) = 48
+            assert_eq!(cmd[3], 48);
+        }
+
+        #[test]
+        fn test_height_minimum() {
+            let cmd = code39(b"TEST", 0);
+            // Height should be clamped to minimum 1
+            assert_eq!(cmd[5], 1);
+        }
+    }
 
     mod qr_tests {
         use super::qr::*;
