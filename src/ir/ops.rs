@@ -59,6 +59,8 @@ pub struct StyleState {
     pub expanded_height: u8,
     pub height_mult: u8,
     pub width_mult: u8,
+    /// Horizontal print position in dots (resets to 0 after Newline)
+    pub absolute_position: u16,
 }
 
 impl Default for StyleState {
@@ -77,6 +79,7 @@ impl Default for StyleState {
             expanded_height: 0,
             height_mult: 0,
             width_mult: 0,
+            absolute_position: 0,
         }
     }
 }

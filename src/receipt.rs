@@ -513,7 +513,8 @@ mod tests {
     #[test]
     fn test_demo_receipt_size() {
         let data = demo_receipt();
-        // Component-based version should be ~803 bytes (optimized)
+        // Component-based version should be ~805 bytes (optimized)
+        // Optimizer removes: redundant styles, empty text, trailing dead styles, redundant positions
         assert!(
             data.len() <= 850,
             "demo_receipt should be optimized: {} bytes",
@@ -524,9 +525,9 @@ mod tests {
     #[test]
     fn test_full_receipt_size() {
         let data = full_receipt();
-        // Component-based version should be ~1710 bytes (optimized)
+        // Component-based version should be ~1732 bytes (optimized)
         // Includes NvLogo print command (12 bytes) + spacer
-        // Optimizer now removes redundant smoothing/style ops
+        // Optimizer removes: redundant styles, empty text, trailing dead styles, redundant positions
         assert!(
             data.len() <= 1750,
             "full_receipt should be optimized: {} bytes",

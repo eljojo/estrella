@@ -5,10 +5,13 @@
 //!
 //! ## Optimization Passes
 //!
-//! 1. **Remove redundant styles**: Don't emit SetBold(true) if already bold
-//! 2. **Merge adjacent text**: Combine consecutive Text ops
-//! 3. **Remove redundant init**: Only keep the first Init op
-//! 4. **Eliminate dead style changes**: Remove style changes followed by reset
+//! 1. **Remove redundant init**: Only keep the first Init op
+//! 2. **Collapse style toggles**: Remove off/on pairs (e.g., SetBold(false), SetBold(true))
+//! 3. **Remove redundant styles**: Don't emit style changes that match current state
+//!    - Also tracks SetAbsolutePosition (resets to 0 after Newline)
+//! 4. **Remove empty text**: Filter out Text("") ops
+//! 5. **Merge adjacent text**: Combine consecutive Text ops
+//! 6. **Remove trailing dead styles**: Remove unused style changes before Cut
 
 use super::ops::{Op, Program, StyleState};
 
@@ -19,7 +22,9 @@ impl Program {
         let ops = remove_redundant_init(ops);
         let ops = collapse_style_toggles(ops);
         let ops = remove_redundant_styles(ops);
+        let ops = remove_empty_text(ops);
         let ops = merge_adjacent_text(ops);
+        let ops = remove_trailing_dead_styles(ops);
         Program { ops }
     }
 }
@@ -105,6 +110,19 @@ fn remove_redundant_styles(ops: Vec<Op>) -> Vec<Op> {
             Op::Init | Op::ResetStyle => {
                 state = StyleState::default();
                 result.push(op);
+            }
+
+            // Newline resets horizontal position to 0
+            Op::Newline => {
+                state.absolute_position = 0;
+                result.push(op);
+            }
+
+            Op::SetAbsolutePosition(pos) => {
+                if *pos != state.absolute_position {
+                    state.absolute_position = *pos;
+                    result.push(op);
+                }
             }
 
             Op::SetAlign(a) => {
@@ -218,6 +236,65 @@ fn merge_adjacent_text(ops: Vec<Op>) -> Vec<Op> {
         result.push(Op::Text(text));
     }
 
+    result
+}
+
+/// Remove empty Text("") ops which serve no purpose.
+fn remove_empty_text(ops: Vec<Op>) -> Vec<Op> {
+    ops.into_iter()
+        .filter(|op| !matches!(op, Op::Text(s) if s.is_empty()))
+        .collect()
+}
+
+/// Remove trailing style changes before Cut that will never be used.
+///
+/// Scans backwards from Cut and removes any style ops that aren't followed
+/// by content-producing ops.
+fn remove_trailing_dead_styles(ops: Vec<Op>) -> Vec<Op> {
+    if ops.is_empty() {
+        return ops;
+    }
+
+    // Find the last Cut op
+    let last_cut_idx = ops.iter().rposition(|op| matches!(op, Op::Cut { .. }));
+    let Some(cut_idx) = last_cut_idx else {
+        return ops;
+    };
+
+    // Scan backwards from Cut to find dead style ops
+    let mut dead_indices = Vec::new();
+    for i in (0..cut_idx).rev() {
+        match &ops[i] {
+            // These are style ops that can be dead
+            Op::SetBold(_)
+            | Op::SetUnderline(_)
+            | Op::SetUpperline(_)
+            | Op::SetInvert(_)
+            | Op::SetSmoothing(_)
+            | Op::SetUpsideDown(_)
+            | Op::SetReduced(_)
+            | Op::SetExpandedWidth(_)
+            | Op::SetExpandedHeight(_)
+            | Op::SetSize { .. }
+            | Op::SetAlign(_)
+            | Op::SetFont(_)
+            | Op::SetCodepage(_)
+            | Op::SetAbsolutePosition(_)
+            | Op::ResetStyle => {
+                dead_indices.push(i);
+            }
+            // Feed and Newline don't use styles, keep scanning
+            Op::Feed { .. } | Op::Newline => continue,
+            // Any content-producing op means earlier styles might be used
+            _ => break,
+        }
+    }
+
+    // Remove dead ops (from highest index to lowest to preserve indices)
+    let mut result = ops;
+    for idx in dead_indices {
+        result.remove(idx);
+    }
     result
 }
 
@@ -433,5 +510,93 @@ mod tests {
         ];
         let result = remove_redundant_styles(ops);
         assert_eq!(result.len(), 3); // Init, SetSize(1,1), Text
+    }
+
+    #[test]
+    fn test_remove_empty_text() {
+        let ops = vec![
+            Op::Init,
+            Op::Text("".into()),  // Empty - should be removed
+            Op::Text("hello".into()),
+            Op::Text("".into()),  // Empty - should be removed
+            Op::Newline,
+        ];
+        let result = remove_empty_text(ops);
+        assert_eq!(result.len(), 3); // Init, Text("hello"), Newline
+    }
+
+    #[test]
+    fn test_remove_trailing_dead_styles() {
+        let ops = vec![
+            Op::Init,
+            Op::SetBold(true),
+            Op::Text("hello".into()),
+            Op::Newline,
+            Op::SetBold(false),  // Dead - before Cut with no content
+            Op::Feed { units: 10 },
+            Op::Cut { partial: false },
+        ];
+        let result = remove_trailing_dead_styles(ops);
+        assert_eq!(result.len(), 6); // SetBold(false) removed
+        assert!(!result.iter().any(|op| matches!(op, Op::SetBold(false))));
+    }
+
+    #[test]
+    fn test_trailing_dead_styles_multiple() {
+        let ops = vec![
+            Op::Init,
+            Op::Text("hello".into()),
+            Op::Newline,
+            Op::SetBold(false),
+            Op::SetAlign(Alignment::Center),
+            Op::SetFont(crate::protocol::text::Font::B),
+            Op::Feed { units: 10 },
+            Op::Cut { partial: false },
+        ];
+        let result = remove_trailing_dead_styles(ops);
+        assert_eq!(result.len(), 5); // Init, Text, Newline, Feed, Cut
+    }
+
+    #[test]
+    fn test_trailing_styles_not_removed_if_content() {
+        let ops = vec![
+            Op::Init,
+            Op::SetBold(true),
+            Op::Text("hello".into()),
+            Op::Newline,
+            Op::Cut { partial: false },
+        ];
+        let result = remove_trailing_dead_styles(ops);
+        assert_eq!(result.len(), 5); // Nothing removed - bold is used
+    }
+
+    #[test]
+    fn test_remove_redundant_absolute_position() {
+        let ops = vec![
+            Op::Init,
+            Op::SetAbsolutePosition(0),  // Redundant - default is 0
+            Op::Text("hello".into()),
+            Op::Newline,
+            Op::SetAbsolutePosition(0),  // Redundant - newline resets to 0
+            Op::Text("world".into()),
+        ];
+        let result = remove_redundant_styles(ops);
+        assert_eq!(result.len(), 4); // Init, Text, Newline, Text
+        assert!(!result.iter().any(|op| matches!(op, Op::SetAbsolutePosition(_))));
+    }
+
+    #[test]
+    fn test_absolute_position_kept_when_needed() {
+        let ops = vec![
+            Op::Init,
+            Op::SetAbsolutePosition(100),  // Not redundant - moving from 0
+            Op::Text("indented".into()),
+            Op::Newline,
+            Op::SetAbsolutePosition(100),  // Not redundant - newline reset to 0
+            Op::Text("indented again".into()),
+        ];
+        let result = remove_redundant_styles(ops);
+        assert_eq!(result.len(), 6); // All kept
+        assert_eq!(result.iter().filter(|op| matches!(op, Op::SetAbsolutePosition(100))).count(), 2);
     }
 }

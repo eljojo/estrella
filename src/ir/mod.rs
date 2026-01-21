@@ -41,6 +41,7 @@
 //! let bytes = optimized.to_bytes();
 //! ```
 
+pub mod analyze;
 mod codegen;
 mod ops;
 mod optimize;
