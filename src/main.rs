@@ -38,7 +38,7 @@ use estrella::{
     EstrellaError,
     components::{ComponentExt, Pattern as PatternComponent, Receipt},
     logos,
-    protocol::{commands, graphics, nv_graphics},
+    protocol::{commands, nv_graphics},
     receipt,
     render::dither,
     render::patterns,
@@ -361,20 +361,25 @@ fn print_as_raster(name: &str, png_path: Option<&PathBuf>, device: &str) -> Resu
 
     // Print to device if no PNG-only mode
     if png_path.is_none() || std::env::args().any(|a| a == "--print") {
-        println!("Printing as raster...");
+        println!("Printing as raster ({} rows)...", raw.height);
 
-        // Build raster print command
-        let mut data = commands::init();
+        // Build IR program - codegen handles chunking automatically
+        use estrella::ir::{Op, Program};
 
-        // Use raster mode graphics command
-        let raster_cmd = graphics::raster(raw.width as u16, raw.height as u16, &raw.data);
-        data.extend(raster_cmd);
+        let mut program = Program::new();
+        program.push(Op::Init);
+        program.push(Op::Raster {
+            width: raw.width as u16,
+            height: raw.height as u16,
+            data: raw.data.clone(),
+        });
+        program.push(Op::Feed { units: 24 }); // 6mm
+        program.push(Op::Cut { partial: false });
 
-        // Cut and feed
-        data.extend(commands::feed_mm(6.0));
-        data.extend(commands::cut_full());
+        // Compile to bytes (chunking happens here)
+        let print_data = program.to_bytes();
+        print_raw_to_device(device, &print_data)?;
 
-        print_raw_to_device(device, &data)?;
         println!("Printed successfully!");
     }
 
