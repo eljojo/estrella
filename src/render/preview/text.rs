@@ -24,29 +24,34 @@ impl PreviewRenderer {
             text.chars().collect()
         };
 
-        // Calculate text width for alignment
-        let text_width = chars.len() * char_width;
+        // Only apply alignment if we're at the start of a line (x == 0)
+        // Otherwise, continue from current position
+        if self.state.x == 0 {
+            // Calculate text width for alignment
+            let text_width = chars.len() * char_width;
 
-        // Calculate starting x based on alignment (within print area)
-        let start_x = match self.state.style.alignment {
-            Alignment::Left => 0,
-            Alignment::Center => {
-                if text_width < self.print_width {
-                    (self.print_width - text_width) / 2
-                } else {
-                    0
+            // Calculate starting x based on alignment (within print area)
+            let start_x = match self.state.style.alignment {
+                Alignment::Left => 0,
+                Alignment::Center => {
+                    if text_width < self.print_width {
+                        (self.print_width - text_width) / 2
+                    } else {
+                        0
+                    }
                 }
-            }
-            Alignment::Right => {
-                if text_width < self.print_width {
-                    self.print_width - text_width
-                } else {
-                    0
+                Alignment::Right => {
+                    if text_width < self.print_width {
+                        self.print_width - text_width
+                    } else {
+                        0
+                    }
                 }
-            }
-        };
+            };
 
-        self.state.x = start_x;
+            self.state.x = start_x;
+        }
+        // else: continue from current x position
 
         // Ensure we have room for the text
         self.ensure_height(self.state.y + line_height);

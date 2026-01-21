@@ -7,8 +7,8 @@
 //! for minimal byte output.
 
 use crate::components::{
-    Barcode, Columns, ComponentExt, Divider, LineItem, NvLogo, Pdf417, QrCode, Raw, Receipt,
-    Spacer, Text, Total,
+    Barcode, Columns, ComponentExt, Divider, LineItem, Markdown, NvLogo, Pdf417, QrCode, Raw,
+    Receipt, Spacer, Text, Total,
 };
 use crate::ir::Op;
 use crate::protocol::text::Font;
@@ -207,13 +207,27 @@ pub fn full_receipt() -> Vec<u8> {
         .build()
 }
 
+/// Generate a demo receipt using Markdown syntax.
+///
+/// Features demonstrated:
+/// - Markdown headers (H1, H2, H3)
+/// - Bold, italic (rendered as underline), inline code
+/// - Unordered lists
+/// - Ordered lists
+/// - Links
+/// - Horizontal rules
+/// - Paragraphs and spacing
+pub fn markdown_demo() -> Vec<u8> {
+    markdown_demo_component().build()
+}
+
 // ============================================================================
 // LOOKUP FUNCTIONS
 // ============================================================================
 
 /// List available receipt templates
 pub fn list_receipts() -> &'static [&'static str] {
-    &["receipt", "receipt-full"]
+    &["receipt", "receipt-full", "markdown"]
 }
 
 /// Get receipt data by name
@@ -221,6 +235,7 @@ pub fn by_name(name: &str) -> Option<Vec<u8>> {
     match name.to_lowercase().as_str() {
         "receipt" => Some(demo_receipt()),
         "receipt-full" | "receipt_full" => Some(full_receipt()),
+        "markdown" => Some(markdown_demo()),
         _ => None,
     }
 }
@@ -232,6 +247,7 @@ pub fn program_by_name(name: &str) -> Option<crate::ir::Program> {
     match name.to_lowercase().as_str() {
         "receipt" => Some(demo_receipt_component().compile()),
         "receipt-full" | "receipt_full" => Some(full_receipt_component().compile()),
+        "markdown" => Some(markdown_demo_component().compile()),
         _ => None,
     }
 }
@@ -407,11 +423,41 @@ fn full_receipt_component() -> Receipt {
         .cut()
 }
 
+/// Get the markdown demo component (for preview rendering).
+fn markdown_demo_component() -> Receipt {
+    Receipt::new()
+        .child(Markdown::new(
+            r#"# Coffee Shop
+
+Date: 2026-01-20
+
+Order: 1234
+
+## Items
+
+- Espresso ($3.50)
+- Croissant ($4.00)
+- Oat milk upgrade ($0.50)
+
+### Payment
+
+1. Subtotal: $8.00
+2. Tax (13%): $1.04
+3. **Total: $9.04**
+
+Thank *you* for your purchase!
+
+Visit us at `coffeeshop.example`
+"#,
+        ))
+        .cut()
+}
+
 /// Check if a name is a receipt template
 pub fn is_receipt(name: &str) -> bool {
     matches!(
         name.to_lowercase().as_str(),
-        "receipt" | "receipt-full" | "receipt_full"
+        "receipt" | "receipt-full" | "receipt_full" | "markdown"
     )
 }
 

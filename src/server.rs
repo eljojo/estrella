@@ -27,7 +27,7 @@ use serde::Deserialize;
 use std::sync::Arc;
 
 use crate::{
-    components::{ComponentExt, Receipt, Spacer, Text},
+    components::{ComponentExt, Markdown, Receipt, Spacer, Text},
     error::EstrellaError,
     transport::BluetoothTransport,
 };
@@ -141,10 +141,8 @@ fn build_receipt(form: &PrintForm) -> Result<Vec<u8>, EstrellaError> {
         }
     }
 
-    // Add body text (split by newlines)
-    for line in form.body.lines() {
-        receipt = receipt.child(Text::new(line));
-    }
+    // Parse body as Markdown
+    receipt = receipt.child(Markdown::new(&form.body));
 
     // Add cut command
     receipt = receipt.cut();

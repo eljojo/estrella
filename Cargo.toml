@@ -14,6 +14,7 @@ qrcode = "0.14"
 pdf417 = "0.2"
 spleen-font = { version = "0.2", features = ["s6x12", "s8x16", "s12x24"] }
 barcoders = "2"
+pulldown-cmark = "0.12"
 
 # HTTP server dependencies
 axum = "0.7"

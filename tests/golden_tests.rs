@@ -127,12 +127,16 @@ fn generate_golden_files() {
     // Receipts
     write_golden("demo_receipt", "bin", &receipt::demo_receipt());
     write_golden("full_receipt", "bin", &receipt::full_receipt());
+    write_golden("markdown_demo", "bin", &receipt::markdown_demo());
 
     let demo_program = receipt::program_by_name("receipt").unwrap();
     write_golden("demo_receipt", "png", &generate_preview_png(&demo_program));
 
     let full_program = receipt::program_by_name("receipt-full").unwrap();
     write_golden("full_receipt", "png", &generate_preview_png(&full_program));
+
+    let markdown_program = receipt::program_by_name("markdown").unwrap();
+    write_golden("markdown_demo", "png", &generate_preview_png(&markdown_program));
 
     println!("\nAll golden files written to {}/", GOLDEN_DIR);
 }
@@ -305,6 +309,12 @@ fn test_binary_full_receipt() {
     check_golden("full_receipt", "bin", &cmd);
 }
 
+#[test]
+fn test_binary_markdown_demo() {
+    let cmd = receipt::markdown_demo();
+    check_golden("markdown_demo", "bin", &cmd);
+}
+
 // ============================================================================
 // RECEIPT PREVIEW TESTS
 // ============================================================================
@@ -321,6 +331,13 @@ fn test_preview_full_receipt() {
     let program = receipt::program_by_name("receipt-full").unwrap();
     let png = generate_preview_png(&program);
     check_golden("full_receipt", "png", &png);
+}
+
+#[test]
+fn test_preview_markdown_demo() {
+    let program = receipt::program_by_name("markdown").unwrap();
+    let png = generate_preview_png(&program);
+    check_golden("markdown_demo", "png", &png);
 }
 
 // ============================================================================

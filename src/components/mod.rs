@@ -34,12 +34,14 @@
 mod barcode;
 mod graphics;
 mod layout;
+mod markdown;
 mod receipt;
 mod text;
 
 pub use barcode::*;
 pub use graphics::*;
 pub use layout::*;
+pub use markdown::*;
 pub use receipt::*;
 pub use text::*;
 
