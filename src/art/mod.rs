@@ -10,26 +10,44 @@
 //! 3. Add to [`PATTERNS`] array
 //! 4. Run `make golden` to generate test files
 
+pub mod calibration;
+pub mod crystal;
 pub mod density;
+pub mod erosion;
+pub mod flowfield;
 pub mod glitch;
 pub mod jitter;
 pub mod microfeed;
+pub mod mycelium;
 pub mod overburn;
 pub mod plasma;
+pub mod riley;
 pub mod rings;
 pub mod ripple;
+pub mod scintillate;
 pub mod topography;
+pub mod vasarely;
 pub mod waves;
-pub mod calibration;
 
 /// All available patterns, in display order.
 pub const PATTERNS: &[&str] = &[
+    // Classic patterns
     "ripple",
     "waves",
     "plasma",
     "rings",
     "topography",
     "glitch",
+    // Op art
+    "riley",
+    "vasarely",
+    "scintillate",
+    // Generative/organic
+    "flowfield",
+    "erosion",
+    "crystal",
+    "mycelium",
+    // Diagnostic
     "microfeed",
     "density",
     "overburn",
@@ -81,6 +99,13 @@ pub fn by_name_golden(name: &str) -> Option<Box<dyn Pattern>> {
         "rings" => Some(Box::new(rings::Rings::golden())),
         "topography" => Some(Box::new(topography::Topography::golden())),
         "glitch" => Some(Box::new(glitch::Glitch::golden())),
+        "riley" => Some(Box::new(riley::Riley::golden())),
+        "vasarely" => Some(Box::new(vasarely::Vasarely::golden())),
+        "scintillate" => Some(Box::new(scintillate::Scintillate::golden())),
+        "flowfield" => Some(Box::new(flowfield::Flowfield::golden())),
+        "erosion" => Some(Box::new(erosion::Erosion::golden())),
+        "crystal" => Some(Box::new(crystal::Crystal::golden())),
+        "mycelium" => Some(Box::new(mycelium::Mycelium::golden())),
         "microfeed" => Some(Box::new(microfeed::Microfeed::golden())),
         "density" => Some(Box::new(density::Density::golden())),
         "overburn" => Some(Box::new(overburn::Overburn::golden())),
@@ -99,6 +124,13 @@ pub fn by_name_random(name: &str) -> Option<Box<dyn Pattern>> {
         "rings" => Some(Box::new(rings::Rings::random())),
         "topography" => Some(Box::new(topography::Topography::random())),
         "glitch" => Some(Box::new(glitch::Glitch::random())),
+        "riley" => Some(Box::new(riley::Riley::random())),
+        "vasarely" => Some(Box::new(vasarely::Vasarely::random())),
+        "scintillate" => Some(Box::new(scintillate::Scintillate::random())),
+        "flowfield" => Some(Box::new(flowfield::Flowfield::random())),
+        "erosion" => Some(Box::new(erosion::Erosion::random())),
+        "crystal" => Some(Box::new(crystal::Crystal::random())),
+        "mycelium" => Some(Box::new(mycelium::Mycelium::random())),
         "microfeed" => Some(Box::new(microfeed::Microfeed::random())),
         "density" => Some(Box::new(density::Density::random())),
         "overburn" => Some(Box::new(overburn::Overburn::random())),

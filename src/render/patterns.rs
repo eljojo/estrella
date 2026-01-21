@@ -16,15 +16,22 @@ pub use art::by_name_random;
 pub use art::Pattern;
 pub use art::PATTERNS;
 pub use art::calibration::Calibration;
+pub use art::crystal::Crystal;
 pub use art::density::Density;
+pub use art::erosion::Erosion;
+pub use art::flowfield::Flowfield;
 pub use art::glitch::Glitch;
 pub use art::jitter::Jitter;
 pub use art::microfeed::Microfeed;
+pub use art::mycelium::Mycelium;
 pub use art::overburn::Overburn;
 pub use art::plasma::Plasma;
+pub use art::riley::Riley;
 pub use art::rings::Rings;
 pub use art::ripple::Ripple;
+pub use art::scintillate::Scintillate;
 pub use art::topography::Topography;
+pub use art::vasarely::Vasarely;
 pub use art::waves::Waves;
 
 /// List all available pattern names.
@@ -54,7 +61,9 @@ mod tests {
         let patterns = list_patterns();
         assert!(patterns.contains(&"ripple"));
         assert!(patterns.contains(&"calibration"));
-        assert_eq!(patterns.len(), 11);
+        assert!(patterns.contains(&"riley"));
+        assert!(patterns.contains(&"mycelium"));
+        assert_eq!(patterns.len(), 18);
     }
 
     #[test]
