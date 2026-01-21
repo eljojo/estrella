@@ -427,23 +427,25 @@ fn full_receipt_component() -> Receipt {
 fn markdown_demo_component() -> Receipt {
     Receipt::new()
         .child(Markdown::new(
-            r#"# Coffee Shop
+            r#"## Coffee Shop
 
-Date: 2026-01-20
+Date: 2026-01-20 | Order: 1234
 
-Order: 1234
+---
 
-## Items
+### Items
 
 - Espresso ($3.50)
 - Croissant ($4.00)
-- Oat milk upgrade ($0.50)
+- Oat milk (+$0.50)
 
 ### Payment
 
 1. Subtotal: $8.00
 2. Tax (13%): $1.04
 3. **Total: $9.04**
+
+---
 
 Thank *you* for your purchase!
 

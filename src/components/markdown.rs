@@ -197,9 +197,10 @@ impl ParserState {
 
                 match self.heading_level {
                     Some(HeadingLevel::H1) => {
+                        // Reset size to normal (0 = 1x, the default)
                         ops.push(Op::SetSize {
-                            height: 1,
-                            width: 1,
+                            height: 0,
+                            width: 0,
                         });
                         ops.push(Op::SetBold(false));
                         ops.push(Op::SetSmoothing(false));
@@ -208,9 +209,10 @@ impl ParserState {
                         ops.push(Op::Feed { units: 12 }); // 3mm spacing
                     }
                     Some(HeadingLevel::H2) => {
+                        // Reset size to normal (0 = 1x, the default)
                         ops.push(Op::SetSize {
-                            height: 1,
-                            width: 1,
+                            height: 0,
+                            width: 0,
                         });
                         ops.push(Op::SetBold(false));
                         ops.push(Op::SetSmoothing(false));
