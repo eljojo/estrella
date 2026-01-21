@@ -23,3 +23,4 @@
 
 pub mod dither;
 pub mod patterns;
+pub mod preview;

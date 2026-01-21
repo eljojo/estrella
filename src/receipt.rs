@@ -154,7 +154,7 @@ pub fn full_receipt() -> Vec<u8> {
         .child(Text::new("Double-wide.").double_width())
         .child(Text::new("Double-high.").double_height())
         .child(Text::new("BIG BIG").double_width().double_height())
-        .child(Text::new("upside-down message (SI)").center().upside_down())
+        .child(Text::new("upside-down message").center().upside_down())
         .child(Spacer::mm(2.0))
         // Receipt body
         .child(Divider::dashed())
@@ -223,6 +223,188 @@ pub fn by_name(name: &str) -> Option<Vec<u8>> {
         "receipt-full" | "receipt_full" => Some(full_receipt()),
         _ => None,
     }
+}
+
+/// Get receipt IR Program by name (for preview rendering).
+pub fn program_by_name(name: &str) -> Option<crate::ir::Program> {
+    use crate::components::ComponentExt;
+
+    match name.to_lowercase().as_str() {
+        "receipt" => Some(demo_receipt_component().compile()),
+        "receipt-full" | "receipt_full" => Some(full_receipt_component().compile()),
+        _ => None,
+    }
+}
+
+/// Get the demo receipt component (for preview rendering).
+fn demo_receipt_component() -> Receipt {
+    Receipt::new()
+        // Header
+        .child(
+            Text::new("CHURRA MART")
+                .center()
+                .bold()
+                .size(2, 2),
+        )
+        .child(
+            Text::new("starprnt style demo receipt")
+                .center()
+                .underline(),
+        )
+        .child(Text::new("2026-01-20 12:00:00").center())
+        .child(Spacer::mm(3.0))
+        // Inverted banner
+        .child(
+            Text::new("  TODAY ONLY: 0% OFF EVERYTHING  ")
+                .center()
+                .invert()
+                .bold(),
+        )
+        .child(Spacer::mm(2.0))
+        // Items table
+        .child(Columns::new("ITEM", "CAD").bold())
+        .child(Divider::dashed())
+        .child(LineItem::new("Liminal Espresso", 4.50))
+        .child(LineItem::new("Basement Techno Vinyl", 29.00))
+        .child(LineItem::new("Thermal Paper (mystery)", 7.25))
+        .child(LineItem::new("Sticker: *****", 2.00))
+        .child(Divider::dashed())
+        // Totals
+        .child(Total::labeled("SUBTOTAL:", 42.75).bold())
+        .child(Total::labeled("HST (13%):", 5.56))
+        .child(Total::labeled("TOTAL:", 48.31).bold().double_width())
+        .child(Spacer::mm(3.0))
+        // Boxed thank you
+        .child(
+            Text::new("thank you for your vibes")
+                .center()
+                .underline()
+                .upperline(),
+        )
+        .child(Spacer::mm(2.5))
+        // Upside down easter egg
+        .child(Text::new(""))
+        .child(
+            Text::new("secret message from below")
+                .center()
+                .upside_down(),
+        )
+        .child(Spacer::mm(2.5))
+        // Fine print
+        .child(
+            Text::new("fine print: this receipt exists to show StarPRNT text styling.")
+                .left()
+                .font(Font::B),
+        )
+        .child(
+            Text::new("note: some options depend on printer spec / memory switch settings.")
+                .font(Font::B),
+        )
+        .child(Spacer::mm(4.5))
+        // Footer
+        .child(Text::new("COME BACK SOON").center().bold())
+        .child(Spacer::mm(6.0))
+        .cut()
+}
+
+/// Get the full receipt component (for preview rendering).
+fn full_receipt_component() -> Receipt {
+    Receipt::new()
+        // Set codepage
+        .child(Raw::op(Op::SetCodepage(1)))
+        // NV Logo (if stored) - skipped in preview
+        .child(NvLogo::new("A0"))
+        .child(Spacer::mm(2.0))
+        // Header
+        .child(
+            Text::new("CHURRA MART")
+                .center()
+                .bold()
+                .double_height()
+                .double_width(),
+        )
+        .child(
+            Text::new("StarPRNT style demo receipt")
+                .center()
+                .underline(),
+        )
+        .child(Text::new("2026-01-20 12:00:00").center())
+        .child(Spacer::mm(2.5))
+        // Inverted banner
+        .child(
+            Text::new(" TODAY ONLY: 0% OFF EVERYTHING ")
+                .center()
+                .invert(),
+        )
+        .child(Spacer::mm(2.0))
+        // Font showcase
+        .child(Divider::dashed())
+        .child(Text::new("FONTS:").left().bold())
+        .child(Text::new("Font A (12x24): THE QUICK BROWN FOX 0123456789").font(Font::A))
+        .child(Text::new("Font B ( 9x24): THE QUICK BROWN FOX 0123456789").font(Font::B))
+        .child(Text::new("Font C ( 9x17): THE QUICK BROWN FOX 0123456789").font(Font::C))
+        .child(Spacer::mm(2.0))
+        // Style showcase
+        .child(Divider::dashed())
+        .child(Text::new("STYLES:").left().bold())
+        .child(Text::new("Normal text."))
+        .child(Text::new("Emphasized (bold-ish).").bold())
+        .child(Text::new("Underlined.").underline())
+        .child(Text::new("White/black inverted.").invert())
+        .child(Text::new("Smoothing ON (edges a bit softer).").smoothing())
+        .child(Text::new("Double-wide.").double_width())
+        .child(Text::new("Double-high.").double_height())
+        .child(Text::new("BIG BIG").double_width().double_height())
+        .child(Text::new("upside-down message").center().upside_down())
+        .child(Spacer::mm(2.0))
+        // Receipt body
+        .child(Divider::dashed())
+        .child(Columns::new("ITEM", "CAD").bold())
+        .child(Divider::dashed())
+        .child(LineItem::new("Liminal Espresso", 4.50))
+        .child(LineItem::new("Basement Techno Vinyl", 29.00))
+        .child(LineItem::new("Thermal Paper (mystery)", 7.25))
+        .child(LineItem::new("Sticker: *****", 2.00))
+        .child(Divider::dashed())
+        // Totals
+        .child(Total::labeled("SUBTOTAL:", 42.75))
+        .child(Total::labeled("HST (13%):", 5.56))
+        .child(Total::labeled("TOTAL:", 48.31).bold().double_width())
+        .child(Spacer::mm(3.0))
+        // Barcodes
+        .child(Divider::dashed())
+        .child(Text::new("CODES:").center().bold())
+        .child(Text::new("1D Barcode (Code39 + HRI):").left())
+        .child(Barcode::code39("CHURRA-2026-0001").height(80))
+        .child(Spacer::mm(3.0))
+        .child(Text::new("QR Code:").left())
+        .child(QrCode::new("https://example.invalid/churra-mart").cell_size(6))
+        .child(Spacer::mm(3.0))
+        .child(Text::new("PDF417:").left())
+        .child(
+            Pdf417::new("CHURRA|MART|ORDER|2026-0001|TOTAL|48.31")
+                .module_width(2)
+                .ecc_level(3),
+        )
+        .child(Spacer::mm(4.0))
+        // Footer
+        .child(Divider::dashed())
+        .child(Text::new("thank you for your vibes").center().underline())
+        .child(Spacer::mm(2.0))
+        .child(
+            Text::new("fine print: this receipt exists to show StarPRNT text styling.")
+                .left()
+                .font(Font::B),
+        )
+        .child(
+            Text::new("note: some options depend on printer spec / memory switch settings.")
+                .font(Font::B),
+        )
+        .child(Text::new("tip: avoid Unicode unless you really know your code page.").font(Font::B))
+        .child(Spacer::mm(6.0))
+        .child(Text::new("COME BACK SOON").center().bold())
+        .child(Spacer::mm(10.0))
+        .cut()
 }
 
 /// Check if a name is a receipt template

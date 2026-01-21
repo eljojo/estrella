@@ -36,8 +36,7 @@ use std::path::PathBuf;
 
 use estrella::{
     EstrellaError,
-    components::{Component, ComponentExt, Image, Receipt, Spacer, Text},
-    ir::Op,
+    components::{ComponentExt, Pattern as PatternComponent, Receipt},
     protocol::{commands, nv_graphics},
     receipt,
     render::dither,
@@ -178,10 +177,18 @@ fn run() -> Result<(), EstrellaError> {
 
             // Check if it's a receipt template
             if receipt::is_receipt(name) {
-                if png.is_some() {
-                    return Err(EstrellaError::Pattern(
-                        "PNG preview is not available for receipts (text-based output)".to_string(),
-                    ));
+                if let Some(png_path) = png {
+                    // Render receipt to PNG preview
+                    println!("Generating {} receipt preview...", name);
+                    let program = receipt::program_by_name(name).unwrap();
+                    let png_bytes = program.to_preview_png().map_err(|e| {
+                        EstrellaError::Image(format!("Failed to render preview: {}", e))
+                    })?;
+                    std::fs::write(&png_path, &png_bytes).map_err(|e| {
+                        EstrellaError::Image(format!("Failed to write PNG: {}", e))
+                    })?;
+                    println!("Saved to {}", png_path.display());
+                    return Ok(());
                 }
 
                 println!("Printing {} receipt...", name);
@@ -206,23 +213,28 @@ fn run() -> Result<(), EstrellaError> {
 
             println!("Generating {} pattern ({}x{})...", name, width, height);
 
-            // Render pattern
-            let raster_data = pattern_impl.render(width, height);
+            // Build pattern component
+            let mut pattern = PatternComponent::new(name, height).width(width);
+            if !no_title {
+                pattern = pattern.with_title();
+            }
+            if band {
+                pattern = pattern.band_mode();
+            }
 
             // Output to PNG or printer
             if let Some(png_path) = png {
-                save_png(&png_path, width, height, &raster_data)?;
+                let program = Receipt::new().child(pattern).cut().compile();
+                let png_bytes = program.to_preview_png().map_err(|e| {
+                    EstrellaError::Image(format!("Failed to render preview: {}", e))
+                })?;
+                std::fs::write(&png_path, &png_bytes).map_err(|e| {
+                    EstrellaError::Image(format!("Failed to write PNG: {}", e))
+                })?;
                 println!("Saved to {}", png_path.display());
             } else {
-                print_pattern_to_device(
-                    &device,
-                    name,
-                    width as u16,
-                    height as u16,
-                    &raster_data,
-                    !no_title,
-                    band,
-                )?;
+                let print_data = Receipt::new().child(pattern).cut().build();
+                print_raw_to_device(&device, &print_data)?;
                 println!("Printed successfully!");
             }
         }
@@ -248,108 +260,11 @@ fn run() -> Result<(), EstrellaError> {
     Ok(())
 }
 
-/// Save raster data as a PNG image
-fn save_png(path: &PathBuf, width: usize, height: usize, data: &[u8]) -> Result<(), EstrellaError> {
-    use image::{GrayImage, Luma};
-
-    let mut img = GrayImage::new(width as u32, height as u32);
-    let width_bytes = width.div_ceil(8);
-
-    for y in 0..height {
-        for x in 0..width {
-            let byte_idx = y * width_bytes + x / 8;
-            let bit_idx = 7 - (x % 8);
-            let is_black = (data[byte_idx] >> bit_idx) & 1 == 1;
-
-            let color = if is_black { 0u8 } else { 255u8 };
-            img.put_pixel(x as u32, y as u32, Luma([color]));
-        }
-    }
-
-    img.save(path)
-        .map_err(|e| EstrellaError::Image(format!("Failed to save PNG: {}", e)))?;
-
-    Ok(())
-}
-
 /// Print raw command data to the printer device
 fn print_raw_to_device(device: &str, data: &[u8]) -> Result<(), EstrellaError> {
     let mut transport = BluetoothTransport::open(device)?;
     transport.write_all(data)?;
     Ok(())
-}
-
-/// A component for pattern title headers
-struct PatternTitle {
-    name: String,
-}
-
-impl PatternTitle {
-    fn new(name: &str) -> Self {
-        Self {
-            name: name.to_uppercase(),
-        }
-    }
-}
-
-impl Component for PatternTitle {
-    fn emit(&self, ops: &mut Vec<Op>) {
-        // Centered horizontal rule
-        Text::new("================================")
-            .center()
-            .emit(ops);
-
-        // Pattern name in bold, double height
-        Text::new(&self.name)
-            .center()
-            .bold()
-            .double_height()
-            .emit(ops);
-
-        // Horizontal rule
-        Text::new("================================")
-            .center()
-            .emit(ops);
-
-        // Small spacing before pattern
-        Spacer::mm(2.0).emit(ops);
-
-        // Reset alignment for pattern (left)
-        ops.push(Op::SetAlign(estrella::protocol::text::Alignment::Left));
-    }
-}
-
-/// Print pattern with optional title to the printer device
-///
-/// Uses raster mode (ESC GS S) by default, or band mode (ESC k) if requested.
-fn print_pattern_to_device(
-    device: &str,
-    name: &str,
-    width: u16,
-    height: u16,
-    data: &[u8],
-    with_title: bool,
-    use_band_mode: bool,
-) -> Result<(), EstrellaError> {
-    // Build print sequence using components
-    let mut receipt = Receipt::new();
-
-    // Add title if requested
-    if with_title {
-        receipt = receipt.child(PatternTitle::new(name));
-    }
-
-    // Add the pattern image
-    let image = if use_band_mode {
-        Image::from_raster(width, height, data.to_vec()).band_mode()
-    } else {
-        Image::from_raster(width, height, data.to_vec()).raster_mode()
-    };
-    receipt = receipt.child(image).cut();
-
-    // Build and send to printer
-    let print_data = receipt.build();
-    print_raw_to_device(device, &print_data)
 }
 
 // ============================================================================

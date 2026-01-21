@@ -403,6 +403,8 @@ impl Component for LineItem {
             pad = padding + price_str.len()
         );
 
+        // Reset to Font A to ensure correct width (48 chars × 12 dots = 576 = full print width)
+        ops.push(Op::SetFont(Font::A));
         ops.push(Op::SetAlign(Alignment::Left));
         ops.push(Op::Text(line));
         ops.push(Op::Newline);
@@ -481,6 +483,8 @@ impl Component for Total {
         let amount_str = format!("{:.2}", self.amount);
         let line = format!("{}  {}", self.label, amount_str);
 
+        // Reset to Font A to ensure correct width
+        ops.push(Op::SetFont(Font::A));
         if self.right_align {
             ops.push(Op::SetAlign(Alignment::Right));
         }

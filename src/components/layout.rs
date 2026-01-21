@@ -4,7 +4,7 @@
 
 use super::Component;
 use crate::ir::Op;
-use crate::protocol::text::Alignment;
+use crate::protocol::text::{Alignment, Font};
 
 /// Divider style options.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -83,6 +83,8 @@ impl Component for Divider {
             DividerStyle::Double => "\u{2550}".repeat(self.width), // ═
             DividerStyle::Equals => "=".repeat(self.width),
         };
+        // Reset to Font A to ensure correct width (48 chars × 12 dots = 576 = full print width)
+        ops.push(Op::SetFont(Font::A));
         ops.push(Op::SetAlign(Alignment::Left));
         ops.push(Op::Text(line));
         ops.push(Op::Newline);
@@ -200,6 +202,8 @@ impl Component for Columns {
             format!("{:>width$}", self.right, width = padding + self.right.len())
         );
 
+        // Reset to Font A to ensure correct width (48 chars × 12 dots = 576 = full print width)
+        ops.push(Op::SetFont(Font::A));
         ops.push(Op::SetAlign(Alignment::Left));
         if self.bold {
             ops.push(Op::SetBold(true));

@@ -5,6 +5,7 @@
 use super::Component;
 use crate::ir::{BarcodeKind, Op};
 use crate::protocol::barcode::qr::QrErrorLevel;
+use crate::protocol::text::Alignment;
 
 /// A QR code component.
 ///
@@ -25,15 +26,18 @@ pub struct QrCode {
     data: String,
     cell_size: u8,
     error_level: QrErrorLevel,
+    alignment: Alignment,
 }
 
 impl QrCode {
     /// Create a new QR code with the given data.
+    /// Defaults to center alignment.
     pub fn new(data: impl Into<String>) -> Self {
         Self {
             data: data.into(),
             cell_size: 4,
             error_level: QrErrorLevel::M,
+            alignment: Alignment::Center,
         }
     }
 
@@ -66,10 +70,29 @@ impl QrCode {
         self.error_level = QrErrorLevel::H;
         self
     }
+
+    /// Center the QR code (default).
+    pub fn center(mut self) -> Self {
+        self.alignment = Alignment::Center;
+        self
+    }
+
+    /// Left-align the QR code.
+    pub fn left(mut self) -> Self {
+        self.alignment = Alignment::Left;
+        self
+    }
+
+    /// Right-align the QR code.
+    pub fn right(mut self) -> Self {
+        self.alignment = Alignment::Right;
+        self
+    }
 }
 
 impl Component for QrCode {
     fn emit(&self, ops: &mut Vec<Op>) {
+        ops.push(Op::SetAlign(self.alignment));
         ops.push(Op::QrCode {
             data: self.data.clone(),
             cell_size: self.cell_size,
@@ -93,15 +116,18 @@ pub struct Pdf417 {
     data: String,
     module_width: u8,
     ecc_level: u8,
+    alignment: Alignment,
 }
 
 impl Pdf417 {
     /// Create a new PDF417 barcode.
+    /// Defaults to center alignment.
     pub fn new(data: impl Into<String>) -> Self {
         Self {
             data: data.into(),
             module_width: 3,
             ecc_level: 2,
+            alignment: Alignment::Center,
         }
     }
 
@@ -116,10 +142,29 @@ impl Pdf417 {
         self.ecc_level = level.min(8);
         self
     }
+
+    /// Center the PDF417 barcode (default).
+    pub fn center(mut self) -> Self {
+        self.alignment = Alignment::Center;
+        self
+    }
+
+    /// Left-align the PDF417 barcode.
+    pub fn left(mut self) -> Self {
+        self.alignment = Alignment::Left;
+        self
+    }
+
+    /// Right-align the PDF417 barcode.
+    pub fn right(mut self) -> Self {
+        self.alignment = Alignment::Right;
+        self
+    }
 }
 
 impl Component for Pdf417 {
     fn emit(&self, ops: &mut Vec<Op>) {
+        ops.push(Op::SetAlign(self.alignment));
         ops.push(Op::Pdf417 {
             data: self.data.clone(),
             module_width: self.module_width,

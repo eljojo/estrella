@@ -223,6 +223,28 @@ impl Program {
         Self { ops: Vec::new() }
     }
 
+    /// Render the program to PNG bytes for preview.
+    ///
+    /// This renders what the receipt would look like when printed,
+    /// using bitmap fonts and graphics rendering.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use estrella::ir::{Op, Program};
+    ///
+    /// let mut program = Program::new();
+    /// program.push(Op::Init);
+    /// program.push(Op::Text("Hello World".to_string()));
+    /// program.push(Op::Newline);
+    ///
+    /// let png_bytes = program.to_preview_png().unwrap();
+    /// // png_bytes can be written to a file or displayed
+    /// ```
+    pub fn to_preview_png(&self) -> Result<Vec<u8>, crate::render::preview::PreviewError> {
+        crate::render::preview::render_preview(self)
+    }
+
     /// Create a program with an initial Init op.
     pub fn with_init() -> Self {
         Self {

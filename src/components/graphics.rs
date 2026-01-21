@@ -2,8 +2,9 @@
 //!
 //! Components for rendering images and patterns.
 
-use super::Component;
+use super::{Component, Spacer, Text};
 use crate::ir::{GraphicsMode, Op};
+use crate::protocol::text::Alignment;
 use crate::render::patterns;
 
 /// A raster image component.
@@ -91,12 +92,14 @@ impl Component for Image {
 ///
 /// let ripple = Pattern::new("ripple", 500);
 /// let waves = Pattern::new("waves", 300).band_mode();
+/// let titled = Pattern::new("sick", 400).with_title();
 /// ```
 pub struct Pattern {
     name: String,
     width: usize,
     height: usize,
     mode: GraphicsMode,
+    with_title: bool,
 }
 
 impl Pattern {
@@ -109,6 +112,7 @@ impl Pattern {
             width: 576,
             height,
             mode: GraphicsMode::Raster,
+            with_title: false,
         }
     }
 
@@ -129,6 +133,20 @@ impl Pattern {
         self.mode = GraphicsMode::Raster;
         self
     }
+
+    /// Add a title header above the pattern.
+    ///
+    /// The title includes horizontal rules and the pattern name
+    /// in bold, double-height, centered text.
+    pub fn with_title(mut self) -> Self {
+        self.with_title = true;
+        self
+    }
+
+    /// Get the pattern name.
+    pub fn name(&self) -> &str {
+        &self.name
+    }
 }
 
 impl Component for Pattern {
@@ -142,6 +160,32 @@ impl Component for Pattern {
                 return;
             }
         };
+
+        // Emit title header if requested
+        if self.with_title {
+            // Centered horizontal rule
+            Text::new("================================")
+                .center()
+                .emit(ops);
+
+            // Pattern name in bold, double height
+            Text::new(&self.name.to_uppercase())
+                .center()
+                .bold()
+                .double_height()
+                .emit(ops);
+
+            // Horizontal rule
+            Text::new("================================")
+                .center()
+                .emit(ops);
+
+            // Small spacing before pattern
+            Spacer::mm(2.0).emit(ops);
+
+            // Reset alignment for pattern (left)
+            ops.push(Op::SetAlign(Alignment::Left));
+        }
 
         // Render the pattern to raster data
         let data = pattern.render(self.width, self.height);

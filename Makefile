@@ -55,16 +55,7 @@ lint:
 .PHONY: golden
 golden:
 	@echo "Regenerating golden test files..."
-	@echo ""
-	@echo "=== PNG files ==="
-	nix develop --command cargo run -- print --png tests/golden/ripple_576x500.png --height 500 --width 576 ripple
-	nix develop --command cargo run -- print --png tests/golden/waves_576x500.png --height 500 --width 576 waves
-	nix develop --command cargo run -- print --png tests/golden/sick_576x1920.png --height 1920 --width 576 sick
-	nix develop --command cargo run -- print --png tests/golden/calibration_576x500.png --height 500 --width 576 calibration
-	nix develop --command cargo run -- print --png tests/golden/other_576x1200.png --height 1200 --width 576 other
-	@echo ""
-	@echo "=== Binary files ==="
-	nix develop --command cargo test write_golden_binaries -- --ignored --nocapture
+	nix develop --command cargo test generate_golden_files -- --ignored --nocapture
 	@echo ""
 	@echo "Golden files regenerated. Run 'make test' to verify."
 

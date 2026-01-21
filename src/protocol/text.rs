@@ -109,7 +109,7 @@ pub fn align_right() -> Vec<u8> {
 // ============================================================================
 
 /// Available fonts
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Hash)]
 pub enum Font {
     /// Font A: 12×24 dots, 48 columns on 72mm paper
     #[default]
