@@ -59,7 +59,7 @@ struct Cli {
 enum Commands {
     /// Print a pattern to the thermal printer
     Print {
-        /// Pattern or receipt to print (omit to see available options)
+        /// Pattern or receipt to print (use "all" to print everything, omit to see available options)
         pattern: Option<String>,
 
         /// List available patterns
@@ -211,10 +211,64 @@ fn run() -> Result<(), EstrellaError> {
                 for name in receipt::list_receipts() {
                     println!("  {}", name);
                 }
+                println!("\nSpecial:");
+                println!("  all  - Print all patterns and receipts");
                 return Ok(());
             }
 
             let name = pattern.as_deref().unwrap();
+
+            // Handle "all" - print all patterns and receipts
+            if name == "all" {
+                println!("Printing all patterns and receipts...\n");
+
+                // Print all receipts first
+                for receipt_name in receipt::list_receipts() {
+                    println!("Printing receipt: {}", receipt_name);
+                    let receipt_data = receipt::by_name(receipt_name).unwrap();
+                    print_raw_to_device(&device, &receipt_data)?;
+                }
+
+                // Then print all patterns
+                for pattern_name in patterns::list_patterns() {
+                    println!("Printing pattern: {}", pattern_name);
+
+                    let pattern_impl = patterns::by_name(pattern_name).unwrap();
+                    let (default_width, default_height) = pattern_impl.default_dimensions();
+                    let pattern_width = if width != 576 { width } else { default_width };
+                    let pattern_height = height.unwrap_or(default_height);
+
+                    // Parse dithering algorithm
+                    let dither_algo = match dither.to_lowercase().as_str() {
+                        "bayer" => dither::DitheringAlgorithm::Bayer,
+                        "floyd-steinberg" | "floyd_steinberg" | "fs" => {
+                            dither::DitheringAlgorithm::FloydSteinberg
+                        }
+                        _ => {
+                            return Err(EstrellaError::Pattern(format!(
+                                "Unknown dithering algorithm '{}'. Use 'bayer' or 'floyd-steinberg'",
+                                dither
+                            )));
+                        }
+                    };
+
+                    let mut pattern = PatternComponent::new(*pattern_name, pattern_height)
+                        .width(pattern_width)
+                        .dithering(dither_algo);
+                    if !no_title {
+                        pattern = pattern.with_title();
+                    }
+                    if band {
+                        pattern = pattern.band_mode();
+                    }
+
+                    let print_data = Receipt::new().child(pattern).cut().build();
+                    print_raw_to_device(&device, &print_data)?;
+                }
+
+                println!("\nAll patterns and receipts printed successfully!");
+                return Ok(());
+            }
 
             // Check if it's a receipt template
             if receipt::is_receipt(name) {
