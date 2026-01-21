@@ -246,7 +246,7 @@ mod tests {
         use crate::receipt;
 
         for name in ["receipt", "receipt-full", "markdown"] {
-            let unopt = receipt::program_by_name(name).unwrap();
+            let unopt = receipt::program_by_name_golden(name).unwrap();
             let opt = unopt.clone().optimize();
 
             println!("\n{}", "=".repeat(60));

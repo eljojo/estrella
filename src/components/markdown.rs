@@ -50,6 +50,14 @@ impl Markdown {
 
 impl Component for Markdown {
     fn emit(&self, ops: &mut Vec<Op>) {
+        // Skip empty content
+        if self.text.trim().is_empty() {
+            return;
+        }
+
+        // Ensure we start in a known state (left-aligned)
+        ops.push(Op::SetAlign(Alignment::Left));
+
         let parser = Parser::new(&self.text);
         let mut state = ParserState::new(self.show_urls);
 
