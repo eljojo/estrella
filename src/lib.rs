@@ -28,8 +28,13 @@
 //! let ripple = Ripple::default();
 //! let height = 500;
 //!
-//! // Render pattern to raster data
-//! let raster_data = ripple.render(config.width_dots as usize, height);
+//! // Render pattern to raster data with Bayer dithering
+//! use estrella::render::dither::DitheringAlgorithm;
+//! let raster_data = ripple.render(
+//!     config.width_dots as usize,
+//!     height,
+//!     DitheringAlgorithm::Bayer
+//! );
 //!
 //! // Build print sequence
 //! let mut data = Vec::new();

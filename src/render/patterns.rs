@@ -105,13 +105,14 @@ pub trait Pattern: Send + Sync {
     ///
     /// - `width`: Image width in pixels
     /// - `height`: Image height in pixels
+    /// - `algorithm`: Dithering algorithm to use (defaults to Bayer)
     ///
     /// ## Returns
     ///
     /// Packed byte array where each bit represents one pixel.
     /// Length = `ceil(width/8) * height` bytes.
-    fn render(&self, width: usize, height: usize) -> Vec<u8> {
-        dither::generate_raster(width, height, |x, y, w, h| self.intensity(x, y, w, h))
+    fn render(&self, width: usize, height: usize, algorithm: dither::DitheringAlgorithm) -> Vec<u8> {
+        dither::generate_raster(width, height, |x, y, w, h| self.intensity(x, y, w, h), algorithm)
     }
 }
 
@@ -159,10 +160,14 @@ pub trait Pattern: Send + Sync {
 ///
 /// ```
 /// use estrella::render::patterns::{Pattern, Ripple};
+/// use estrella::render::dither::DitheringAlgorithm;
 ///
-/// // Default settings
+/// // Default settings with Bayer dithering
 /// let ripple = Ripple::default();
-/// let data = ripple.render(576, 500);
+/// let data = ripple.render(576, 500, DitheringAlgorithm::Bayer);
+///
+/// // With Floyd-Steinberg dithering
+/// let data_fs = ripple.render(576, 500, DitheringAlgorithm::FloydSteinberg);
 ///
 /// // Custom settings
 /// let custom = Ripple {
@@ -866,7 +871,14 @@ mod tests {
     #[test]
     fn test_pattern_render_dimensions() {
         let ripple = Ripple::default();
-        let data = ripple.render(576, 100);
+        let data = ripple.render(576, 100, dither::DitheringAlgorithm::Bayer);
+        assert_eq!(data.len(), 72 * 100); // 576/8 = 72 bytes per row
+    }
+
+    #[test]
+    fn test_pattern_render_floyd_steinberg() {
+        let ripple = Ripple::default();
+        let data = ripple.render(576, 100, dither::DitheringAlgorithm::FloydSteinberg);
         assert_eq!(data.len(), 72 * 100); // 576/8 = 72 bytes per row
     }
 

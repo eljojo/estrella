@@ -33,15 +33,20 @@ impl RippleLogo {
         let h = height as usize;
         let params = art::ripple::Params::logo();
 
-        let data = dither::generate_raster(w, h, |x, y, width, height| {
-            // Add 2-pixel border
-            if art::in_border(x, y, width, height, 2.0) {
-                1.0
-            } else {
-                let shade = art::ripple::shade(x, y, width, height, &params);
-                art::gamma_correct(shade, 1.35)
-            }
-        });
+        let data = dither::generate_raster(
+            w,
+            h,
+            |x, y, width, height| {
+                // Add 2-pixel border
+                if art::in_border(x, y, width, height, 2.0) {
+                    1.0
+                } else {
+                    let shade = art::ripple::shade(x, y, width, height, &params);
+                    art::gamma_correct(shade, 1.35)
+                }
+            },
+            dither::DitheringAlgorithm::Bayer,
+        );
 
         LogoRaster { width, height, data }
     }

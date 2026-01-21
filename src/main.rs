@@ -94,6 +94,10 @@ enum Commands {
         /// Use this to test raster print quality vs normal text mode
         #[arg(long)]
         raster: bool,
+
+        /// Dithering algorithm (bayer or floyd-steinberg)
+        #[arg(long, default_value = "floyd-steinberg")]
+        dither: String,
     },
 
     /// Manage logos stored in printer's NV (non-volatile) memory
@@ -195,6 +199,7 @@ fn run() -> Result<(), EstrellaError> {
             no_title,
             band,
             raster,
+            dither,
         } => {
             // List patterns if --list flag or no pattern specified
             if list || pattern.is_none() {
@@ -254,8 +259,24 @@ fn run() -> Result<(), EstrellaError> {
 
             println!("Generating {} pattern ({}x{})...", name, width, height);
 
+            // Parse dithering algorithm
+            let dither_algo = match dither.to_lowercase().as_str() {
+                "bayer" => dither::DitheringAlgorithm::Bayer,
+                "floyd-steinberg" | "floyd_steinberg" | "fs" => {
+                    dither::DitheringAlgorithm::FloydSteinberg
+                }
+                _ => {
+                    return Err(EstrellaError::Pattern(format!(
+                        "Unknown dithering algorithm '{}'. Use 'bayer' or 'floyd-steinberg'",
+                        dither
+                    )));
+                }
+            };
+
             // Build pattern component
-            let mut pattern = PatternComponent::new(name, height).width(width);
+            let mut pattern = PatternComponent::new(name, height)
+                .width(width)
+                .dithering(dither_algo);
             if !no_title {
                 pattern = pattern.with_title();
             }

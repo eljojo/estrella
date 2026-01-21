@@ -1,8 +1,7 @@
-//! # Bayer 8x8 Ordered Dithering
+//! # Dithering Algorithms for Thermal Printing
 //!
-//! This module implements ordered dithering using a Bayer matrix to convert
-//! continuous-tone (grayscale) images to binary (black/white) output suitable
-//! for thermal printers.
+//! This module implements dithering algorithms to convert continuous-tone
+//! (grayscale) images to binary (black/white) output suitable for thermal printers.
 //!
 //! ## What is Dithering?
 //!
@@ -15,7 +14,7 @@
 //!               ░░░░░░   ░░▒░░░   ░▒░▒░▒   ▒▓▒▓▒▓   ██████
 //! ```
 //!
-//! ## Ordered Dithering
+//! ## Bayer 8x8 Ordered Dithering
 //!
 //! Ordered dithering uses a threshold matrix to decide which dots to print.
 //! For each pixel position (x, y), we:
@@ -24,7 +23,7 @@
 //! 2. Compare the pixel's intensity to the threshold
 //! 3. If intensity > threshold, print black; otherwise leave white
 //!
-//! ## The Bayer Matrix
+//! ### The Bayer Matrix
 //!
 //! The Bayer matrix is specifically designed to produce pleasing halftone
 //! patterns. Its values are arranged to minimize visible artifacts:
@@ -54,7 +53,7 @@
 //! Values range from 0-63. We normalize these to [0, 1) by computing:
 //! `threshold = (value + 0.5) / 64.0`
 //!
-//! ## Why Bayer Dithering?
+//! ### Why Bayer Dithering?
 //!
 //! - **Deterministic**: Same input always produces same output
 //! - **No error accumulation**: Unlike Floyd-Steinberg, errors don't propagate
@@ -62,28 +61,74 @@
 //! - **Good patterns**: Produces visually pleasing halftone screens
 //! - **Thermal-friendly**: Works well with thermal printer characteristics
 //!
-//! ## Comparison with Other Methods
+//! ## Floyd-Steinberg Error Diffusion
 //!
-//! | Method | Speed | Quality | Artifacts |
-//! |--------|-------|---------|-----------|
-//! | Bayer | Fast | Good | Regular pattern |
-//! | Floyd-Steinberg | Slow | Better | Noise, worms |
-//! | Random | Fast | Poor | Noisy |
-//! | Threshold | Fastest | Poor | Banding |
+//! Floyd-Steinberg dithering uses error diffusion to distribute quantization
+//! errors to neighboring pixels. This produces more organic, photograph-like results.
+//!
+//! ### Algorithm
+//!
+//! For each pixel (left-to-right, top-to-bottom):
+//! 1. Compare intensity to 0.5 threshold
+//! 2. Output black (1.0) or white (0.0)
+//! 3. Calculate error = actual_intensity - output_intensity
+//! 4. Distribute error to unprocessed neighbors:
+//!
+//! ```text
+//!        current    7/16
+//!   3/16   5/16    1/16
+//! ```
+//!
+//! ### Why Floyd-Steinberg?
+//!
+//! - **Better gradients**: Smoother transitions in continuous tones
+//! - **More detail**: Better at preserving fine details
+//! - **Organic look**: Less visible pattern structure
+//! - **Sequential**: Must process pixels in order (not parallelizable)
+//!
+//! ## Comparison
+//!
+//! | Method | Speed | Quality | Artifacts | Best For |
+//! |--------|-------|---------|-----------|----------|
+//! | Bayer | Fast | Good | Regular pattern | Text, graphics, patterns |
+//! | Floyd-Steinberg | Slower | Better | Occasional worms | Photos, continuous tones |
+//! | Random | Fast | Poor | Noisy | Testing only |
+//! | Threshold | Fastest | Poor | Banding | High contrast only |
 //!
 //! ## Usage Example
 //!
 //! ```
-//! use estrella::render::dither;
+//! use estrella::render::dither::{self, DitheringAlgorithm};
 //!
-//! // For a pixel at (10, 20) with 50% gray (0.5 intensity)
-//! let should_print = dither::should_print(10, 20, 0.5);
+//! // Generate with Bayer dithering (default)
+//! let bayer_data = dither::generate_raster(576, 100, |x, y, w, h| {
+//!     x as f32 / w as f32
+//! }, DitheringAlgorithm::Bayer);
 //!
-//! // Pack a row of boolean values into bytes
-//! let row: Vec<bool> = vec![true, true, false, false, true, false, true, false];
-//! let packed = dither::pack_row(&row);
-//! assert_eq!(packed, vec![0b11001010]); // 0xCA
+//! // Generate with Floyd-Steinberg dithering
+//! let fs_data = dither::generate_raster(576, 100, |x, y, w, h| {
+//!     x as f32 / w as f32
+//! }, DitheringAlgorithm::FloydSteinberg);
 //! ```
+
+/// Dithering algorithm selection.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DitheringAlgorithm {
+    /// Bayer 8x8 ordered dithering (fast, regular pattern)
+    Bayer,
+    /// Floyd-Steinberg error diffusion (slower, organic look)
+    FloydSteinberg,
+}
+
+impl Default for DitheringAlgorithm {
+    fn default() -> Self {
+        Self::FloydSteinberg
+    }
+}
+
+// ============================================================================
+// BAYER 8x8 ORDERED DITHERING
+// ============================================================================
 
 /// Bayer 8x8 dithering matrix
 ///
@@ -225,6 +270,7 @@ pub fn pack_row(pixels: &[bool]) -> Vec<u8> {
 /// - `width`: Image width in pixels
 /// - `height`: Image height in pixels
 /// - `intensity_fn`: Function that returns intensity (0.0-1.0) for each (x, y)
+/// - `algorithm`: Dithering algorithm to use
 ///
 /// ## Returns
 ///
@@ -234,16 +280,34 @@ pub fn pack_row(pixels: &[bool]) -> Vec<u8> {
 /// ## Example
 ///
 /// ```
-/// use estrella::render::dither::generate_raster;
+/// use estrella::render::dither::{generate_raster, DitheringAlgorithm};
 ///
-/// // Generate a gradient from white to black
+/// // Generate a gradient from white to black with Bayer dithering
 /// let data = generate_raster(64, 100, |x, _y, w, _h| {
 ///     x as f32 / w as f32
-/// });
+/// }, DitheringAlgorithm::Bayer);
 ///
 /// assert_eq!(data.len(), 8 * 100); // 64 pixels / 8 = 8 bytes per row
 /// ```
-pub fn generate_raster<F>(width: usize, height: usize, intensity_fn: F) -> Vec<u8>
+pub fn generate_raster<F>(
+    width: usize,
+    height: usize,
+    intensity_fn: F,
+    algorithm: DitheringAlgorithm,
+) -> Vec<u8>
+where
+    F: Fn(usize, usize, usize, usize) -> f32,
+{
+    match algorithm {
+        DitheringAlgorithm::Bayer => generate_raster_bayer(width, height, intensity_fn),
+        DitheringAlgorithm::FloydSteinberg => {
+            generate_raster_floyd_steinberg(width, height, intensity_fn)
+        }
+    }
+}
+
+/// Generate a dithered raster using Bayer ordered dithering.
+fn generate_raster_bayer<F>(width: usize, height: usize, intensity_fn: F) -> Vec<u8>
 where
     F: Fn(usize, usize, usize, usize) -> f32,
 {
@@ -257,6 +321,88 @@ where
             row_pixels.push(should_print(x, y, intensity));
         }
         data.extend(pack_row(&row_pixels));
+    }
+
+    data
+}
+
+// ============================================================================
+// FLOYD-STEINBERG ERROR DIFFUSION
+// ============================================================================
+
+/// Generate a dithered raster using Floyd-Steinberg error diffusion.
+///
+/// This algorithm distributes quantization errors to neighboring pixels,
+/// producing more organic-looking results than ordered dithering.
+///
+/// ## Error Distribution
+///
+/// ```text
+///        X      7/16
+///   3/16 5/16   1/16
+/// ```
+///
+/// Where X is the current pixel being processed.
+fn generate_raster_floyd_steinberg<F>(width: usize, height: usize, intensity_fn: F) -> Vec<u8>
+where
+    F: Fn(usize, usize, usize, usize) -> f32,
+{
+    let width_bytes = width.div_ceil(8);
+    let mut data = Vec::with_capacity(width_bytes * height);
+
+    // Buffer to accumulate errors - current row and next row
+    // We use f32 to track fractional intensity values with accumulated error
+    let mut curr_row = Vec::with_capacity(width);
+    let mut next_row = vec![0.0f32; width];
+
+    for y in 0..height {
+        // Initialize current row with base intensity values
+        curr_row.clear();
+        for x in 0..width {
+            let intensity = intensity_fn(x, y, width, height);
+            curr_row.push(intensity);
+        }
+
+        // Process current row left-to-right
+        let mut row_pixels = Vec::with_capacity(width);
+        for x in 0..width {
+            // Get intensity with accumulated error from previous pixels
+            let intensity = curr_row[x].clamp(0.0, 1.0);
+
+            // Threshold at 0.5
+            let output = if intensity >= 0.5 { 1.0 } else { 0.0 };
+            row_pixels.push(output > 0.5);
+
+            // Calculate quantization error
+            let error = intensity - output;
+
+            // Distribute error to neighbors (if they exist)
+            // Right: 7/16
+            if x + 1 < width {
+                curr_row[x + 1] += error * (7.0 / 16.0);
+            }
+
+            // Bottom-left: 3/16
+            if x > 0 {
+                next_row[x - 1] += error * (3.0 / 16.0);
+            }
+
+            // Bottom: 5/16
+            next_row[x] += error * (5.0 / 16.0);
+
+            // Bottom-right: 1/16
+            if x + 1 < width {
+                next_row[x + 1] += error * (1.0 / 16.0);
+            }
+        }
+
+        // Pack the row into bytes and add to data
+        data.extend(pack_row(&row_pixels));
+
+        // Swap buffers: next_row becomes curr_row for next iteration
+        std::mem::swap(&mut curr_row, &mut next_row);
+        // Clear next_row for the following iteration
+        next_row.fill(0.0);
     }
 
     data
@@ -396,21 +542,64 @@ mod tests {
 
     #[test]
     fn test_generate_raster_dimensions() {
-        let data = generate_raster(576, 100, |_, _, _, _| 0.5);
+        let data = generate_raster(576, 100, |_, _, _, _| 0.5, DitheringAlgorithm::Bayer);
         assert_eq!(data.len(), 72 * 100); // 576/8 = 72 bytes per row
     }
 
     #[test]
     fn test_generate_raster_all_black() {
-        let data = generate_raster(16, 2, |_, _, _, _| 1.0);
+        let data = generate_raster(16, 2, |_, _, _, _| 1.0, DitheringAlgorithm::Bayer);
         assert_eq!(data.len(), 4); // 16/8 = 2 bytes per row, 2 rows
         assert!(data.iter().all(|&b| b == 0xFF));
     }
 
     #[test]
     fn test_generate_raster_all_white() {
-        let data = generate_raster(16, 2, |_, _, _, _| 0.0);
+        let data = generate_raster(16, 2, |_, _, _, _| 0.0, DitheringAlgorithm::Bayer);
         assert_eq!(data.len(), 4);
         assert!(data.iter().all(|&b| b == 0x00));
+    }
+
+    #[test]
+    fn test_floyd_steinberg_dimensions() {
+        let data = generate_raster(
+            576,
+            100,
+            |_, _, _, _| 0.5,
+            DitheringAlgorithm::FloydSteinberg,
+        );
+        assert_eq!(data.len(), 72 * 100); // 576/8 = 72 bytes per row
+    }
+
+    #[test]
+    fn test_floyd_steinberg_all_black() {
+        let data = generate_raster(16, 2, |_, _, _, _| 1.0, DitheringAlgorithm::FloydSteinberg);
+        assert_eq!(data.len(), 4); // 16/8 = 2 bytes per row, 2 rows
+        assert!(data.iter().all(|&b| b == 0xFF));
+    }
+
+    #[test]
+    fn test_floyd_steinberg_all_white() {
+        let data = generate_raster(16, 2, |_, _, _, _| 0.0, DitheringAlgorithm::FloydSteinberg);
+        assert_eq!(data.len(), 4);
+        assert!(data.iter().all(|&b| b == 0x00));
+    }
+
+    #[test]
+    fn test_floyd_steinberg_gradient() {
+        // Test that Floyd-Steinberg produces reasonable output for a gradient
+        let data = generate_raster(
+            64,
+            1,
+            |x, _, w, _| x as f32 / w as f32,
+            DitheringAlgorithm::FloydSteinberg,
+        );
+        assert_eq!(data.len(), 8); // 64 pixels / 8 = 8 bytes
+
+        // Left side should be mostly white (low intensity)
+        assert!(data[0] < 0x80); // First byte should have few bits set
+
+        // Right side should be mostly black (high intensity)
+        assert!(data[7] > 0x7F); // Last byte should have many bits set
     }
 }

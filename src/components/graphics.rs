@@ -5,7 +5,7 @@
 use super::{Component, Spacer, Text};
 use crate::ir::{GraphicsMode, Op};
 use crate::protocol::text::Alignment;
-use crate::render::patterns;
+use crate::render::{dither, patterns};
 
 /// A raster image component.
 ///
@@ -89,10 +89,12 @@ impl Component for Image {
 ///
 /// ```
 /// use estrella::components::Pattern;
+/// use estrella::render::dither::DitheringAlgorithm;
 ///
 /// let ripple = Pattern::new("ripple", 500);
 /// let waves = Pattern::new("waves", 300).band_mode();
 /// let titled = Pattern::new("sick", 400).with_title();
+/// let floyd = Pattern::new("ripple", 500).dithering(DitheringAlgorithm::FloydSteinberg);
 /// ```
 pub struct Pattern {
     name: String,
@@ -100,12 +102,13 @@ pub struct Pattern {
     height: usize,
     mode: GraphicsMode,
     with_title: bool,
+    dithering: dither::DitheringAlgorithm,
 }
 
 impl Pattern {
     /// Create a pattern with a name and height.
     ///
-    /// Uses the default printer width (576 dots).
+    /// Uses the default printer width (576 dots) and Floyd-Steinberg dithering.
     pub fn new(name: impl Into<String>, height: usize) -> Self {
         Self {
             name: name.into(),
@@ -113,6 +116,7 @@ impl Pattern {
             height,
             mode: GraphicsMode::Raster,
             with_title: false,
+            dithering: dither::DitheringAlgorithm::FloydSteinberg,
         }
     }
 
@@ -131,6 +135,34 @@ impl Pattern {
     /// Use raster mode (ESC GS S) - the default.
     pub fn raster_mode(mut self) -> Self {
         self.mode = GraphicsMode::Raster;
+        self
+    }
+
+    /// Set the dithering algorithm.
+    ///
+    /// ## Example
+    ///
+    /// ```ignore
+    /// use estrella::components::Pattern;
+    /// use estrella::render::dither::DitheringAlgorithm;
+    ///
+    /// let pattern = Pattern::new("ripple", 500)
+    ///     .dithering(DitheringAlgorithm::FloydSteinberg);
+    /// ```
+    pub fn dithering(mut self, algorithm: dither::DitheringAlgorithm) -> Self {
+        self.dithering = algorithm;
+        self
+    }
+
+    /// Use Bayer dithering (default).
+    pub fn bayer_dithering(mut self) -> Self {
+        self.dithering = dither::DitheringAlgorithm::Bayer;
+        self
+    }
+
+    /// Use Floyd-Steinberg dithering.
+    pub fn floyd_steinberg_dithering(mut self) -> Self {
+        self.dithering = dither::DitheringAlgorithm::FloydSteinberg;
         self
     }
 
@@ -187,8 +219,8 @@ impl Component for Pattern {
             ops.push(Op::SetAlign(Alignment::Left));
         }
 
-        // Render the pattern to raster data
-        let data = pattern.render(self.width, self.height);
+        // Render the pattern to raster data with the selected dithering algorithm
+        let data = pattern.render(self.width, self.height, self.dithering);
 
         match self.mode {
             GraphicsMode::Raster => {
