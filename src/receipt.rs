@@ -5,6 +5,13 @@
 //! These generate command sequences that can be sent directly to the printer.
 //! Receipts are built using the declarative component system and optimized
 //! for minimal byte output.
+//!
+//! ## Date Handling
+//!
+//! - `demo_receipt()`, `full_receipt()`, etc. use the **current date** for live printing
+//! - `demo_receipt_golden()`, etc. use a **fixed date** for reproducible golden tests
+
+use chrono::Local;
 
 use crate::components::{
     Barcode, Columns, ComponentExt, Divider, LineItem, Markdown, NvLogo, Pdf417, QrCode, Raw,
@@ -13,11 +20,25 @@ use crate::components::{
 use crate::ir::Op;
 use crate::protocol::text::Font;
 
+/// Fixed date used for golden tests (ensures reproducible output)
+pub const GOLDEN_TEST_DATE: &str = "2026-01-20";
+pub const GOLDEN_TEST_DATETIME: &str = "2026-01-20 12:00:00";
+
+/// Get the current date as a string (YYYY-MM-DD format)
+pub fn current_date() -> String {
+    Local::now().format("%Y-%m-%d").to_string()
+}
+
+/// Get the current datetime as a string (YYYY-MM-DD HH:MM:SS format)
+pub fn current_datetime() -> String {
+    Local::now().format("%Y-%m-%d %H:%M:%S").to_string()
+}
+
 // ============================================================================
 // RECEIPT TEMPLATES
 // ============================================================================
 
-/// Generate a simple demo receipt.
+/// Generate a simple demo receipt with the current date/time.
 ///
 /// Features demonstrated:
 /// - Text alignment (left, center, right)
@@ -28,6 +49,16 @@ use crate::protocol::text::Font;
 /// - Upside-down text
 /// - Font selection
 pub fn demo_receipt() -> Vec<u8> {
+    demo_receipt_with_datetime(&current_datetime())
+}
+
+/// Generate a simple demo receipt with a fixed date (for golden tests).
+pub fn demo_receipt_golden() -> Vec<u8> {
+    demo_receipt_with_datetime(GOLDEN_TEST_DATETIME)
+}
+
+/// Generate a simple demo receipt with a specific datetime string.
+fn demo_receipt_with_datetime(datetime: &str) -> Vec<u8> {
     Receipt::new()
         // Header
         .child(
@@ -41,7 +72,7 @@ pub fn demo_receipt() -> Vec<u8> {
                 .center()
                 .underline(),
         )
-        .child(Text::new("2026-01-20 12:00:00").center())
+        .child(Text::new(datetime).center())
         .child(Spacer::mm(3.0))
         // Inverted banner
         .child(
@@ -98,7 +129,7 @@ pub fn demo_receipt() -> Vec<u8> {
         .build()
 }
 
-/// Generate a full demo receipt with barcodes.
+/// Generate a full demo receipt with barcodes, using the current date/time.
 ///
 /// Features demonstrated:
 /// - Everything from demo_receipt()
@@ -108,6 +139,16 @@ pub fn demo_receipt() -> Vec<u8> {
 /// - QR code
 /// - PDF417 barcode
 pub fn full_receipt() -> Vec<u8> {
+    full_receipt_with_datetime(&current_datetime())
+}
+
+/// Generate a full demo receipt with a fixed date (for golden tests).
+pub fn full_receipt_golden() -> Vec<u8> {
+    full_receipt_with_datetime(GOLDEN_TEST_DATETIME)
+}
+
+/// Generate a full demo receipt with a specific datetime string.
+fn full_receipt_with_datetime(datetime: &str) -> Vec<u8> {
     Receipt::new()
         // Set codepage
         .child(Raw::op(Op::SetCodepage(1)))
@@ -127,7 +168,7 @@ pub fn full_receipt() -> Vec<u8> {
                 .center()
                 .underline(),
         )
-        .child(Text::new("2026-01-20 12:00:00").center())
+        .child(Text::new(datetime).center())
         .child(Spacer::mm(2.5))
         // Inverted banner
         .child(
@@ -218,7 +259,12 @@ pub fn full_receipt() -> Vec<u8> {
 /// - Horizontal rules
 /// - Paragraphs and spacing
 pub fn markdown_demo() -> Vec<u8> {
-    markdown_demo_component().build()
+    markdown_demo_with_date(&current_date()).build()
+}
+
+/// Generate a markdown demo receipt with a fixed date (for golden tests).
+pub fn markdown_demo_golden() -> Vec<u8> {
+    markdown_demo_with_date(GOLDEN_TEST_DATE).build()
 }
 
 // ============================================================================
@@ -240,20 +286,36 @@ pub fn by_name(name: &str) -> Option<Vec<u8>> {
     }
 }
 
-/// Get receipt IR Program by name (for preview rendering).
+/// Get receipt IR Program by name (uses current date for live preview).
 pub fn program_by_name(name: &str) -> Option<crate::ir::Program> {
     use crate::components::ComponentExt;
 
     match name.to_lowercase().as_str() {
-        "receipt" => Some(demo_receipt_component().compile()),
-        "receipt-full" | "receipt_full" => Some(full_receipt_component().compile()),
-        "markdown" => Some(markdown_demo_component().compile()),
+        "receipt" => Some(demo_receipt_component_with_datetime(&current_datetime()).compile()),
+        "receipt-full" | "receipt_full" => {
+            Some(full_receipt_component_with_datetime(&current_datetime()).compile())
+        }
+        "markdown" => Some(markdown_demo_with_date(&current_date()).compile()),
         _ => None,
     }
 }
 
-/// Get the demo receipt component (for preview rendering).
-fn demo_receipt_component() -> Receipt {
+/// Get receipt IR Program by name with fixed date (for golden tests).
+pub fn program_by_name_golden(name: &str) -> Option<crate::ir::Program> {
+    use crate::components::ComponentExt;
+
+    match name.to_lowercase().as_str() {
+        "receipt" => Some(demo_receipt_component_with_datetime(GOLDEN_TEST_DATETIME).compile()),
+        "receipt-full" | "receipt_full" => {
+            Some(full_receipt_component_with_datetime(GOLDEN_TEST_DATETIME).compile())
+        }
+        "markdown" => Some(markdown_demo_with_date(GOLDEN_TEST_DATE).compile()),
+        _ => None,
+    }
+}
+
+/// Get the demo receipt component with a specific datetime.
+fn demo_receipt_component_with_datetime(datetime: &str) -> Receipt {
     Receipt::new()
         // Header
         .child(
@@ -267,7 +329,7 @@ fn demo_receipt_component() -> Receipt {
                 .center()
                 .underline(),
         )
-        .child(Text::new("2026-01-20 12:00:00").center())
+        .child(Text::new(datetime).center())
         .child(Spacer::mm(3.0))
         // Inverted banner
         .child(
@@ -323,8 +385,8 @@ fn demo_receipt_component() -> Receipt {
         .cut()
 }
 
-/// Get the full receipt component (for preview rendering).
-fn full_receipt_component() -> Receipt {
+/// Get the full receipt component with a specific datetime.
+fn full_receipt_component_with_datetime(datetime: &str) -> Receipt {
     Receipt::new()
         // Set codepage
         .child(Raw::op(Op::SetCodepage(1)))
@@ -344,7 +406,7 @@ fn full_receipt_component() -> Receipt {
                 .center()
                 .underline(),
         )
-        .child(Text::new("2026-01-20 12:00:00").center())
+        .child(Text::new(datetime).center())
         .child(Spacer::mm(2.5))
         // Inverted banner
         .child(
@@ -423,13 +485,12 @@ fn full_receipt_component() -> Receipt {
         .cut()
 }
 
-/// Get the markdown demo component (for preview rendering).
-fn markdown_demo_component() -> Receipt {
-    Receipt::new()
-        .child(Markdown::new(
-            r#"## Coffee Shop
+/// Get the markdown demo component with a specific date.
+fn markdown_demo_with_date(date: &str) -> Receipt {
+    let content = format!(
+        r#"## Coffee Shop
 
-Date: 2026-01-20 | Order: 1234
+Date: {} | Order: 1234
 
 ---
 
@@ -451,8 +512,9 @@ Thank *you* for your purchase!
 
 Visit us at `coffeeshop.example`
 "#,
-        ))
-        .cut()
+        date
+    );
+    Receipt::new().child(Markdown::new(&content)).cut()
 }
 
 /// Check if a name is a receipt template

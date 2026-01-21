@@ -27,8 +27,10 @@ use serde::Deserialize;
 use std::sync::Arc;
 
 use crate::{
-    components::{ComponentExt, Markdown, Receipt, Spacer, Text},
+    components::{ComponentExt, Divider, Markdown, Receipt, Spacer, Text},
     error::EstrellaError,
+    protocol::text::Font,
+    receipt::current_datetime,
     transport::BluetoothTransport,
 };
 
@@ -143,6 +145,17 @@ fn build_receipt(form: &PrintForm) -> Result<Vec<u8>, EstrellaError> {
 
     // Parse body as Markdown
     receipt = receipt.child(Markdown::new(&form.body));
+
+    // Add date footer
+    receipt = receipt
+        .child(Spacer::mm(3.0))
+        .child(Divider::dashed())
+        .child(
+            Text::new(&format!("Printed: {}", current_datetime()))
+                .center()
+                .font(Font::B),
+        )
+        .child(Spacer::mm(6.0));
 
     // Add cut command
     receipt = receipt.cut();

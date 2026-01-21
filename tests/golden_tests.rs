@@ -125,17 +125,19 @@ fn generate_golden_files() {
     }
 
     // Receipts
-    write_golden("demo_receipt", "bin", &receipt::demo_receipt());
-    write_golden("full_receipt", "bin", &receipt::full_receipt());
-    write_golden("markdown_demo", "bin", &receipt::markdown_demo());
+    // Use _golden variants with fixed dates for reproducible tests
+    write_golden("demo_receipt", "bin", &receipt::demo_receipt_golden());
+    write_golden("full_receipt", "bin", &receipt::full_receipt_golden());
+    write_golden("markdown_demo", "bin", &receipt::markdown_demo_golden());
 
-    let demo_program = receipt::program_by_name("receipt").unwrap();
+    // Use program_by_name_golden for preview PNGs with fixed dates
+    let demo_program = receipt::program_by_name_golden("receipt").unwrap();
     write_golden("demo_receipt", "png", &generate_preview_png(&demo_program));
 
-    let full_program = receipt::program_by_name("receipt-full").unwrap();
+    let full_program = receipt::program_by_name_golden("receipt-full").unwrap();
     write_golden("full_receipt", "png", &generate_preview_png(&full_program));
 
-    let markdown_program = receipt::program_by_name("markdown").unwrap();
+    let markdown_program = receipt::program_by_name_golden("markdown").unwrap();
     write_golden("markdown_demo", "png", &generate_preview_png(&markdown_program));
 
     println!("\nAll golden files written to {}/", GOLDEN_DIR);
@@ -299,19 +301,20 @@ fn test_preview_other() {
 
 #[test]
 fn test_binary_demo_receipt() {
-    let cmd = receipt::demo_receipt();
+    // Use _golden variant with fixed date for reproducible tests
+    let cmd = receipt::demo_receipt_golden();
     check_golden("demo_receipt", "bin", &cmd);
 }
 
 #[test]
 fn test_binary_full_receipt() {
-    let cmd = receipt::full_receipt();
+    let cmd = receipt::full_receipt_golden();
     check_golden("full_receipt", "bin", &cmd);
 }
 
 #[test]
 fn test_binary_markdown_demo() {
-    let cmd = receipt::markdown_demo();
+    let cmd = receipt::markdown_demo_golden();
     check_golden("markdown_demo", "bin", &cmd);
 }
 
@@ -321,21 +324,22 @@ fn test_binary_markdown_demo() {
 
 #[test]
 fn test_preview_demo_receipt() {
-    let program = receipt::program_by_name("receipt").unwrap();
+    // Use _golden variant with fixed date for reproducible tests
+    let program = receipt::program_by_name_golden("receipt").unwrap();
     let png = generate_preview_png(&program);
     check_golden("demo_receipt", "png", &png);
 }
 
 #[test]
 fn test_preview_full_receipt() {
-    let program = receipt::program_by_name("receipt-full").unwrap();
+    let program = receipt::program_by_name_golden("receipt-full").unwrap();
     let png = generate_preview_png(&program);
     check_golden("full_receipt", "png", &png);
 }
 
 #[test]
 fn test_preview_markdown_demo() {
-    let program = receipt::program_by_name("markdown").unwrap();
+    let program = receipt::program_by_name_golden("markdown").unwrap();
     let png = generate_preview_png(&program);
     check_golden("markdown_demo", "png", &png);
 }

@@ -6,6 +6,7 @@ description = "Thermal receipt printer library for Star Micronics printers via B
 license = "MIT"
 
 [dependencies]
+chrono = "0.4"
 clap = { version = "4", features = ["derive"] }
 thiserror = "1"
 image = "0.25"
