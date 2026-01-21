@@ -12,6 +12,20 @@
 //! 4. **Remove empty text**: Filter out Text("") ops
 //! 5. **Merge adjacent text**: Combine consecutive Text ops
 //! 6. **Remove trailing dead styles**: Remove unused style changes before Cut
+//!
+//! ## Important: Newline-Style Ordering
+//!
+//! The thermal printer buffers text and applies styles when Newline is sent.
+//! This means style changes BEFORE Newline affect the current line, while
+//! changes AFTER Newline prepare for the next line.
+//!
+//! Components must emit: `Text -> Newline -> StyleResets`
+//! NOT: `Text -> StyleResets -> Newline`
+//!
+//! The optimizer preserves this ordering because it never reorders operations,
+//! only removes redundant ones. The `collapse_style_toggles` pass only collapses
+//! ADJACENT pairs, so style resets separated by other ops (Feed, Align, etc.)
+//! are preserved.
 
 use super::ops::{Op, Program, StyleState};
 

@@ -205,7 +205,9 @@ impl ParserState {
 
                 match self.heading_level {
                     Some(HeadingLevel::H1) => {
-                        // Reset size to normal (0 = 1x, the default)
+                        // Newline FIRST (printer buffers line, applies styles at newline)
+                        ops.push(Op::Newline);
+                        // Then reset styles
                         ops.push(Op::SetSize {
                             height: 0,
                             width: 0,
@@ -213,11 +215,12 @@ impl ParserState {
                         ops.push(Op::SetBold(false));
                         ops.push(Op::SetSmoothing(false));
                         ops.push(Op::SetAlign(Alignment::Left));
-                        ops.push(Op::Newline);
                         ops.push(Op::Feed { units: 12 }); // 3mm spacing
                     }
                     Some(HeadingLevel::H2) => {
-                        // Reset size to normal (0 = 1x, the default)
+                        // Newline FIRST (printer buffers line, applies styles at newline)
+                        ops.push(Op::Newline);
+                        // Then reset styles
                         ops.push(Op::SetSize {
                             height: 0,
                             width: 0,
@@ -225,17 +228,16 @@ impl ParserState {
                         ops.push(Op::SetBold(false));
                         ops.push(Op::SetSmoothing(false));
                         ops.push(Op::SetAlign(Alignment::Left));
-                        ops.push(Op::Newline);
                         ops.push(Op::Feed { units: 6 }); // 1.5mm spacing
                     }
                     Some(HeadingLevel::H3) => {
-                        ops.push(Op::SetBold(false));
                         ops.push(Op::Newline);
+                        ops.push(Op::SetBold(false));
                         ops.push(Op::Feed { units: 4 }); // 1mm spacing
                     }
                     _ => {
-                        ops.push(Op::SetBold(false));
                         ops.push(Op::Newline);
+                        ops.push(Op::SetBold(false));
                     }
                 }
 
