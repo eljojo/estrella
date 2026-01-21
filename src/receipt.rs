@@ -488,11 +488,55 @@ fn full_receipt_component_with_datetime(datetime: &str) -> Receipt {
 /// Get the markdown demo component with a specific date.
 fn markdown_demo_with_date(date: &str) -> Receipt {
     let content = format!(
-        r#"## Coffee Shop
+        r#"# Markdown *Kitchen* Sink
 
-Date: {} | Order: 1234
+## All **Heading** Levels
+
+### H3 with `inline code`
+
+#### H4 *italic* heading
+
+##### H5 heading
+
+###### H6 tiny heading
 
 ---
+
+## Text Formatting
+
+This is **bold text** and this is *italic text*.
+
+You can combine **bold and *italic* together**.
+
+Here's some `inline code` in a sentence.
+
+Visit [our website](https://example.com) for more.
+
+---
+
+## Lists
+
+### Unordered
+
+- First item
+- Second with **bold**
+- Third with *emphasis*
+  - Nested item
+  - Another nested
+
+### Ordered
+
+1. Step one
+2. Step **two**
+3. Step three
+   1. Sub-step A
+   2. Sub-step B
+
+---
+
+## Receipt Example
+
+Date: {} | Order: #1234
 
 ### Items
 
@@ -500,17 +544,14 @@ Date: {} | Order: 1234
 - Croissant ($4.00)
 - Oat milk (+$0.50)
 
-### Payment
+**Subtotal**: $8.00
+**Tax (13%)**: $1.04
 
-1. Subtotal: $8.00
-2. Tax (13%): $1.04
-3. **Total: $9.04**
+### Total: $9.04
 
 ---
 
 Thank *you* for your purchase!
-
-Visit us at `coffeeshop.example`
 "#,
         date
     );

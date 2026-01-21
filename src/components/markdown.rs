@@ -139,9 +139,27 @@ impl ParserState {
                         ops.push(Op::SetSmoothing(true));
                     }
                     HeadingLevel::H3 => {
+                        // 2x2 size, bold
+                        ops.push(Op::SetBold(true));
+                        ops.push(Op::SetSize {
+                            height: 1,
+                            width: 1,
+                        });
+                        ops.push(Op::SetSmoothing(true));
+                    }
+                    HeadingLevel::H4 => {
+                        // Double height only (1x2), bold
+                        ops.push(Op::SetBold(true));
+                        ops.push(Op::SetExpandedHeight(1));
+                        ops.push(Op::SetSmoothing(true));
+                    }
+                    HeadingLevel::H5 => {
+                        // Normal size, bold
                         ops.push(Op::SetBold(true));
                     }
-                    _ => {
+                    HeadingLevel::H6 => {
+                        // Font B (smaller), bold
+                        ops.push(Op::SetFont(Font::B));
                         ops.push(Op::SetBold(true));
                     }
                 }
@@ -232,12 +250,33 @@ impl ParserState {
                     }
                     Some(HeadingLevel::H3) => {
                         ops.push(Op::Newline);
+                        ops.push(Op::SetSize {
+                            height: 0,
+                            width: 0,
+                        });
                         ops.push(Op::SetBold(false));
+                        ops.push(Op::SetSmoothing(false));
                         ops.push(Op::Feed { units: 4 }); // 1mm spacing
                     }
-                    _ => {
+                    Some(HeadingLevel::H4) => {
+                        ops.push(Op::Newline);
+                        ops.push(Op::SetExpandedHeight(0));
+                        ops.push(Op::SetBold(false));
+                        ops.push(Op::SetSmoothing(false));
+                        ops.push(Op::Feed { units: 4 }); // 1mm spacing
+                    }
+                    Some(HeadingLevel::H5) => {
                         ops.push(Op::Newline);
                         ops.push(Op::SetBold(false));
+                        ops.push(Op::Feed { units: 2 }); // 0.5mm spacing
+                    }
+                    Some(HeadingLevel::H6) => {
+                        ops.push(Op::Newline);
+                        ops.push(Op::SetBold(false));
+                        ops.push(Op::SetFont(Font::A)); // Reset to default font
+                    }
+                    None => {
+                        ops.push(Op::Newline);
                     }
                 }
 
@@ -361,8 +400,32 @@ mod tests {
         assert!(ops.contains(&Op::SetBold(true)));
         assert!(ops.contains(&Op::Text("Section".into())));
         assert!(ops.contains(&Op::SetBold(false)));
-        // H3 should not center or resize
+        // H3 should have 2x2 size but not center
+        assert!(ops.contains(&Op::SetSize {
+            height: 1,
+            width: 1
+        }));
         assert!(!ops.contains(&Op::SetAlign(Alignment::Center)));
+    }
+
+    #[test]
+    fn test_heading_h4() {
+        let ops = compile_markdown("#### Subsection");
+
+        assert!(ops.contains(&Op::SetBold(true)));
+        assert!(ops.contains(&Op::Text("Subsection".into())));
+        // H4 should have double height only
+        assert!(ops.contains(&Op::SetExpandedHeight(1)));
+    }
+
+    #[test]
+    fn test_heading_h6() {
+        let ops = compile_markdown("###### Small");
+
+        assert!(ops.contains(&Op::SetBold(true)));
+        assert!(ops.contains(&Op::Text("Small".into())));
+        // H6 should use Font B
+        assert!(ops.contains(&Op::SetFont(Font::B)));
     }
 
     #[test]
