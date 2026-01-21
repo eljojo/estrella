@@ -21,8 +21,10 @@
 //! }
 //! ```
 
+pub mod ripple;
 pub mod star;
 
+pub use ripple::RippleLogo;
 pub use star::Star;
 
 /// Raster data for a logo.
@@ -63,7 +65,10 @@ impl Logo {
 }
 
 /// All registered logos.
-static LOGOS: &[Logo] = &[Logo::new("A1", "star", Star::raster)];
+static LOGOS: &[Logo] = &[
+    Logo::new("A0", "ripple", RippleLogo::raster),
+    Logo::new("A1", "star", Star::raster),
+];
 
 /// Get all registered logos.
 pub fn all() -> &'static [Logo] {

@@ -44,6 +44,7 @@
 //! Default gamma values are tuned for Star TSP650II printers.
 
 use super::dither;
+use crate::art;
 
 /// Clamp a value to the range [0.0, 1.0]
 #[inline]
@@ -203,33 +204,21 @@ impl Default for Ripple {
 
 impl Pattern for Ripple {
     fn shade(&self, x: usize, y: usize, width: usize, height: usize) -> f32 {
-        let cx = width as f32 / 2.0;
-        let cy = height as f32 / 2.0;
-        let xf = x as f32;
-        let yf = y as f32;
-
-        // Distance from center
-        let dx = xf - cx;
-        let dy = yf - cy;
-        let r = (dx * dx + dy * dy).sqrt();
-
-        // Ripple: concentric circles with vertical drift
-        let ripple = 0.5 + 0.5 * (r / self.scale - yf / self.drift).cos();
-
-        // Wobble: interference pattern
-        let wobble = 0.5 + 0.5 * (xf / 37.0 + 0.7 * (yf / 53.0).cos()).sin();
-
-        // Blend ripple and wobble
-        let v = ripple * (1.0 - self.wobble_mix) + wobble * self.wobble_mix;
+        let params = art::ripple::Params {
+            center_x: 0.5,
+            center_y: 0.5,
+            scale: self.scale,
+            drift: self.drift,
+            wobble_mix: self.wobble_mix,
+        };
+        let v = art::ripple::shade(x, y, width, height, &params);
 
         // Add border (frame effect)
-        let border_width = 6.0;
-        let on_border = xf < border_width
-            || xf >= (width as f32 - border_width)
-            || yf < border_width
-            || yf >= (height as f32 - border_width);
-
-        if on_border { 1.0 } else { clamp01(v) }
+        if art::in_border(x, y, width, height, 6.0) {
+            1.0
+        } else {
+            v
+        }
     }
 
     fn gamma(&self) -> f32 {
@@ -277,26 +266,7 @@ impl Default for Waves {
 
 impl Pattern for Waves {
     fn shade(&self, x: usize, y: usize, width: usize, height: usize) -> f32 {
-        let xf = x as f32;
-        let yf = y as f32;
-        let wf = width as f32;
-        let hf = height as f32;
-
-        // Normalized coordinates [-1, 1]
-        let nx = 2.0 * xf / wf - 1.0;
-        let ny = 2.0 * yf / hf - 1.0;
-        let r = (nx * nx + ny * ny).sqrt();
-
-        // Three oscillators
-        let horiz = (xf / 19.0 + 0.7 * (yf / 37.0).sin()).sin();
-        let vert = (yf / 23.0 + 0.9 * (xf / 41.0).cos()).cos();
-        let radial = (r * 24.0 - yf / 29.0).cos();
-
-        // Weighted blend
-        let v = 0.45 * horiz + 0.35 * vert + 0.20 * radial;
-
-        // Normalize from [-1, 1] to [0, 1]
-        clamp01(0.5 + 0.5 * v)
+        art::waves::shade(x, y, width, height, &art::waves::Params::default())
     }
 
     fn gamma(&self) -> f32 {
@@ -383,94 +353,22 @@ impl Pattern for Sick {
     }
 
     fn shade(&self, x: usize, y: usize, width: usize, height: usize) -> f32 {
-        let xf = x as f32;
-        let yf = y as f32;
-        let wf = width as f32;
-        let hf = height as f32;
-
-        // Normalized coordinates in [-1, 1]
-        let nx = (xf - wf * 0.5) / (wf * 0.5);
-        let ny = (yf - hf * 0.5) / (hf * 0.5);
-
         // Determine which section we're in (cycles through 4 sections)
         let section = (y / self.section_height) % 4;
-        let yy = y % self.section_height; // Local y within section
 
         let v = match section {
-            0 => {
-                // Section 0: Plasma / Moire
-                // Multiple overlapping sine waves create interference patterns
-                let plasma = (xf / 11.0).sin()
-                    + ((xf + yf) / 19.0).sin()
-                    + (yf / 13.0).cos()
-                    + ((xf - wf * 0.35).hypot(yf - hf * 0.2) / 9.0).sin();
-
-                // Normalize from roughly [-4, 4] to [0, 1]
-                let normalized = (plasma + 4.0) / 8.0;
-
-                // Apply gamma for contrast
-                normalized.powf(1.2)
-            }
-            1 => {
-                // Section 1: Concentric rings + diagonal interference
-                let r = (nx * nx + ny * ny).sqrt();
-
-                // Rings emanating from center
-                let rings = 0.5 + 0.5 * (r * 30.0 - yf / 25.0).cos();
-
-                // Diagonal wave pattern
-                let diag = 0.5 + 0.5 * ((xf - 2.0 * yf) / 23.0).sin();
-
-                // Blend: 65% rings, 35% diagonal
-                let blended = 0.65 * rings + 0.35 * diag;
-
-                blended.powf(1.1)
-            }
-            2 => {
-                // Section 2: Topography contour lines
-                // Like elevation lines on a topographic map
-                let t = (xf / 17.0).sin() + (yf / 29.0).sin() + ((xf + yf) / 41.0).sin();
-
-                // Create contour lines by mapping to periodic bands
-                // fmod gives us repeating regions, then we find distance to band center
-                let t_wrapped = t - t.floor(); // fmod to [0, 1)
-                let contours = (t_wrapped - 0.5).abs() * 2.0; // 0 at midline
-
-                // Invert so contour lines are dark
-                (1.0 - contours).powf(2.2)
-            }
-            _ => {
-                // Section 3: Glitch effect
-                // Blocky columns with horizontal scanlines
-                let col = (x / 12) as f32;
-
-                // Base intensity varies by column
-                let base = (col * 0.7).sin() * 0.5 + 0.5;
-
-                // Wobble adds horizontal variation
-                let wobble = 0.5 + 0.5 * ((xf + (yy as f32 * 7.0)) / 15.0).sin();
-
-                // Scanlines: dark lines every 24 rows (at rows 0 and 1 of each band)
-                let scan_pos = yy % 24;
-                let scan = if scan_pos == 0 || scan_pos == 1 {
-                    1.0
-                } else {
-                    0.0
-                };
-
-                // Blend base and wobble, then overlay scanlines
-                let blended = 0.55 * base + 0.45 * wobble;
-                blended.max(scan)
-            }
+            0 => art::plasma::shade(x, y, width, height, &art::plasma::Params::default()),
+            1 => art::rings::shade(x, y, width, height, &art::rings::Params::default()),
+            2 => art::topography::shade(x, y, width, height, &art::topography::Params::default()),
+            _ => art::glitch::shade(x, y % self.section_height, width, self.section_height, &art::glitch::Params::default()),
         };
 
         // Add a clean border (2 pixels) for alignment verification
-        let border = x < 2 || x >= width - 2 || y < 2 || y >= height - 2;
-        if border {
-            return 1.0;
+        if art::in_border(x, y, width, height, 2.0) {
+            1.0
+        } else {
+            clamp01(v)
         }
-
-        clamp01(v)
     }
 
     fn gamma(&self) -> f32 {

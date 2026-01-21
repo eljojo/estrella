@@ -61,6 +61,7 @@
 //! Other Star printers using StarPRNT protocol should work with
 //! appropriate configuration adjustments.
 
+pub mod art;
 pub mod components;
 pub mod error;
 pub mod ir;
