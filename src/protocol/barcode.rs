@@ -791,7 +791,7 @@ pub mod pdf417 {
     /// StarPRNT Command Spec Rev 4.10, Section 2.3.16
     pub fn set_module_width(width: u8) -> Vec<u8> {
         let width = width.clamp(1, 15);
-        vec![ESC, GS, b'x', b'S', b'2', width + 1]
+        vec![ESC, GS, b'x', b'S', b'2', width]
     }
 
     /// # Set PDF417 Module Aspect Ratio (ESC GS x S 3 n)
@@ -1099,12 +1099,12 @@ mod tests {
         fn test_set_module_width() {
             assert_eq!(
                 set_module_width(3),
-                vec![0x1B, 0x1D, 0x78, 0x53, 0x32, 0x04]
+                vec![0x1B, 0x1D, 0x78, 0x53, 0x32, 0x03]
             );
             // Test clamping
             assert_eq!(
                 set_module_width(0),
-                vec![0x1B, 0x1D, 0x78, 0x53, 0x32, 0x02]
+                vec![0x1B, 0x1D, 0x78, 0x53, 0x32, 0x01]
             ); // Min is 1
         }
 
