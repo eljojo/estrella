@@ -517,6 +517,7 @@ dependencies = [
  "pretty_assertions",
  "pulldown-cmark",
  "qrcode",
+ "rand",
  "serde",
  "spleen-font",
  "thiserror 1.0.69",

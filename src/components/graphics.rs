@@ -103,6 +103,10 @@ pub struct Pattern {
     mode: GraphicsMode,
     with_title: bool,
     dithering: dither::DitheringAlgorithm,
+    /// Optional custom pattern implementation (for randomized patterns).
+    pattern_impl: Option<Box<dyn patterns::Pattern + Send>>,
+    /// Whether to show params description after the pattern.
+    show_params: bool,
 }
 
 impl Pattern {
@@ -117,7 +121,35 @@ impl Pattern {
             mode: GraphicsMode::Raster,
             with_title: false,
             dithering: dither::DitheringAlgorithm::Bayer,
+            pattern_impl: None,
+            show_params: false,
         }
+    }
+
+    /// Create a pattern from a custom pattern implementation.
+    ///
+    /// Use this when you want to pass a pre-created pattern (e.g., one with
+    /// randomized parameters) instead of looking it up by name.
+    pub fn from_impl(pattern: Box<dyn patterns::Pattern + Send>, height: usize) -> Self {
+        Self {
+            name: pattern.name().to_string(),
+            width: 576,
+            height,
+            mode: GraphicsMode::Raster,
+            with_title: false,
+            dithering: dither::DitheringAlgorithm::Bayer,
+            pattern_impl: Some(pattern),
+            show_params: false,
+        }
+    }
+
+    /// Enable showing the pattern's parameter description after the pattern.
+    ///
+    /// This prints a line of text showing the parameters used to generate
+    /// the pattern, useful for documenting unique/randomized prints.
+    pub fn show_params(mut self) -> Self {
+        self.show_params = true;
+        self
     }
 
     /// Set the width in dots.
@@ -183,14 +215,19 @@ impl Pattern {
 
 impl Component for Pattern {
     fn emit(&self, ops: &mut Vec<Op>) {
-        // Look up the pattern by name
-        let pattern = match patterns::by_name(&self.name) {
-            Some(p) => p,
-            None => {
+        // Get pattern and params - either from stored impl or look up by name
+        let (data, params_desc) = if let Some(ref p) = self.pattern_impl {
+            let data = patterns::render(p.as_ref(), self.width, self.height, self.dithering);
+            let params = p.params_description();
+            (data, params)
+        } else {
+            let Some(looked_up) = patterns::by_name(&self.name) else {
                 // Unknown pattern - emit nothing
-                // Could also emit an error or placeholder
                 return;
-            }
+            };
+            let data = patterns::render(looked_up.as_ref(), self.width, self.height, self.dithering);
+            let params = looked_up.params_description();
+            (data, params)
         };
 
         // Emit title header if requested
@@ -219,9 +256,7 @@ impl Component for Pattern {
             ops.push(Op::SetAlign(Alignment::Left));
         }
 
-        // Render the pattern to raster data with the selected dithering algorithm
-        let data = patterns::render(pattern.as_ref(), self.width, self.height, self.dithering);
-
+        // Emit graphics
         match self.mode {
             GraphicsMode::Raster => {
                 ops.push(Op::Raster {
@@ -234,6 +269,15 @@ impl Component for Pattern {
                 let width_bytes = (self.width as u16).div_ceil(8) as u8;
                 ops.push(Op::Band { width_bytes, data });
             }
+        }
+
+        // Show params description if requested and there are params
+        if self.show_params && !params_desc.is_empty() {
+            Spacer::mm(2.0).emit(ops);
+            Text::new(&params_desc)
+                .center()
+                .font_b()
+                .emit(ops);
         }
     }
 }

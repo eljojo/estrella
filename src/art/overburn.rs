@@ -19,6 +19,8 @@
 //! ```
 
 use super::clamp01;
+use rand::Rng;
+use std::fmt;
 
 /// Parameters for the overburn effect.
 #[derive(Debug, Clone)]
@@ -53,6 +55,33 @@ impl Default for Params {
     }
 }
 
+impl Params {
+    /// Generate randomized parameters for unique prints.
+    pub fn random() -> Self {
+        let mut rng = rand::rng();
+        Self {
+            scale: rng.random_range(4.0..10.0),
+            drift: rng.random_range(50.0..120.0),
+            wobble_mix: rng.random_range(0.15..0.4),
+            darken_mult: rng.random_range(0.5..0.85),
+            darken_offset: rng.random_range(0.2..0.45),
+            blur_amount: rng.random_range(0.1..0.25),
+            gamma: rng.random_range(1.3..2.0),
+        }
+    }
+}
+
+impl fmt::Display for Params {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "scale={:.1} drift={:.0} darken=({:.2},{:.2}) blur={:.2} gamma={:.2}",
+            self.scale, self.drift, self.darken_mult, self.darken_offset,
+            self.blur_amount, self.gamma
+        )
+    }
+}
+
 /// Compute overburn effect shade at a pixel.
 ///
 /// Returns intensity in [0.0, 1.0].
@@ -82,9 +111,27 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
     clamp01(blurred).powf(params.gamma)
 }
 
-/// Overburn effect pattern with default parameters.
-#[derive(Debug, Clone, Default)]
-pub struct Overburn;
+/// Overburn effect pattern.
+#[derive(Debug, Clone)]
+pub struct Overburn {
+    params: Params,
+}
+
+impl Default for Overburn {
+    fn default() -> Self {
+        Self::golden()
+    }
+}
+
+impl Overburn {
+    pub fn golden() -> Self {
+        Self { params: Params::default() }
+    }
+
+    pub fn random() -> Self {
+        Self { params: Params::random() }
+    }
+}
 
 impl super::Pattern for Overburn {
     fn name(&self) -> &'static str {
@@ -92,7 +139,38 @@ impl super::Pattern for Overburn {
     }
 
     fn intensity(&self, x: usize, y: usize, width: usize, height: usize) -> f32 {
-        shade(x, y, width, height, &Params::default())
+        shade(x, y, width, height, &self.params)
+    }
+
+    fn params_description(&self) -> String {
+        self.params.to_string()
+    }
+
+    fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
+        let parse_f32 = |v: &str| v.parse::<f32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        match name {
+            "scale" => self.params.scale = parse_f32(value)?,
+            "drift" => self.params.drift = parse_f32(value)?,
+            "wobble_mix" => self.params.wobble_mix = parse_f32(value)?,
+            "darken_mult" => self.params.darken_mult = parse_f32(value)?,
+            "darken_offset" => self.params.darken_offset = parse_f32(value)?,
+            "blur_amount" => self.params.blur_amount = parse_f32(value)?,
+            "gamma" => self.params.gamma = parse_f32(value)?,
+            _ => return Err(format!("Unknown param '{}' for overburn", name)),
+        }
+        Ok(())
+    }
+
+    fn list_params(&self) -> Vec<(&'static str, String)> {
+        vec![
+            ("scale", format!("{:.1}", self.params.scale)),
+            ("drift", format!("{:.0}", self.params.drift)),
+            ("wobble_mix", format!("{:.2}", self.params.wobble_mix)),
+            ("darken_mult", format!("{:.2}", self.params.darken_mult)),
+            ("darken_offset", format!("{:.2}", self.params.darken_offset)),
+            ("blur_amount", format!("{:.2}", self.params.blur_amount)),
+            ("gamma", format!("{:.2}", self.params.gamma)),
+        ]
     }
 }
 

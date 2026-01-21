@@ -10,6 +10,8 @@
 //! ```
 
 use super::clamp01;
+use rand::Rng;
+use std::fmt;
 
 /// Parameters for the plasma effect.
 #[derive(Debug, Clone)]
@@ -44,6 +46,33 @@ impl Default for Params {
     }
 }
 
+impl Params {
+    /// Generate randomized parameters for unique prints.
+    pub fn random() -> Self {
+        let mut rng = rand::rng();
+        Self {
+            freq1: rng.random_range(7.0..18.0),
+            freq2: rng.random_range(12.0..30.0),
+            freq3: rng.random_range(8.0..20.0),
+            freq4: rng.random_range(5.0..15.0),
+            center_x: rng.random_range(0.2..0.8),
+            center_y: rng.random_range(0.1..0.5),
+            gamma: rng.random_range(1.0..1.5),
+        }
+    }
+}
+
+impl fmt::Display for Params {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "freq=({:.1},{:.1},{:.1},{:.1}) center=({:.2},{:.2}) gamma={:.2}",
+            self.freq1, self.freq2, self.freq3, self.freq4,
+            self.center_x, self.center_y, self.gamma
+        )
+    }
+}
+
 /// Compute plasma shade at a pixel.
 ///
 /// Returns intensity in [0.0, 1.0] with internal gamma applied.
@@ -69,9 +98,27 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
     clamp01(normalized).powf(params.gamma)
 }
 
-/// Plasma pattern with default parameters.
-#[derive(Debug, Clone, Default)]
-pub struct Plasma;
+/// Plasma pattern.
+#[derive(Debug, Clone)]
+pub struct Plasma {
+    params: Params,
+}
+
+impl Default for Plasma {
+    fn default() -> Self {
+        Self::golden()
+    }
+}
+
+impl Plasma {
+    pub fn golden() -> Self {
+        Self { params: Params::default() }
+    }
+
+    pub fn random() -> Self {
+        Self { params: Params::random() }
+    }
+}
 
 impl super::Pattern for Plasma {
     fn name(&self) -> &'static str {
@@ -79,7 +126,38 @@ impl super::Pattern for Plasma {
     }
 
     fn intensity(&self, x: usize, y: usize, width: usize, height: usize) -> f32 {
-        shade(x, y, width, height, &Params::default())
+        shade(x, y, width, height, &self.params)
+    }
+
+    fn params_description(&self) -> String {
+        self.params.to_string()
+    }
+
+    fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
+        let parse_f32 = |v: &str| v.parse::<f32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        match name {
+            "freq1" => self.params.freq1 = parse_f32(value)?,
+            "freq2" => self.params.freq2 = parse_f32(value)?,
+            "freq3" => self.params.freq3 = parse_f32(value)?,
+            "freq4" => self.params.freq4 = parse_f32(value)?,
+            "center_x" => self.params.center_x = parse_f32(value)?,
+            "center_y" => self.params.center_y = parse_f32(value)?,
+            "gamma" => self.params.gamma = parse_f32(value)?,
+            _ => return Err(format!("Unknown param '{}' for plasma", name)),
+        }
+        Ok(())
+    }
+
+    fn list_params(&self) -> Vec<(&'static str, String)> {
+        vec![
+            ("freq1", format!("{:.1}", self.params.freq1)),
+            ("freq2", format!("{:.1}", self.params.freq2)),
+            ("freq3", format!("{:.1}", self.params.freq3)),
+            ("freq4", format!("{:.1}", self.params.freq4)),
+            ("center_x", format!("{:.2}", self.params.center_x)),
+            ("center_y", format!("{:.2}", self.params.center_y)),
+            ("gamma", format!("{:.2}", self.params.gamma)),
+        ]
     }
 }
 

@@ -12,6 +12,8 @@
 //! ```
 
 use super::clamp01;
+use rand::Rng;
+use std::fmt;
 
 /// Parameters for the rings effect.
 #[derive(Debug, Clone)]
@@ -43,6 +45,32 @@ impl Default for Params {
     }
 }
 
+impl Params {
+    /// Generate randomized parameters for unique prints.
+    pub fn random() -> Self {
+        let mut rng = rand::rng();
+        Self {
+            ring_freq: rng.random_range(20.0..50.0),
+            drift: rng.random_range(15.0..40.0),
+            diag_freq: rng.random_range(15.0..35.0),
+            ring_weight: rng.random_range(0.5..0.8),
+            diag_weight: rng.random_range(0.2..0.5),
+            gamma: rng.random_range(0.9..1.4),
+        }
+    }
+}
+
+impl fmt::Display for Params {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "ring={:.1} drift={:.1} diag={:.1} weights=({:.2},{:.2}) gamma={:.2}",
+            self.ring_freq, self.drift, self.diag_freq,
+            self.ring_weight, self.diag_weight, self.gamma
+        )
+    }
+}
+
 /// Compute rings shade at a pixel.
 ///
 /// Returns intensity in [0.0, 1.0] with internal gamma applied.
@@ -69,9 +97,27 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
     clamp01(blended).powf(params.gamma)
 }
 
-/// Rings pattern with default parameters.
-#[derive(Debug, Clone, Default)]
-pub struct Rings;
+/// Rings pattern.
+#[derive(Debug, Clone)]
+pub struct Rings {
+    params: Params,
+}
+
+impl Default for Rings {
+    fn default() -> Self {
+        Self::golden()
+    }
+}
+
+impl Rings {
+    pub fn golden() -> Self {
+        Self { params: Params::default() }
+    }
+
+    pub fn random() -> Self {
+        Self { params: Params::random() }
+    }
+}
 
 impl super::Pattern for Rings {
     fn name(&self) -> &'static str {
@@ -79,7 +125,36 @@ impl super::Pattern for Rings {
     }
 
     fn intensity(&self, x: usize, y: usize, width: usize, height: usize) -> f32 {
-        shade(x, y, width, height, &Params::default())
+        shade(x, y, width, height, &self.params)
+    }
+
+    fn params_description(&self) -> String {
+        self.params.to_string()
+    }
+
+    fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
+        let parse_f32 = |v: &str| v.parse::<f32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        match name {
+            "ring_freq" => self.params.ring_freq = parse_f32(value)?,
+            "drift" => self.params.drift = parse_f32(value)?,
+            "diag_freq" => self.params.diag_freq = parse_f32(value)?,
+            "ring_weight" => self.params.ring_weight = parse_f32(value)?,
+            "diag_weight" => self.params.diag_weight = parse_f32(value)?,
+            "gamma" => self.params.gamma = parse_f32(value)?,
+            _ => return Err(format!("Unknown param '{}' for rings", name)),
+        }
+        Ok(())
+    }
+
+    fn list_params(&self) -> Vec<(&'static str, String)> {
+        vec![
+            ("ring_freq", format!("{:.1}", self.params.ring_freq)),
+            ("drift", format!("{:.1}", self.params.drift)),
+            ("diag_freq", format!("{:.1}", self.params.diag_freq)),
+            ("ring_weight", format!("{:.2}", self.params.ring_weight)),
+            ("diag_weight", format!("{:.2}", self.params.diag_weight)),
+            ("gamma", format!("{:.2}", self.params.gamma)),
+        ]
     }
 }
 

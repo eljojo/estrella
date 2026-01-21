@@ -49,22 +49,61 @@ pub trait Pattern: Send + Sync {
     fn default_dimensions(&self) -> (usize, usize) {
         (576, 500)
     }
+
+    /// Human-readable description of the current parameters.
+    fn params_description(&self) -> String {
+        String::new()
+    }
+
+    /// Set a parameter by name. Returns error if param name is unknown or value is invalid.
+    fn set_param(&mut self, name: &str, _value: &str) -> Result<(), String> {
+        Err(format!("Pattern '{}' has no configurable params or unknown param '{}'", self.name(), name))
+    }
+
+    /// List available parameters as (name, current_value) pairs.
+    fn list_params(&self) -> Vec<(&'static str, String)> {
+        vec![]
+    }
 }
 
-/// Get a pattern by name.
+/// Get a pattern by name with golden (deterministic) parameters.
+/// Used for golden tests and reproducible output.
 pub fn by_name(name: &str) -> Option<Box<dyn Pattern>> {
+    by_name_golden(name)
+}
+
+/// Get a pattern by name with golden (deterministic) parameters.
+pub fn by_name_golden(name: &str) -> Option<Box<dyn Pattern>> {
     match name.to_lowercase().as_str() {
-        "ripple" => Some(Box::new(ripple::Ripple::default())),
-        "waves" => Some(Box::new(waves::Waves::default())),
-        "plasma" => Some(Box::new(plasma::Plasma::default())),
-        "rings" => Some(Box::new(rings::Rings::default())),
-        "topography" => Some(Box::new(topography::Topography::default())),
-        "glitch" => Some(Box::new(glitch::Glitch::default())),
-        "microfeed" => Some(Box::new(microfeed::Microfeed::default())),
-        "density" => Some(Box::new(density::Density::default())),
-        "overburn" => Some(Box::new(overburn::Overburn::default())),
-        "jitter" => Some(Box::new(jitter::Jitter::default())),
-        "calibration" | "demo" => Some(Box::new(calibration::Calibration::default())),
+        "ripple" => Some(Box::new(ripple::Ripple::golden())),
+        "waves" => Some(Box::new(waves::Waves::golden())),
+        "plasma" => Some(Box::new(plasma::Plasma::golden())),
+        "rings" => Some(Box::new(rings::Rings::golden())),
+        "topography" => Some(Box::new(topography::Topography::golden())),
+        "glitch" => Some(Box::new(glitch::Glitch::golden())),
+        "microfeed" => Some(Box::new(microfeed::Microfeed::golden())),
+        "density" => Some(Box::new(density::Density::golden())),
+        "overburn" => Some(Box::new(overburn::Overburn::golden())),
+        "jitter" => Some(Box::new(jitter::Jitter::golden())),
+        "calibration" | "demo" => Some(Box::new(calibration::Calibration::golden())),
+        _ => None,
+    }
+}
+
+/// Get a pattern by name with randomized parameters for unique prints.
+pub fn by_name_random(name: &str) -> Option<Box<dyn Pattern>> {
+    match name.to_lowercase().as_str() {
+        "ripple" => Some(Box::new(ripple::Ripple::random())),
+        "waves" => Some(Box::new(waves::Waves::random())),
+        "plasma" => Some(Box::new(plasma::Plasma::random())),
+        "rings" => Some(Box::new(rings::Rings::random())),
+        "topography" => Some(Box::new(topography::Topography::random())),
+        "glitch" => Some(Box::new(glitch::Glitch::random())),
+        "microfeed" => Some(Box::new(microfeed::Microfeed::random())),
+        "density" => Some(Box::new(density::Density::random())),
+        "overburn" => Some(Box::new(overburn::Overburn::random())),
+        "jitter" => Some(Box::new(jitter::Jitter::random())),
+        "calibration" | "demo" => Some(Box::new(calibration::Calibration::random())),
         _ => None,
     }
 }

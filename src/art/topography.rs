@@ -12,6 +12,8 @@
 //! ```
 
 use super::clamp01;
+use rand::Rng;
+use std::fmt;
 
 /// Parameters for the topography effect.
 #[derive(Debug, Clone)]
@@ -37,6 +39,29 @@ impl Default for Params {
     }
 }
 
+impl Params {
+    /// Generate randomized parameters for unique prints.
+    pub fn random() -> Self {
+        let mut rng = rand::rng();
+        Self {
+            freq1: rng.random_range(10.0..30.0),
+            freq2: rng.random_range(18.0..45.0),
+            freq3: rng.random_range(25.0..60.0),
+            gamma: rng.random_range(1.8..2.8),
+        }
+    }
+}
+
+impl fmt::Display for Params {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "freq=({:.1},{:.1},{:.1}) gamma={:.2}",
+            self.freq1, self.freq2, self.freq3, self.gamma
+        )
+    }
+}
+
 /// Compute topography shade at a pixel.
 ///
 /// Returns intensity in [0.0, 1.0] with internal gamma applied.
@@ -54,9 +79,27 @@ pub fn shade(x: usize, y: usize, _width: usize, _height: usize, params: &Params)
     clamp01(1.0 - contours).powf(params.gamma)
 }
 
-/// Topography pattern with default parameters.
-#[derive(Debug, Clone, Default)]
-pub struct Topography;
+/// Topography pattern.
+#[derive(Debug, Clone)]
+pub struct Topography {
+    params: Params,
+}
+
+impl Default for Topography {
+    fn default() -> Self {
+        Self::golden()
+    }
+}
+
+impl Topography {
+    pub fn golden() -> Self {
+        Self { params: Params::default() }
+    }
+
+    pub fn random() -> Self {
+        Self { params: Params::random() }
+    }
+}
 
 impl super::Pattern for Topography {
     fn name(&self) -> &'static str {
@@ -64,7 +107,32 @@ impl super::Pattern for Topography {
     }
 
     fn intensity(&self, x: usize, y: usize, width: usize, height: usize) -> f32 {
-        shade(x, y, width, height, &Params::default())
+        shade(x, y, width, height, &self.params)
+    }
+
+    fn params_description(&self) -> String {
+        self.params.to_string()
+    }
+
+    fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
+        let parse_f32 = |v: &str| v.parse::<f32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        match name {
+            "freq1" => self.params.freq1 = parse_f32(value)?,
+            "freq2" => self.params.freq2 = parse_f32(value)?,
+            "freq3" => self.params.freq3 = parse_f32(value)?,
+            "gamma" => self.params.gamma = parse_f32(value)?,
+            _ => return Err(format!("Unknown param '{}' for topography", name)),
+        }
+        Ok(())
+    }
+
+    fn list_params(&self) -> Vec<(&'static str, String)> {
+        vec![
+            ("freq1", format!("{:.1}", self.params.freq1)),
+            ("freq2", format!("{:.1}", self.params.freq2)),
+            ("freq3", format!("{:.1}", self.params.freq3)),
+            ("gamma", format!("{:.2}", self.params.gamma)),
+        ]
     }
 }
 

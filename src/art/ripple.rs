@@ -12,6 +12,8 @@
 //! ```
 
 use super::clamp01;
+use rand::Rng;
+use std::fmt;
 
 /// Parameters for the ripple effect.
 #[derive(Debug, Clone)]
@@ -59,6 +61,30 @@ impl Params {
             border: 0.0, // No border for logos
         }
     }
+
+    /// Generate randomized parameters for unique prints.
+    pub fn random() -> Self {
+        let mut rng = rand::rng();
+        Self {
+            center_x: rng.random_range(0.3..0.7),
+            center_y: rng.random_range(0.3..0.7),
+            scale: rng.random_range(4.0..10.0),
+            drift: rng.random_range(50.0..150.0),
+            wobble_mix: rng.random_range(0.1..0.4),
+            gamma: rng.random_range(1.1..1.6),
+            border: 6.0,
+        }
+    }
+}
+
+impl fmt::Display for Params {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "center=({:.2},{:.2}) scale={:.1} drift={:.0} wobble={:.2} gamma={:.2}",
+            self.center_x, self.center_y, self.scale, self.drift, self.wobble_mix, self.gamma
+        )
+    }
 }
 
 /// Compute ripple intensity at a pixel.
@@ -96,9 +122,34 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
     clamp01(v).powf(params.gamma)
 }
 
-/// Ripple pattern with default parameters.
-#[derive(Debug, Clone, Default)]
-pub struct Ripple;
+/// Ripple pattern.
+#[derive(Debug, Clone)]
+pub struct Ripple {
+    params: Params,
+}
+
+impl Default for Ripple {
+    fn default() -> Self {
+        Self::golden()
+    }
+}
+
+impl Ripple {
+    /// Create with golden (deterministic) params for reproducible output.
+    pub fn golden() -> Self {
+        Self { params: Params::default() }
+    }
+
+    /// Create with randomized params for unique prints.
+    pub fn random() -> Self {
+        Self { params: Params::random() }
+    }
+
+    /// Create with logo-optimized params.
+    pub fn logo() -> Self {
+        Self { params: Params::logo() }
+    }
+}
 
 impl super::Pattern for Ripple {
     fn name(&self) -> &'static str {
@@ -106,7 +157,38 @@ impl super::Pattern for Ripple {
     }
 
     fn intensity(&self, x: usize, y: usize, width: usize, height: usize) -> f32 {
-        shade(x, y, width, height, &Params::default())
+        shade(x, y, width, height, &self.params)
+    }
+
+    fn params_description(&self) -> String {
+        self.params.to_string()
+    }
+
+    fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
+        let parse_f32 = |v: &str| v.parse::<f32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        match name {
+            "center_x" => self.params.center_x = parse_f32(value)?,
+            "center_y" => self.params.center_y = parse_f32(value)?,
+            "scale" => self.params.scale = parse_f32(value)?,
+            "drift" => self.params.drift = parse_f32(value)?,
+            "wobble_mix" => self.params.wobble_mix = parse_f32(value)?,
+            "gamma" => self.params.gamma = parse_f32(value)?,
+            "border" => self.params.border = parse_f32(value)?,
+            _ => return Err(format!("Unknown param '{}' for ripple. Available: center_x, center_y, scale, drift, wobble_mix, gamma, border", name)),
+        }
+        Ok(())
+    }
+
+    fn list_params(&self) -> Vec<(&'static str, String)> {
+        vec![
+            ("center_x", format!("{:.2}", self.params.center_x)),
+            ("center_y", format!("{:.2}", self.params.center_y)),
+            ("scale", format!("{:.1}", self.params.scale)),
+            ("drift", format!("{:.0}", self.params.drift)),
+            ("wobble_mix", format!("{:.2}", self.params.wobble_mix)),
+            ("gamma", format!("{:.2}", self.params.gamma)),
+            ("border", format!("{:.1}", self.params.border)),
+        ]
     }
 }
 

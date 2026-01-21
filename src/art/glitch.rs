@@ -13,6 +13,8 @@
 //! ```
 
 use super::clamp01;
+use rand::Rng;
+use std::fmt;
 
 /// Parameters for the glitch effect.
 #[derive(Debug, Clone)]
@@ -53,6 +55,35 @@ impl Default for Params {
     }
 }
 
+impl Params {
+    /// Generate randomized parameters for unique prints.
+    pub fn random() -> Self {
+        let mut rng = rand::rng();
+        Self {
+            column_width: rng.random_range(8..20),
+            column_freq: rng.random_range(0.4..1.2),
+            wobble_freq: rng.random_range(10.0..25.0),
+            wobble_vert: rng.random_range(4.0..12.0),
+            scanline_period: rng.random_range(16..36),
+            scanline_thickness: rng.random_range(1..4),
+            base_weight: rng.random_range(0.4..0.7),
+            wobble_weight: rng.random_range(0.3..0.6),
+            gamma: rng.random_range(0.9..1.3),
+        }
+    }
+}
+
+impl fmt::Display for Params {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "col={} freq={:.2} wobble={:.1} scan={}x{} gamma={:.2}",
+            self.column_width, self.column_freq, self.wobble_freq,
+            self.scanline_period, self.scanline_thickness, self.gamma
+        )
+    }
+}
+
 /// Compute glitch intensity at a pixel.
 ///
 /// Returns intensity in [0.0, 1.0] with gamma applied.
@@ -80,9 +111,27 @@ pub fn shade(x: usize, y: usize, _width: usize, _height: usize, params: &Params)
     clamp01(blended.max(scan)).powf(params.gamma)
 }
 
-/// Glitch pattern with default parameters.
-#[derive(Debug, Clone, Default)]
-pub struct Glitch;
+/// Glitch pattern.
+#[derive(Debug, Clone)]
+pub struct Glitch {
+    params: Params,
+}
+
+impl Default for Glitch {
+    fn default() -> Self {
+        Self::golden()
+    }
+}
+
+impl Glitch {
+    pub fn golden() -> Self {
+        Self { params: Params::default() }
+    }
+
+    pub fn random() -> Self {
+        Self { params: Params::random() }
+    }
+}
 
 impl super::Pattern for Glitch {
     fn name(&self) -> &'static str {
@@ -90,7 +139,43 @@ impl super::Pattern for Glitch {
     }
 
     fn intensity(&self, x: usize, y: usize, width: usize, height: usize) -> f32 {
-        shade(x, y, width, height, &Params::default())
+        shade(x, y, width, height, &self.params)
+    }
+
+    fn params_description(&self) -> String {
+        self.params.to_string()
+    }
+
+    fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
+        let parse_f32 = |v: &str| v.parse::<f32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        let parse_usize = |v: &str| v.parse::<usize>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        match name {
+            "column_width" => self.params.column_width = parse_usize(value)?,
+            "column_freq" => self.params.column_freq = parse_f32(value)?,
+            "wobble_freq" => self.params.wobble_freq = parse_f32(value)?,
+            "wobble_vert" => self.params.wobble_vert = parse_f32(value)?,
+            "scanline_period" => self.params.scanline_period = parse_usize(value)?,
+            "scanline_thickness" => self.params.scanline_thickness = parse_usize(value)?,
+            "base_weight" => self.params.base_weight = parse_f32(value)?,
+            "wobble_weight" => self.params.wobble_weight = parse_f32(value)?,
+            "gamma" => self.params.gamma = parse_f32(value)?,
+            _ => return Err(format!("Unknown param '{}' for glitch", name)),
+        }
+        Ok(())
+    }
+
+    fn list_params(&self) -> Vec<(&'static str, String)> {
+        vec![
+            ("column_width", self.params.column_width.to_string()),
+            ("column_freq", format!("{:.2}", self.params.column_freq)),
+            ("wobble_freq", format!("{:.1}", self.params.wobble_freq)),
+            ("wobble_vert", format!("{:.1}", self.params.wobble_vert)),
+            ("scanline_period", self.params.scanline_period.to_string()),
+            ("scanline_thickness", self.params.scanline_thickness.to_string()),
+            ("base_weight", format!("{:.2}", self.params.base_weight)),
+            ("wobble_weight", format!("{:.2}", self.params.wobble_weight)),
+            ("gamma", format!("{:.2}", self.params.gamma)),
+        ]
     }
 }
 

@@ -21,6 +21,8 @@
 //! ```
 
 use super::clamp01;
+use rand::Rng;
+use std::fmt;
 
 /// Parameters for the jitter/banding effect.
 #[derive(Debug, Clone)]
@@ -64,6 +66,35 @@ impl Default for Params {
     }
 }
 
+impl Params {
+    /// Generate randomized parameters for unique prints.
+    pub fn random() -> Self {
+        let mut rng = rand::rng();
+        Self {
+            scale: rng.random_range(4.0..10.0),
+            drift: rng.random_range(50.0..120.0),
+            wobble_mix: rng.random_range(0.15..0.4),
+            band_height: rng.random_range(16..36),
+            variation_freq: rng.random_range(0.2..0.5),
+            mod_min: rng.random_range(0.85..0.95),
+            mod_range: rng.random_range(0.1..0.3),
+            edge_darken: rng.random_range(0.1..0.25),
+            edge_rows: rng.random_range(1..4),
+            gamma: rng.random_range(1.1..1.6),
+        }
+    }
+}
+
+impl fmt::Display for Params {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "scale={:.1} band={} edge={}x{:.2} gamma={:.2}",
+            self.scale, self.band_height, self.edge_rows, self.edge_darken, self.gamma
+        )
+    }
+}
+
 /// Compute jitter/banding effect shade at a pixel.
 ///
 /// Returns intensity in [0.0, 1.0].
@@ -104,9 +135,27 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
     clamp01(modified).powf(params.gamma)
 }
 
-/// Jitter/banding pattern with default parameters.
-#[derive(Debug, Clone, Default)]
-pub struct Jitter;
+/// Jitter/banding pattern.
+#[derive(Debug, Clone)]
+pub struct Jitter {
+    params: Params,
+}
+
+impl Default for Jitter {
+    fn default() -> Self {
+        Self::golden()
+    }
+}
+
+impl Jitter {
+    pub fn golden() -> Self {
+        Self { params: Params::default() }
+    }
+
+    pub fn random() -> Self {
+        Self { params: Params::random() }
+    }
+}
 
 impl super::Pattern for Jitter {
     fn name(&self) -> &'static str {
@@ -114,7 +163,45 @@ impl super::Pattern for Jitter {
     }
 
     fn intensity(&self, x: usize, y: usize, width: usize, height: usize) -> f32 {
-        shade(x, y, width, height, &Params::default())
+        shade(x, y, width, height, &self.params)
+    }
+
+    fn params_description(&self) -> String {
+        self.params.to_string()
+    }
+
+    fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
+        let parse_f32 = |v: &str| v.parse::<f32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        let parse_usize = |v: &str| v.parse::<usize>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        match name {
+            "scale" => self.params.scale = parse_f32(value)?,
+            "drift" => self.params.drift = parse_f32(value)?,
+            "wobble_mix" => self.params.wobble_mix = parse_f32(value)?,
+            "band_height" => self.params.band_height = parse_usize(value)?,
+            "variation_freq" => self.params.variation_freq = parse_f32(value)?,
+            "mod_min" => self.params.mod_min = parse_f32(value)?,
+            "mod_range" => self.params.mod_range = parse_f32(value)?,
+            "edge_darken" => self.params.edge_darken = parse_f32(value)?,
+            "edge_rows" => self.params.edge_rows = parse_usize(value)?,
+            "gamma" => self.params.gamma = parse_f32(value)?,
+            _ => return Err(format!("Unknown param '{}' for jitter", name)),
+        }
+        Ok(())
+    }
+
+    fn list_params(&self) -> Vec<(&'static str, String)> {
+        vec![
+            ("scale", format!("{:.1}", self.params.scale)),
+            ("drift", format!("{:.0}", self.params.drift)),
+            ("wobble_mix", format!("{:.2}", self.params.wobble_mix)),
+            ("band_height", self.params.band_height.to_string()),
+            ("variation_freq", format!("{:.2}", self.params.variation_freq)),
+            ("mod_min", format!("{:.2}", self.params.mod_min)),
+            ("mod_range", format!("{:.2}", self.params.mod_range)),
+            ("edge_darken", format!("{:.2}", self.params.edge_darken)),
+            ("edge_rows", self.params.edge_rows.to_string()),
+            ("gamma", format!("{:.2}", self.params.gamma)),
+        ]
     }
 }
 

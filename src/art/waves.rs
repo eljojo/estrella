@@ -12,6 +12,8 @@
 //! ```
 
 use super::clamp01;
+use rand::Rng;
+use std::fmt;
 
 /// Parameters for the waves effect.
 #[derive(Debug, Clone)]
@@ -43,6 +45,33 @@ impl Default for Params {
             radial_weight: 0.20,
             gamma: 1.25,
         }
+    }
+}
+
+impl Params {
+    /// Generate randomized parameters for unique prints.
+    pub fn random() -> Self {
+        let mut rng = rand::rng();
+        Self {
+            horiz_freq: rng.random_range(12.0..30.0),
+            vert_freq: rng.random_range(15.0..35.0),
+            radial_freq: rng.random_range(15.0..40.0),
+            horiz_weight: rng.random_range(0.3..0.5),
+            vert_weight: rng.random_range(0.25..0.45),
+            radial_weight: rng.random_range(0.15..0.35),
+            gamma: rng.random_range(1.0..1.5),
+        }
+    }
+}
+
+impl fmt::Display for Params {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "horiz={:.1} vert={:.1} radial={:.1} weights=({:.2},{:.2},{:.2}) gamma={:.2}",
+            self.horiz_freq, self.vert_freq, self.radial_freq,
+            self.horiz_weight, self.vert_weight, self.radial_weight, self.gamma
+        )
     }
 }
 
@@ -82,9 +111,27 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
     clamp01(v).powf(params.gamma)
 }
 
-/// Waves pattern with default parameters.
-#[derive(Debug, Clone, Default)]
-pub struct Waves;
+/// Waves pattern.
+#[derive(Debug, Clone)]
+pub struct Waves {
+    params: Params,
+}
+
+impl Default for Waves {
+    fn default() -> Self {
+        Self::golden()
+    }
+}
+
+impl Waves {
+    pub fn golden() -> Self {
+        Self { params: Params::default() }
+    }
+
+    pub fn random() -> Self {
+        Self { params: Params::random() }
+    }
+}
 
 impl super::Pattern for Waves {
     fn name(&self) -> &'static str {
@@ -92,7 +139,38 @@ impl super::Pattern for Waves {
     }
 
     fn intensity(&self, x: usize, y: usize, width: usize, height: usize) -> f32 {
-        shade(x, y, width, height, &Params::default())
+        shade(x, y, width, height, &self.params)
+    }
+
+    fn params_description(&self) -> String {
+        self.params.to_string()
+    }
+
+    fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
+        let parse_f32 = |v: &str| v.parse::<f32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        match name {
+            "horiz_freq" => self.params.horiz_freq = parse_f32(value)?,
+            "vert_freq" => self.params.vert_freq = parse_f32(value)?,
+            "radial_freq" => self.params.radial_freq = parse_f32(value)?,
+            "horiz_weight" => self.params.horiz_weight = parse_f32(value)?,
+            "vert_weight" => self.params.vert_weight = parse_f32(value)?,
+            "radial_weight" => self.params.radial_weight = parse_f32(value)?,
+            "gamma" => self.params.gamma = parse_f32(value)?,
+            _ => return Err(format!("Unknown param '{}' for waves", name)),
+        }
+        Ok(())
+    }
+
+    fn list_params(&self) -> Vec<(&'static str, String)> {
+        vec![
+            ("horiz_freq", format!("{:.1}", self.params.horiz_freq)),
+            ("vert_freq", format!("{:.1}", self.params.vert_freq)),
+            ("radial_freq", format!("{:.1}", self.params.radial_freq)),
+            ("horiz_weight", format!("{:.2}", self.params.horiz_weight)),
+            ("vert_weight", format!("{:.2}", self.params.vert_weight)),
+            ("radial_weight", format!("{:.2}", self.params.radial_weight)),
+            ("gamma", format!("{:.2}", self.params.gamma)),
+        ]
     }
 }
 

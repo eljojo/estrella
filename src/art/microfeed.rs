@@ -51,9 +51,28 @@ pub fn shade(x: usize, y: usize, _width: usize, _height: usize, params: &Params)
     0.0
 }
 
-/// Microfeed test pattern with default parameters.
-#[derive(Debug, Clone, Default)]
-pub struct Microfeed;
+/// Microfeed test pattern.
+#[derive(Debug, Clone)]
+pub struct Microfeed {
+    params: Params,
+}
+
+impl Default for Microfeed {
+    fn default() -> Self {
+        Self::golden()
+    }
+}
+
+impl Microfeed {
+    pub fn golden() -> Self {
+        Self { params: Params::default() }
+    }
+
+    // No randomization for microfeed - it's a diagnostic pattern
+    pub fn random() -> Self {
+        Self::golden()
+    }
+}
 
 impl super::Pattern for Microfeed {
     fn name(&self) -> &'static str {
@@ -61,7 +80,24 @@ impl super::Pattern for Microfeed {
     }
 
     fn intensity(&self, x: usize, y: usize, width: usize, height: usize) -> f32 {
-        shade(x, y, width, height, &Params::default())
+        shade(x, y, width, height, &self.params)
+    }
+
+    fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
+        let parse_usize = |v: &str| v.parse::<usize>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        match name {
+            "start_gap" => self.params.start_gap = parse_usize(value)?,
+            "gap_increment" => self.params.gap_increment = parse_usize(value)?,
+            _ => return Err(format!("Unknown param '{}' for microfeed", name)),
+        }
+        Ok(())
+    }
+
+    fn list_params(&self) -> Vec<(&'static str, String)> {
+        vec![
+            ("start_gap", self.params.start_gap.to_string()),
+            ("gap_increment", self.params.gap_increment.to_string()),
+        ]
     }
 }
 

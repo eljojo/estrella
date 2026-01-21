@@ -99,6 +99,25 @@ enum Commands {
         /// Dithering algorithm (bayer or floyd-steinberg)
         #[arg(long, default_value = "bayer")]
         dither: String,
+
+        /// Use golden (deterministic) parameters instead of randomized ones.
+        /// Useful for golden tests and reproducible output.
+        #[arg(long)]
+        golden: bool,
+
+        /// Set a pattern parameter (can be used multiple times).
+        /// Format: name=value (e.g., --param scale=8.0 --param gamma=1.5)
+        #[arg(long = "param", value_name = "NAME=VALUE")]
+        params: Vec<String>,
+
+        /// List available parameters for the specified pattern.
+        #[arg(long)]
+        list_params: bool,
+
+        /// Don't print the parameter values at the bottom of the pattern.
+        /// By default, randomized patterns show their parameters for reproducibility.
+        #[arg(long)]
+        no_params: bool,
     },
 
     /// Manage logos stored in printer's NV (non-volatile) memory
@@ -212,6 +231,10 @@ fn run() -> Result<(), EstrellaError> {
             band,
             raster,
             dither,
+            golden,
+            params,
+            list_params,
+            no_params,
         } => {
             // List patterns if --list flag or no pattern specified
             if list || pattern.is_none() {
@@ -230,6 +253,27 @@ fn run() -> Result<(), EstrellaError> {
 
             let name = pattern.as_deref().unwrap();
 
+            // Handle --list-params: show available parameters for pattern
+            if list_params {
+                let pattern_impl = patterns::by_name_golden(name).ok_or_else(|| {
+                    EstrellaError::Pattern(format!(
+                        "Unknown pattern '{}'. Run without arguments to see available options.",
+                        name
+                    ))
+                })?;
+
+                let params_list = pattern_impl.list_params();
+                if params_list.is_empty() {
+                    println!("Pattern '{}' has no configurable parameters.", name);
+                } else {
+                    println!("Parameters for '{}':", name);
+                    for (param_name, current_value) in params_list {
+                        println!("  {} = {}", param_name, current_value);
+                    }
+                }
+                return Ok(());
+            }
+
             // Handle "all" - print all patterns and receipts
             if name == "all" {
                 println!("Printing all patterns and receipts...\n");
@@ -245,7 +289,13 @@ fn run() -> Result<(), EstrellaError> {
                 for pattern_name in patterns::list_patterns() {
                     println!("Printing pattern: {}", pattern_name);
 
-                    let pattern_impl = patterns::by_name(pattern_name).unwrap();
+                    // Get pattern impl - randomized by default unless --golden
+                    let pattern_impl = if golden {
+                        patterns::by_name_golden(pattern_name).unwrap()
+                    } else {
+                        patterns::by_name_random(pattern_name).unwrap()
+                    };
+
                     let (default_width, default_height) = pattern_impl.default_dimensions();
                     let pattern_width = if width != 576 { width } else { default_width };
                     let pattern_height = height.unwrap_or(default_height);
@@ -264,7 +314,7 @@ fn run() -> Result<(), EstrellaError> {
                         }
                     };
 
-                    let mut pattern = PatternComponent::new(*pattern_name, pattern_height)
+                    let mut pattern = PatternComponent::from_impl(pattern_impl, pattern_height)
                         .width(pattern_width)
                         .dithering(dither_algo);
                     if !no_title {
@@ -272,6 +322,9 @@ fn run() -> Result<(), EstrellaError> {
                     }
                     if band {
                         pattern = pattern.band_mode();
+                    }
+                    if !no_params && !golden {
+                        pattern = pattern.show_params();
                     }
 
                     let print_data = Receipt::new().child(pattern).cut().build();
@@ -311,19 +364,48 @@ fn run() -> Result<(), EstrellaError> {
             }
 
             // It's a visual pattern
-            let pattern_impl = patterns::by_name(name).ok_or_else(|| {
-                EstrellaError::Pattern(format!(
-                    "Unknown pattern or receipt '{}'. Run without arguments to see available options.",
-                    name
-                ))
-            })?;
+            // Get pattern impl - randomized by default unless --golden
+            let mut pattern_impl = if golden {
+                patterns::by_name_golden(name).ok_or_else(|| {
+                    EstrellaError::Pattern(format!(
+                        "Unknown pattern or receipt '{}'. Run without arguments to see available options.",
+                        name
+                    ))
+                })?
+            } else {
+                patterns::by_name_random(name).ok_or_else(|| {
+                    EstrellaError::Pattern(format!(
+                        "Unknown pattern or receipt '{}'. Run without arguments to see available options.",
+                        name
+                    ))
+                })?
+            };
+
+            // Apply any --param overrides
+            for param_str in &params {
+                let parts: Vec<&str> = param_str.splitn(2, '=').collect();
+                if parts.len() != 2 {
+                    return Err(EstrellaError::Pattern(format!(
+                        "Invalid param format '{}'. Use name=value (e.g., --param scale=8.0)",
+                        param_str
+                    )));
+                }
+                pattern_impl.set_param(parts[0], parts[1]).map_err(|e| {
+                    EstrellaError::Pattern(e)
+                })?;
+            }
 
             // Use pattern's default dimensions if user didn't specify
             let (default_width, default_height) = pattern_impl.default_dimensions();
             let width = if width != 576 { width } else { default_width };
             let height = height.unwrap_or(default_height);
 
-            println!("Generating {} pattern ({}x{})...", name, width, height);
+            let params_desc = pattern_impl.params_description();
+            if !params_desc.is_empty() && !golden {
+                println!("Generating {} pattern ({}x{}) with params: {}...", name, width, height, params_desc);
+            } else {
+                println!("Generating {} pattern ({}x{})...", name, width, height);
+            }
 
             // Parse dithering algorithm
             let dither_algo = match dither.to_lowercase().as_str() {
@@ -339,8 +421,8 @@ fn run() -> Result<(), EstrellaError> {
                 }
             };
 
-            // Build pattern component
-            let mut pattern = PatternComponent::new(name, height)
+            // Build pattern component from the impl
+            let mut pattern = PatternComponent::from_impl(pattern_impl, height)
                 .width(width)
                 .dithering(dither_algo);
             if !no_title {
@@ -348,6 +430,9 @@ fn run() -> Result<(), EstrellaError> {
             }
             if band {
                 pattern = pattern.band_mode();
+            }
+            if !no_params && !golden {
+                pattern = pattern.show_params();
             }
 
             // Output to PNG or printer

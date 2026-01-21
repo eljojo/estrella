@@ -11,6 +11,8 @@ use super::dither;
 
 // Re-export everything from art for backwards compatibility
 pub use art::by_name;
+pub use art::by_name_golden;
+pub use art::by_name_random;
 pub use art::Pattern;
 pub use art::PATTERNS;
 pub use art::calibration::Calibration;
@@ -66,7 +68,7 @@ mod tests {
 
     #[test]
     fn test_render() {
-        let ripple = Ripple;
+        let ripple = Ripple::golden();
         let data = render(&ripple, 576, 100, dither::DitheringAlgorithm::Bayer);
         assert_eq!(data.len(), 72 * 100); // 576/8 = 72 bytes per row
     }

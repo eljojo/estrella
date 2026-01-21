@@ -71,9 +71,28 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
     }
 }
 
-/// Calibration pattern with default parameters.
-#[derive(Debug, Clone, Default)]
-pub struct Calibration;
+/// Calibration pattern.
+#[derive(Debug, Clone)]
+pub struct Calibration {
+    params: Params,
+}
+
+impl Default for Calibration {
+    fn default() -> Self {
+        Self::golden()
+    }
+}
+
+impl Calibration {
+    pub fn golden() -> Self {
+        Self { params: Params::default() }
+    }
+
+    // No randomization for calibration - it's a diagnostic pattern
+    pub fn random() -> Self {
+        Self::golden()
+    }
+}
 
 impl super::Pattern for Calibration {
     fn name(&self) -> &'static str {
@@ -81,11 +100,34 @@ impl super::Pattern for Calibration {
     }
 
     fn intensity(&self, x: usize, y: usize, width: usize, height: usize) -> f32 {
-        shade(x, y, width, height, &Params::default())
+        shade(x, y, width, height, &self.params)
     }
 
     fn default_dimensions(&self) -> (usize, usize) {
         (576, 240)
+    }
+
+    fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
+        let parse_usize = |v: &str| v.parse::<usize>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        match name {
+            "border_width" => self.params.border_width = parse_usize(value)?,
+            "diagonal_thickness" => self.params.diagonal_thickness = parse_usize(value)?,
+            "bar_column_width" => self.params.bar_column_width = parse_usize(value)?,
+            "bar_base_width" => self.params.bar_base_width = parse_usize(value)?,
+            "bar_margin" => self.params.bar_margin = parse_usize(value)?,
+            _ => return Err(format!("Unknown param '{}' for calibration", name)),
+        }
+        Ok(())
+    }
+
+    fn list_params(&self) -> Vec<(&'static str, String)> {
+        vec![
+            ("border_width", self.params.border_width.to_string()),
+            ("diagonal_thickness", self.params.diagonal_thickness.to_string()),
+            ("bar_column_width", self.params.bar_column_width.to_string()),
+            ("bar_base_width", self.params.bar_base_width.to_string()),
+            ("bar_margin", self.params.bar_margin.to_string()),
+        ]
     }
 }
 

@@ -14,6 +14,8 @@
 //! Useful for calibrating printer density settings.
 
 use super::clamp01;
+use rand::Rng;
+use std::fmt;
 
 /// Parameters for the density comparison pattern.
 #[derive(Debug, Clone)]
@@ -42,6 +44,32 @@ impl Default for Params {
             gamma_medium: 1.0,
             gamma_heavy: 1.5,
         }
+    }
+}
+
+impl Params {
+    /// Generate randomized parameters for unique prints.
+    pub fn random() -> Self {
+        let mut rng = rand::rng();
+        Self {
+            scale: rng.random_range(4.0..10.0),
+            drift: rng.random_range(50.0..120.0),
+            wobble_mix: rng.random_range(0.15..0.4),
+            gamma_light: rng.random_range(0.6..1.0),
+            gamma_medium: rng.random_range(0.9..1.2),
+            gamma_heavy: rng.random_range(1.3..1.8),
+        }
+    }
+}
+
+impl fmt::Display for Params {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "scale={:.1} drift={:.0} wobble={:.2} gamma=({:.2},{:.2},{:.2})",
+            self.scale, self.drift, self.wobble_mix,
+            self.gamma_light, self.gamma_medium, self.gamma_heavy
+        )
     }
 }
 
@@ -76,9 +104,27 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
     clamp01(v).powf(gamma)
 }
 
-/// Density comparison pattern with default parameters.
-#[derive(Debug, Clone, Default)]
-pub struct Density;
+/// Density comparison pattern.
+#[derive(Debug, Clone)]
+pub struct Density {
+    params: Params,
+}
+
+impl Default for Density {
+    fn default() -> Self {
+        Self::golden()
+    }
+}
+
+impl Density {
+    pub fn golden() -> Self {
+        Self { params: Params::default() }
+    }
+
+    pub fn random() -> Self {
+        Self { params: Params::random() }
+    }
+}
 
 impl super::Pattern for Density {
     fn name(&self) -> &'static str {
@@ -86,7 +132,36 @@ impl super::Pattern for Density {
     }
 
     fn intensity(&self, x: usize, y: usize, width: usize, height: usize) -> f32 {
-        shade(x, y, width, height, &Params::default())
+        shade(x, y, width, height, &self.params)
+    }
+
+    fn params_description(&self) -> String {
+        self.params.to_string()
+    }
+
+    fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
+        let parse_f32 = |v: &str| v.parse::<f32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        match name {
+            "scale" => self.params.scale = parse_f32(value)?,
+            "drift" => self.params.drift = parse_f32(value)?,
+            "wobble_mix" => self.params.wobble_mix = parse_f32(value)?,
+            "gamma_light" => self.params.gamma_light = parse_f32(value)?,
+            "gamma_medium" => self.params.gamma_medium = parse_f32(value)?,
+            "gamma_heavy" => self.params.gamma_heavy = parse_f32(value)?,
+            _ => return Err(format!("Unknown param '{}' for density", name)),
+        }
+        Ok(())
+    }
+
+    fn list_params(&self) -> Vec<(&'static str, String)> {
+        vec![
+            ("scale", format!("{:.1}", self.params.scale)),
+            ("drift", format!("{:.0}", self.params.drift)),
+            ("wobble_mix", format!("{:.2}", self.params.wobble_mix)),
+            ("gamma_light", format!("{:.2}", self.params.gamma_light)),
+            ("gamma_medium", format!("{:.2}", self.params.gamma_medium)),
+            ("gamma_heavy", format!("{:.2}", self.params.gamma_heavy)),
+        ]
     }
 }
 
