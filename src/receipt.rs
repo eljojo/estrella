@@ -111,8 +111,8 @@ pub fn full_receipt() -> Vec<u8> {
     Receipt::new()
         // Set codepage
         .child(Raw::op(Op::SetCodepage(1)))
-        // NV Logo (if stored)
-        .child(NvLogo::new("A0"))
+        // NV Logo (star from registry)
+        .child(NvLogo::new("A1"))
         .child(Spacer::mm(2.0))
         // Header
         .child(
@@ -312,8 +312,8 @@ fn full_receipt_component() -> Receipt {
     Receipt::new()
         // Set codepage
         .child(Raw::op(Op::SetCodepage(1)))
-        // NV Logo (if stored) - skipped in preview
-        .child(NvLogo::new("A0"))
+        // NV Logo (star from registry)
+        .child(NvLogo::new("A1"))
         .child(Spacer::mm(2.0))
         // Header
         .child(

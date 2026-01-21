@@ -37,6 +37,7 @@ use std::path::PathBuf;
 use estrella::{
     EstrellaError,
     components::{ComponentExt, Pattern as PatternComponent, Receipt},
+    logos,
     protocol::{commands, nv_graphics},
     receipt,
     render::dither,
@@ -98,6 +99,34 @@ enum Commands {
 
 #[derive(Subcommand, Debug)]
 enum LogoAction {
+    /// List all logos in the registry
+    List,
+
+    /// Sync registry logos to the printer's NV memory
+    Sync {
+        /// Printer device path
+        #[arg(long, default_value = "/dev/rfcomm0")]
+        device: String,
+
+        /// Only sync a specific logo by key
+        #[arg(long)]
+        key: Option<String>,
+    },
+
+    /// Preview a registry logo as PNG
+    Preview {
+        /// Logo key to preview
+        key: String,
+
+        /// Output PNG file
+        #[arg(long, value_name = "FILE")]
+        png: PathBuf,
+
+        /// Scale factor (1 or 2)
+        #[arg(long, default_value = "1")]
+        scale: u8,
+    },
+
     /// Store a logo image in the printer's NV memory
     Store {
         /// PNG image file to store
@@ -240,6 +269,15 @@ fn run() -> Result<(), EstrellaError> {
         }
 
         Commands::Logo { action } => match action {
+            LogoAction::List => {
+                logo_list()?;
+            }
+            LogoAction::Sync { device, key } => {
+                logo_sync(&device, key.as_deref())?;
+            }
+            LogoAction::Preview { key, png, scale } => {
+                logo_preview(&key, &png, scale)?;
+            }
             LogoAction::Store {
                 image,
                 key,
@@ -270,6 +308,99 @@ fn print_raw_to_device(device: &str, data: &[u8]) -> Result<(), EstrellaError> {
 // ============================================================================
 // LOGO COMMANDS
 // ============================================================================
+
+/// List all logos in the registry.
+fn logo_list() -> Result<(), EstrellaError> {
+    let all_logos = logos::all();
+    if all_logos.is_empty() {
+        println!("No logos registered.");
+    } else {
+        println!("Registered logos:");
+        for logo in all_logos {
+            let raster = logo.raster();
+            println!("  {} - {} ({}x{})", logo.key, logo.name, raster.width, raster.height);
+        }
+    }
+    Ok(())
+}
+
+/// Sync registry logos to the printer's NV memory.
+fn logo_sync(device: &str, key: Option<&str>) -> Result<(), EstrellaError> {
+    let logos_to_sync: Vec<_> = if let Some(k) = key {
+        logos::by_key(k)
+            .map(|l| vec![l])
+            .ok_or_else(|| {
+                EstrellaError::Pattern(format!("Unknown logo key '{}'. Run 'logo list' to see available logos.", k))
+            })?
+    } else {
+        logos::all().iter().collect()
+    };
+
+    if logos_to_sync.is_empty() {
+        println!("No logos to sync.");
+        return Ok(());
+    }
+
+    for logo in logos_to_sync {
+        let raster = logo.raster();
+        let cmd = nv_graphics::define(logo.key, raster.width, raster.height, &raster.data)
+            .ok_or_else(|| {
+                EstrellaError::Pattern(format!("Failed to generate NV store command for '{}'", logo.key))
+            })?;
+
+        println!("Syncing '{}' ({}) - {}x{} ({} bytes)...",
+            logo.name, logo.key, raster.width, raster.height, cmd.len());
+
+        let mut data = commands::init();
+        data.extend(cmd);
+        print_raw_to_device(device, &data)?;
+    }
+
+    println!("Sync complete!");
+    Ok(())
+}
+
+/// Preview a registry logo as PNG.
+fn logo_preview(key: &str, png_path: &PathBuf, scale: u8) -> Result<(), EstrellaError> {
+    use image::{GrayImage, Luma};
+
+    let logo = logos::by_key(key).ok_or_else(|| {
+        EstrellaError::Pattern(format!("Unknown logo key '{}'. Run 'logo list' to see available logos.", key))
+    })?;
+
+    let raster = logo.raster();
+    let scale = scale.clamp(1, 2) as usize;
+
+    let width = raster.width as usize * scale;
+    let height = raster.height as usize * scale;
+    let src_width_bytes = (raster.width as usize).div_ceil(8);
+
+    let mut img = GrayImage::new(width as u32, height as u32);
+
+    for sy in 0..raster.height as usize {
+        for sx in 0..raster.width as usize {
+            let byte_idx = sy * src_width_bytes + sx / 8;
+            let bit_idx = 7 - (sx % 8);
+            let pixel_on = (raster.data[byte_idx] >> bit_idx) & 1 == 1;
+            let color = if pixel_on { 0u8 } else { 255u8 };
+
+            for dy in 0..scale {
+                for dx in 0..scale {
+                    let px = sx * scale + dx;
+                    let py = sy * scale + dy;
+                    img.put_pixel(px as u32, py as u32, Luma([color]));
+                }
+            }
+        }
+    }
+
+    img.save(png_path).map_err(|e| {
+        EstrellaError::Image(format!("Failed to save PNG: {}", e))
+    })?;
+
+    println!("Saved {} ({}) preview to {}", logo.name, logo.key, png_path.display());
+    Ok(())
+}
 
 /// Store a logo image in the printer's NV memory.
 fn logo_store(

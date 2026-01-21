@@ -280,8 +280,18 @@ impl PreviewRenderer {
                 self.render_barcode1d(*kind, data, *height);
             }
 
-            Op::NvStore { .. } | Op::NvPrint { .. } | Op::NvDelete { .. } => {
-                // NV operations don't produce visible output in preview
+            Op::NvPrint { key, scale_x, scale_y } => {
+                // Look up logo from registry for preview
+                if let Some(raster) = crate::logos::get_raster(key) {
+                    self.render_nv_logo(&raster, *scale_x, *scale_y);
+                } else {
+                    // Unknown logo - render placeholder box
+                    self.render_placeholder(&format!("NV:{}", key), 96, 96);
+                }
+            }
+
+            Op::NvStore { .. } | Op::NvDelete { .. } => {
+                // These don't produce visible output in preview
             }
         }
 
@@ -340,6 +350,50 @@ impl PreviewRenderer {
         }
 
         self.state.y += height;
+        self.state.x = 0;
+    }
+
+    /// Render an NV logo from the registry.
+    fn render_nv_logo(&mut self, raster: &crate::logos::LogoRaster, scale_x: u8, scale_y: u8) {
+        let src_width = raster.width as usize;
+        let src_height = raster.height as usize;
+        let src_width_bytes = src_width.div_ceil(8);
+
+        let dest_width = src_width * scale_x as usize;
+        let dest_height = src_height * scale_y as usize;
+
+        // Center in print area
+        let start_x = if dest_width < self.print_width {
+            (self.print_width - dest_width) / 2
+        } else {
+            0
+        };
+
+        self.ensure_height(self.state.y + dest_height);
+
+        for sy in 0..src_height {
+            for sx in 0..src_width {
+                let byte_idx = sy * src_width_bytes + sx / 8;
+                let bit_idx = 7 - (sx % 8);
+
+                if byte_idx < raster.data.len() {
+                    let pixel_on = (raster.data[byte_idx] >> bit_idx) & 1 == 1;
+
+                    if pixel_on {
+                        // Scale up the pixel
+                        for dy in 0..(scale_y as usize) {
+                            for dx in 0..(scale_x as usize) {
+                                let px = start_x + sx * (scale_x as usize) + dx;
+                                let py = self.state.y + sy * (scale_y as usize) + dy;
+                                self.set_print_pixel(px, py, true);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        self.state.y += dest_height;
         self.state.x = 0;
     }
 
