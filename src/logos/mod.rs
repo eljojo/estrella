@@ -21,13 +21,9 @@
 //! }
 //! ```
 
-pub mod flourish;
-pub mod frame;
 pub mod ripple;
 pub mod star;
 
-pub use flourish::Flourish;
-pub use frame::{CornerBottomLeft, CornerBottomRight, CornerTopLeft, CornerTopRight, EdgeHorizontal, EdgeVertical};
 pub use ripple::RippleLogo;
 pub use star::Star;
 
@@ -72,14 +68,6 @@ impl Logo {
 static LOGOS: &[Logo] = &[
     Logo::new("A0", "ripple", RippleLogo::raster),
     Logo::new("A1", "star", Star::raster),
-    Logo::new("B0", "flourish", Flourish::raster),
-    // Frame sprites
-    Logo::new("C0", "corner-tl", CornerTopLeft::raster),
-    Logo::new("C1", "corner-tr", CornerTopRight::raster),
-    Logo::new("C2", "corner-bl", CornerBottomLeft::raster),
-    Logo::new("C3", "corner-br", CornerBottomRight::raster),
-    Logo::new("C4", "edge-h", EdgeHorizontal::raster),
-    Logo::new("C5", "edge-v", EdgeVertical::raster),
 ];
 
 /// Get all registered logos.

@@ -67,13 +67,6 @@ pub struct PreviewRenderer {
     height: usize,
     state: RenderState,
     font_cache: HashMap<(Font, char), Vec<u8>>,
-
-    // Page mode state
-    page_mode_active: bool,
-    page_mode_buffer: Vec<u8>,
-    page_mode_width: usize,
-    page_mode_height: usize,
-    page_mode_y: usize,  // Y position in page mode (from PageModeSetPositionY)
 }
 
 impl PreviewRenderer {
@@ -100,11 +93,6 @@ impl PreviewRenderer {
             height: initial_height,
             state,
             font_cache: HashMap::new(),
-            page_mode_active: false,
-            page_mode_buffer: Vec::new(),
-            page_mode_width: 0,
-            page_mode_height: 0,
-            page_mode_y: 0,
         }
     }
 
@@ -140,35 +128,18 @@ impl PreviewRenderer {
     /// Set a pixel (1 = black, 0 = white).
     /// x is in paper coordinates (0 = left edge of paper).
     fn set_pixel(&mut self, x: usize, y: usize, black: bool) {
-        if self.page_mode_active {
-            // In page mode, write to page buffer
-            if x >= self.page_mode_width || y >= self.page_mode_height {
-                return;
-            }
-            let idx = y * self.page_mode_width + x;
-            if idx < self.page_mode_buffer.len() {
-                self.page_mode_buffer[idx] = if black { 1 } else { 0 };
-            }
-        } else {
-            // Standard mode: write to main buffer
-            if x >= self.paper_width {
-                return;
-            }
-            self.ensure_height(y);
-            let idx = y * self.paper_width + x;
-            self.buffer[idx] = if black { 1 } else { 0 };
+        if x >= self.paper_width {
+            return;
         }
+        self.ensure_height(y);
+        let idx = y * self.paper_width + x;
+        self.buffer[idx] = if black { 1 } else { 0 };
     }
 
     /// Set a pixel in print coordinates (0 = left edge of printable area).
     /// Automatically adds the left margin offset.
     fn set_print_pixel(&mut self, x: usize, y: usize, black: bool) {
-        if self.page_mode_active {
-            // In page mode, no margin offset - use absolute positioning
-            self.set_pixel(x, y, black);
-        } else {
-            self.set_pixel(x + self.left_margin, y, black);
-        }
+        self.set_pixel(x + self.left_margin, y, black);
     }
 
     /// Render the program to PNG bytes.
@@ -327,73 +298,6 @@ impl PreviewRenderer {
             Op::NvStore { .. } | Op::NvDelete { .. } => {
                 // These don't produce visible output in preview
             }
-
-            Op::PageModeEnter => {
-                // Enter page mode - create a canvas for compositing
-                self.page_mode_active = true;
-                self.page_mode_y = 0;
-                // Buffer will be allocated when region is set
-            }
-
-            Op::PageModeSetRegion { x: _, y: _, width, height } => {
-                // Define page mode print region (width/height in 1/8mm units)
-                // Convert to dots: 1mm = 8 dots, so 1/8mm = 1 dot
-                self.page_mode_width = *width as usize;
-                self.page_mode_height = *height as usize;
-                self.page_mode_buffer = vec![0u8; self.page_mode_width * self.page_mode_height];
-            }
-
-            Op::PageModeSetDirection(_) => {
-                // Set page mode direction (rotation)
-                // Preview doesn't support rotation yet
-            }
-
-            Op::PageModeSetPositionY(pos) => {
-                // Set Y position in page mode (pos in 1/8mm units = dots)
-                self.page_mode_y = *pos as usize;
-                // Also update state.y so rendering methods use this position
-                if self.page_mode_active {
-                    self.state.y = self.page_mode_y;
-                }
-            }
-
-            Op::PageModePrintAndExit => {
-                // Composite page mode buffer to main buffer and exit page mode
-                if self.page_mode_active && !self.page_mode_buffer.is_empty() {
-                    // Add small top margin for page mode content
-                    let start_y = self.top_margin;
-                    self.ensure_height(start_y + self.page_mode_height);
-
-                    // Copy page mode buffer to main buffer (centered)
-                    let start_x = if self.page_mode_width < self.print_width {
-                        self.left_margin + (self.print_width - self.page_mode_width) / 2
-                    } else {
-                        self.left_margin
-                    };
-
-                    for row in 0..self.page_mode_height {
-                        for col in 0..self.page_mode_width {
-                            let page_idx = row * self.page_mode_width + col;
-                            if page_idx < self.page_mode_buffer.len() && self.page_mode_buffer[page_idx] != 0 {
-                                let x = start_x + col;
-                                let y = start_y + row;
-                                if x < self.paper_width && y < self.height {
-                                    let main_idx = y * self.paper_width + x;
-                                    self.buffer[main_idx] = 1;
-                                }
-                            }
-                        }
-                    }
-
-                    // Set Y to right after the composited content
-                    self.state.y = start_y + self.page_mode_height;
-                }
-
-                // Exit page mode
-                self.page_mode_active = false;
-                self.page_mode_buffer.clear();
-                self.state.x = 0;
-            }
         }
 
         Ok(())
@@ -467,11 +371,8 @@ impl PreviewRenderer {
 
         // Use current x position (which may have been set by SetAbsolutePosition)
         let start_x = self.state.x;
-        let start_y = self.state.y;
 
-        if !self.page_mode_active {
-            self.ensure_height(start_y + dest_height);
-        }
+        self.ensure_height(self.state.y + dest_height);
 
         for sy in 0..src_height {
             for sx in 0..src_width {
@@ -486,7 +387,7 @@ impl PreviewRenderer {
                         for dy in 0..(scale_y as usize) {
                             for dx in 0..(scale_x as usize) {
                                 let px = start_x + sx * (scale_x as usize) + dx;
-                                let py = start_y + sy * (scale_y as usize) + dy;
+                                let py = self.state.y + sy * (scale_y as usize) + dy;
                                 self.set_print_pixel(px, py, true);
                             }
                         }
@@ -495,11 +396,7 @@ impl PreviewRenderer {
             }
         }
 
-        // In page mode, don't advance Y (positioning is explicit via PageModeSetPositionY)
-        // In standard mode, advance Y to next line
-        if !self.page_mode_active {
-            self.state.y += dest_height;
-        }
+        self.state.y += dest_height;
         self.state.x = 0;
     }
 

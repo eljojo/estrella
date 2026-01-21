@@ -211,27 +211,6 @@ pub enum Op {
 
     /// Delete image from NV memory.
     NvDelete { key: String },
-
-    // ========== Page Mode ==========
-    /// Enter page mode for absolute positioning.
-    PageModeEnter,
-
-    /// Set page mode print region (origin and dimensions in 1/8 mm).
-    PageModeSetRegion {
-        x: u16,
-        y: u16,
-        width: u16,
-        height: u16,
-    },
-
-    /// Set page mode print direction.
-    PageModeSetDirection(u8),
-
-    /// Set vertical position in page mode (1/8 mm units).
-    PageModeSetPositionY(u16),
-
-    /// Print page and exit page mode.
-    PageModePrintAndExit,
 }
 
 /// A compiled IR program.

@@ -4,7 +4,7 @@
 
 use super::ops::{BarcodeKind, Op, Program};
 use crate::printer::PrinterConfig;
-use crate::protocol::{barcode, commands, graphics, nv_graphics, page, text};
+use crate::protocol::{barcode, commands, graphics, nv_graphics, text};
 
 impl Program {
     /// Compile the IR program to StarPRNT bytes.
@@ -223,35 +223,6 @@ impl Program {
                     if let Some(cmd) = nv_graphics::erase(key) {
                         out.extend(cmd);
                     }
-                }
-
-                // ===== Page Mode =====
-                Op::PageModeEnter => {
-                    out.extend(page::page_mode_enter());
-                }
-                Op::PageModeSetRegion {
-                    x,
-                    y,
-                    width,
-                    height,
-                } => {
-                    out.extend(page::page_mode_set_region(*x, *y, *width, *height));
-                }
-                Op::PageModeSetDirection(dir) => {
-                    out.extend(page::page_mode_set_direction(
-                        match dir {
-                            0 => page::PageDirection::LeftToRightTopLeft,
-                            1 => page::PageDirection::BottomToTopBottomLeft,
-                            2 => page::PageDirection::RightToLeftBottomRight,
-                            _ => page::PageDirection::TopToBottomTopRight,
-                        },
-                    ));
-                }
-                Op::PageModeSetPositionY(pos) => {
-                    out.extend(page::page_mode_set_position_y(*pos));
-                }
-                Op::PageModePrintAndExit => {
-                    out.extend(page::page_mode_print_and_exit());
                 }
             }
         }
