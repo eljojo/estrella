@@ -38,11 +38,11 @@ use estrella::{
     EstrellaError,
     components::{ComponentExt, Pattern as PatternComponent, Receipt},
     logos,
+    preview,
     protocol::{commands, nv_graphics},
     receipt,
     render::dither,
     render::patterns,
-    render::preview,
     server,
     transport::BluetoothTransport,
 };

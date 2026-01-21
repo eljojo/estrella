@@ -13,7 +13,7 @@
 //! ```no_run
 //! use estrella::{
 //!     protocol::{commands, graphics},
-//!     render::patterns::{Pattern, Ripple},
+//!     render::patterns::{self, Ripple},
 //!     transport::BluetoothTransport,
 //!     printer::PrinterConfig,
 //! };
@@ -30,7 +30,8 @@
 //!
 //! // Render pattern to raster data with Bayer dithering
 //! use estrella::render::dither::DitheringAlgorithm;
-//! let raster_data = ripple.render(
+//! let raster_data = patterns::render(
+//!     &ripple,
 //!     config.width_dots as usize,
 //!     height,
 //!     DitheringAlgorithm::Bayer
@@ -71,6 +72,7 @@ pub mod components;
 pub mod error;
 pub mod ir;
 pub mod logos;
+pub mod preview;
 pub mod printer;
 pub mod protocol;
 pub mod receipt;

@@ -19,7 +19,7 @@
 //!
 //! ```
 //! use estrella::ir::Program;
-//! use estrella::render::preview::render_preview;
+//! use estrella::preview::render_preview;
 //!
 //! let program = Program::new();
 //! // ... add ops ...

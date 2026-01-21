@@ -220,7 +220,7 @@ impl Component for Pattern {
         }
 
         // Render the pattern to raster data with the selected dithering algorithm
-        let data = pattern.render(self.width, self.height, self.dithering);
+        let data = patterns::render(pattern.as_ref(), self.width, self.height, self.dithering);
 
         match self.mode {
             GraphicsMode::Raster => {

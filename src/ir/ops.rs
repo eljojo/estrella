@@ -248,8 +248,8 @@ impl Program {
     /// let png_bytes = program.to_preview_png().unwrap();
     /// // png_bytes can be written to a file or displayed
     /// ```
-    pub fn to_preview_png(&self) -> Result<Vec<u8>, crate::render::preview::PreviewError> {
-        crate::render::preview::render_preview(self)
+    pub fn to_preview_png(&self) -> Result<Vec<u8>, crate::preview::PreviewError> {
+        crate::preview::render_preview(self)
     }
 
     /// Create a program with an initial Init op.

@@ -26,6 +26,10 @@ pub struct Params {
     pub drift: f32,
     /// Wobble blend (0.0 = pure ripple, 1.0 = pure wobble). Default: 0.25
     pub wobble_mix: f32,
+    /// Gamma correction. Default: 1.35
+    pub gamma: f32,
+    /// Border width in pixels. Default: 6.0
+    pub border: f32,
 }
 
 impl Default for Params {
@@ -36,6 +40,8 @@ impl Default for Params {
             scale: 6.5,
             drift: 85.0,
             wobble_mix: 0.25,
+            gamma: 1.35,
+            border: 6.0,
         }
     }
 }
@@ -49,14 +55,21 @@ impl Params {
             scale: 6.5,
             drift: 85.0,
             wobble_mix: 0.22,
+            gamma: 1.35,
+            border: 0.0, // No border for logos
         }
     }
 }
 
-/// Compute ripple shade at a pixel.
+/// Compute ripple intensity at a pixel.
 ///
-/// Returns intensity in [0.0, 1.0] before gamma correction.
+/// Returns intensity in [0.0, 1.0] with gamma applied.
 pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -> f32 {
+    // Border check
+    if params.border > 0.0 && super::in_border(x, y, width, height, params.border) {
+        return 1.0;
+    }
+
     let xf = x as f32;
     let yf = y as f32;
     let wf = width as f32;
@@ -80,7 +93,21 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
     // Blend ripple and wobble
     let v = ripple * (1.0 - params.wobble_mix) + wobble * params.wobble_mix;
 
-    clamp01(v)
+    clamp01(v).powf(params.gamma)
+}
+
+/// Ripple pattern with default parameters.
+#[derive(Debug, Clone, Default)]
+pub struct Ripple;
+
+impl super::Pattern for Ripple {
+    fn name(&self) -> &'static str {
+        "ripple"
+    }
+
+    fn intensity(&self, x: usize, y: usize, width: usize, height: usize) -> f32 {
+        shade(x, y, width, height, &Params::default())
+    }
 }
 
 #[cfg(test)]

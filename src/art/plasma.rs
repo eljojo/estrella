@@ -69,6 +69,20 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
     clamp01(normalized).powf(params.gamma)
 }
 
+/// Plasma pattern with default parameters.
+#[derive(Debug, Clone, Default)]
+pub struct Plasma;
+
+impl super::Pattern for Plasma {
+    fn name(&self) -> &'static str {
+        "plasma"
+    }
+
+    fn intensity(&self, x: usize, y: usize, width: usize, height: usize) -> f32 {
+        shade(x, y, width, height, &Params::default())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

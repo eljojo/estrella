@@ -33,6 +33,8 @@ pub struct Params {
     pub base_weight: f32,
     /// Wobble weight in blend. Default: 0.45
     pub wobble_weight: f32,
+    /// Gamma correction. Default: 1.0
+    pub gamma: f32,
 }
 
 impl Default for Params {
@@ -46,13 +48,14 @@ impl Default for Params {
             scanline_thickness: 2,
             base_weight: 0.55,
             wobble_weight: 0.45,
+            gamma: 1.0,
         }
     }
 }
 
-/// Compute glitch shade at a pixel.
+/// Compute glitch intensity at a pixel.
 ///
-/// Returns intensity in [0.0, 1.0].
+/// Returns intensity in [0.0, 1.0] with gamma applied.
 pub fn shade(x: usize, y: usize, _width: usize, _height: usize, params: &Params) -> f32 {
     let xf = x as f32;
     let yf = y as f32;
@@ -74,7 +77,21 @@ pub fn shade(x: usize, y: usize, _width: usize, _height: usize, params: &Params)
 
     // Blend base and wobble, then overlay scanlines
     let blended = params.base_weight * base + params.wobble_weight * wobble;
-    clamp01(blended.max(scan))
+    clamp01(blended.max(scan)).powf(params.gamma)
+}
+
+/// Glitch pattern with default parameters.
+#[derive(Debug, Clone, Default)]
+pub struct Glitch;
+
+impl super::Pattern for Glitch {
+    fn name(&self) -> &'static str {
+        "glitch"
+    }
+
+    fn intensity(&self, x: usize, y: usize, width: usize, height: usize) -> f32 {
+        shade(x, y, width, height, &Params::default())
+    }
 }
 
 #[cfg(test)]

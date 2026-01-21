@@ -28,6 +28,8 @@ pub struct Params {
     pub vert_weight: f32,
     /// Radial wave weight. Default: 0.25
     pub radial_weight: f32,
+    /// Gamma correction. Default: 1.25
+    pub gamma: f32,
 }
 
 impl Default for Params {
@@ -39,13 +41,14 @@ impl Default for Params {
             horiz_weight: 0.45,
             vert_weight: 0.35,
             radial_weight: 0.20,
+            gamma: 1.25,
         }
     }
 }
 
-/// Compute waves shade at a pixel.
+/// Compute waves intensity at a pixel.
 ///
-/// Returns intensity in [0.0, 1.0] before gamma correction.
+/// Returns intensity in [0.0, 1.0] with gamma applied.
 pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -> f32 {
     let xf = x as f32;
     let yf = y as f32;
@@ -76,7 +79,21 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
         + params.vert_weight * vert_norm
         + params.radial_weight * radial_norm;
 
-    clamp01(v)
+    clamp01(v).powf(params.gamma)
+}
+
+/// Waves pattern with default parameters.
+#[derive(Debug, Clone, Default)]
+pub struct Waves;
+
+impl super::Pattern for Waves {
+    fn name(&self) -> &'static str {
+        "waves"
+    }
+
+    fn intensity(&self, x: usize, y: usize, width: usize, height: usize) -> f32 {
+        shade(x, y, width, height, &Params::default())
+    }
 }
 
 #[cfg(test)]

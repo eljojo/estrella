@@ -102,8 +102,8 @@ fn check_golden(name: &str, ext: &str, data: &[u8]) {
 #[test]
 #[ignore]
 fn generate_golden_files() {
-    // Patterns
-    for name in ["ripple", "waves", "calibration", "sick", "other"] {
+    // Patterns - use list_patterns() to get all available patterns
+    for &name in patterns::list_patterns() {
         let pattern = patterns::by_name(name).unwrap();
         let (_width, height) = pattern.default_dimensions();
 
@@ -171,21 +171,6 @@ fn test_binary_calibration_raster() {
     check_golden("calibration_raster", "bin", &cmd);
 }
 
-#[test]
-fn test_binary_sick_raster() {
-    let pattern = patterns::Sick::default();
-    let (_width, height) = pattern.default_dimensions();
-    let cmd = generate_raster_commands("sick", height);
-    check_golden("sick_raster", "bin", &cmd);
-}
-
-#[test]
-fn test_binary_other_raster() {
-    let pattern = patterns::Other::default();
-    let (_width, height) = pattern.default_dimensions();
-    let cmd = generate_raster_commands("other", height);
-    check_golden("other_raster", "bin", &cmd);
-}
 
 // ============================================================================
 // PATTERN BINARY TESTS (BAND MODE)
@@ -215,21 +200,6 @@ fn test_binary_calibration_band() {
     check_golden("calibration_band", "bin", &cmd);
 }
 
-#[test]
-fn test_binary_sick_band() {
-    let pattern = patterns::Sick::default();
-    let (_width, height) = pattern.default_dimensions();
-    let cmd = generate_band_commands("sick", height);
-    check_golden("sick_band", "bin", &cmd);
-}
-
-#[test]
-fn test_binary_other_band() {
-    let pattern = patterns::Other::default();
-    let (_width, height) = pattern.default_dimensions();
-    let cmd = generate_band_commands("other", height);
-    check_golden("other_band", "bin", &cmd);
-}
 
 // ============================================================================
 // PATTERN PREVIEW TESTS
@@ -271,29 +241,6 @@ fn test_preview_calibration() {
     check_golden("calibration", "png", &png);
 }
 
-#[test]
-fn test_preview_sick() {
-    let pattern = patterns::Sick::default();
-    let (_width, height) = pattern.default_dimensions();
-    let program = Receipt::new()
-        .child(PatternComponent::new("sick", height).with_title().raster_mode())
-        .cut()
-        .compile();
-    let png = generate_preview_png(&program);
-    check_golden("sick", "png", &png);
-}
-
-#[test]
-fn test_preview_other() {
-    let pattern = patterns::Other::default();
-    let (_width, height) = pattern.default_dimensions();
-    let program = Receipt::new()
-        .child(PatternComponent::new("other", height).with_title().raster_mode())
-        .cut()
-        .compile();
-    let png = generate_preview_png(&program);
-    check_golden("other", "png", &png);
-}
 
 // ============================================================================
 // RECEIPT BINARY TESTS

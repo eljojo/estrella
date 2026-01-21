@@ -54,6 +54,20 @@ pub fn shade(x: usize, y: usize, _width: usize, _height: usize, params: &Params)
     clamp01(1.0 - contours).powf(params.gamma)
 }
 
+/// Topography pattern with default parameters.
+#[derive(Debug, Clone, Default)]
+pub struct Topography;
+
+impl super::Pattern for Topography {
+    fn name(&self) -> &'static str {
+        "topography"
+    }
+
+    fn intensity(&self, x: usize, y: usize, width: usize, height: usize) -> f32 {
+        shade(x, y, width, height, &Params::default())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

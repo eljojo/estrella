@@ -157,15 +157,15 @@ This produces **~5-8% smaller output** while maintaining identical visual result
 
 ## Patterns
 
-Visual patterns for testing and artistic prints.
+Visual patterns for testing and artistic prints. Each pattern lives in its own file under `src/art/`.
 
-### Ripple ([source](src/render/patterns.rs#L179))
+### Ripple ([source](src/art/ripple.rs))
 
 Radial ripples with wobble interference - creates a hypnotic expanding wave effect.
 
 ![Ripple Pattern](tests/golden/ripple.png)
 
-### Waves ([source](src/render/patterns.rs#L267))
+### Waves ([source](src/art/waves.rs))
 
 Multi-oscillator interference pattern - overlapping sine waves create complex moiré effects.
 
@@ -174,27 +174,59 @@ Multi-oscillator interference pattern - overlapping sine waves create complex mo
 <details>
 <summary>More patterns</summary>
 
-### Sick ([source](src/render/patterns.rs#L366))
+### Plasma ([source](src/art/plasma.rs))
 
-Four-section test pattern:
-- Plasma/Moiré interference
-- Concentric rings with diagonal waves
-- Topographic contour lines
-- Glitch effect with scanlines
+Plasma/Moiré interference pattern with smooth color transitions.
 
-![Sick Pattern](tests/golden/sick.png)
+![Plasma Pattern](tests/golden/plasma.png)
 
-### Calibration ([source](src/render/patterns.rs#L529))
+### Rings ([source](src/art/rings.rs))
+
+Concentric rings with diagonal wave interference.
+
+![Rings Pattern](tests/golden/rings.png)
+
+### Topography ([source](src/art/topography.rs))
+
+Topographic contour lines simulating elevation maps.
+
+![Topography Pattern](tests/golden/topography.png)
+
+### Glitch ([source](src/art/glitch.rs))
+
+Digital glitch effect with scanlines and noise.
+
+![Glitch Pattern](tests/golden/glitch.png)
+
+### Microfeed ([source](src/art/microfeed.rs))
+
+Horizontal lines with progressively increasing spacing - tests printer feed accuracy.
+
+![Microfeed Pattern](tests/golden/microfeed.png)
+
+### Density ([source](src/art/density.rs))
+
+Ripple pattern at three different gamma levels for density testing.
+
+![Density Pattern](tests/golden/density.png)
+
+### Overburn ([source](src/art/overburn.rs))
+
+Double-pass darkening effect for maximum ink density.
+
+![Overburn Pattern](tests/golden/overburn.png)
+
+### Jitter ([source](src/art/jitter.rs))
+
+Banding and scanline artifacts pattern.
+
+![Jitter Pattern](tests/golden/jitter.png)
+
+### Calibration ([source](src/art/calibration.rs))
 
 Diagnostic pattern with borders, X-shaped diagonals, and progressive-width vertical bars.
 
 ![Calibration Pattern](tests/golden/calibration.png)
-
-### Other ([source](src/render/patterns.rs#L649))
-
-Experimental pattern with unique visual characteristics.
-
-![Other Pattern](tests/golden/other.png)
 
 </details>
 
@@ -242,7 +274,7 @@ estrella print
 # Print patterns
 estrella print ripple
 estrella print waves
-estrella print --height 1000 sick
+estrella print --height 1000 plasma
 
 # Save as PNG preview
 estrella print --png output.png ripple

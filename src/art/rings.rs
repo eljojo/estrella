@@ -69,6 +69,20 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
     clamp01(blended).powf(params.gamma)
 }
 
+/// Rings pattern with default parameters.
+#[derive(Debug, Clone, Default)]
+pub struct Rings;
+
+impl super::Pattern for Rings {
+    fn name(&self) -> &'static str {
+        "rings"
+    }
+
+    fn intensity(&self, x: usize, y: usize, width: usize, height: usize) -> f32 {
+        shade(x, y, width, height, &Params::default())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
