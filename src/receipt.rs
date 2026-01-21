@@ -7,51 +7,11 @@
 //! for minimal byte output.
 
 use crate::components::{
-    Barcode, Component, ComponentExt, LineItem, NvLogo, Pdf417, QrCode, Raw, Receipt, Spacer, Text,
-    Total,
+    Barcode, Columns, ComponentExt, Divider, LineItem, NvLogo, Pdf417, QrCode, Raw, Receipt,
+    Spacer, Text, Total,
 };
 use crate::ir::Op;
-use crate::protocol::text::{Alignment, Font};
-
-const COLS: usize = 48; // Characters per line for Font A on 576px paper
-
-// ============================================================================
-// HELPER COMPONENTS
-// ============================================================================
-
-/// A custom component for the item table header.
-struct ItemTableHeader;
-
-impl Component for ItemTableHeader {
-    fn emit(&self, ops: &mut Vec<Op>) {
-        ops.push(Op::SetAlign(Alignment::Left));
-        ops.push(Op::SetBold(true));
-        let header = format!("{:<43}{:>5}", "ITEM", "CAD");
-        ops.push(Op::Text(header));
-        ops.push(Op::Newline);
-        ops.push(Op::SetBold(false));
-    }
-}
-
-/// A custom component for a horizontal rule.
-struct Hr {
-    ch: char,
-    width: usize,
-}
-
-impl Hr {
-    fn new(ch: char) -> Self {
-        Self { ch, width: COLS }
-    }
-}
-
-impl Component for Hr {
-    fn emit(&self, ops: &mut Vec<Op>) {
-        let line: String = std::iter::repeat(self.ch).take(self.width).collect();
-        ops.push(Op::Text(line));
-        ops.push(Op::Newline);
-    }
-}
+use crate::protocol::text::Font;
 
 // ============================================================================
 // RECEIPT TEMPLATES
@@ -92,13 +52,13 @@ pub fn demo_receipt() -> Vec<u8> {
         )
         .child(Spacer::mm(2.0))
         // Items table
-        .child(ItemTableHeader)
-        .child(Hr::new('-'))
+        .child(Columns::new("ITEM", "CAD").bold())
+        .child(Divider::dashed())
         .child(LineItem::new("Liminal Espresso", 4.50))
         .child(LineItem::new("Basement Techno Vinyl", 29.00))
         .child(LineItem::new("Thermal Paper (mystery)", 7.25))
         .child(LineItem::new("Sticker: *****", 2.00))
-        .child(Hr::new('-'))
+        .child(Divider::dashed())
         // Totals
         .child(Total::labeled("SUBTOTAL:", 42.75).bold())
         .child(Total::labeled("HST (13%):", 5.56))
@@ -177,14 +137,14 @@ pub fn full_receipt() -> Vec<u8> {
         )
         .child(Spacer::mm(2.0))
         // Font showcase
-        .child(Hr::new('-'))
+        .child(Divider::dashed())
         .child(Text::new("FONTS:").left().bold())
         .child(Text::new("Font A (12x24): THE QUICK BROWN FOX 0123456789").font(Font::A))
         .child(Text::new("Font B ( 9x24): THE QUICK BROWN FOX 0123456789").font(Font::B))
         .child(Text::new("Font C ( 9x17): THE QUICK BROWN FOX 0123456789").font(Font::C))
         .child(Spacer::mm(2.0))
         // Style showcase
-        .child(Hr::new('-'))
+        .child(Divider::dashed())
         .child(Text::new("STYLES:").left().bold())
         .child(Text::new("Normal text."))
         .child(Text::new("Emphasized (bold-ish).").bold())
@@ -197,21 +157,21 @@ pub fn full_receipt() -> Vec<u8> {
         .child(Text::new("upside-down message (SI)").center().upside_down())
         .child(Spacer::mm(2.0))
         // Receipt body
-        .child(Hr::new('-'))
-        .child(ItemTableHeader)
-        .child(Hr::new('-'))
+        .child(Divider::dashed())
+        .child(Columns::new("ITEM", "CAD").bold())
+        .child(Divider::dashed())
         .child(LineItem::new("Liminal Espresso", 4.50))
         .child(LineItem::new("Basement Techno Vinyl", 29.00))
         .child(LineItem::new("Thermal Paper (mystery)", 7.25))
         .child(LineItem::new("Sticker: *****", 2.00))
-        .child(Hr::new('-'))
+        .child(Divider::dashed())
         // Totals
         .child(Total::labeled("SUBTOTAL:", 42.75))
         .child(Total::labeled("HST (13%):", 5.56))
         .child(Total::labeled("TOTAL:", 48.31).bold().double_width())
         .child(Spacer::mm(3.0))
         // Barcodes
-        .child(Hr::new('-'))
+        .child(Divider::dashed())
         .child(Text::new("CODES:").center().bold())
         .child(Text::new("1D Barcode (Code39 + HRI):").left())
         .child(Barcode::code39("CHURRA-2026-0001").height(80))
@@ -227,7 +187,7 @@ pub fn full_receipt() -> Vec<u8> {
         )
         .child(Spacer::mm(4.0))
         // Footer
-        .child(Hr::new('-'))
+        .child(Divider::dashed())
         .child(Text::new("thank you for your vibes").center().underline())
         .child(Spacer::mm(2.0))
         .child(

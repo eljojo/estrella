@@ -140,11 +140,15 @@ impl Component for Spacer {
 ///
 /// let row = Columns::new("Label:", "Value");
 /// let receipt_line = Columns::new("Subtotal", "$19.99");
+/// let header = Columns::new("ITEM", "PRICE").bold();
 /// ```
 pub struct Columns {
     left: String,
     right: String,
     width: usize,
+    bold: bool,
+    underline: bool,
+    invert: bool,
 }
 
 impl Columns {
@@ -154,12 +158,33 @@ impl Columns {
             left: left.into(),
             right: right.into(),
             width: 48,
+            bold: false,
+            underline: false,
+            invert: false,
         }
     }
 
     /// Set the character width.
     pub fn width(mut self, width: usize) -> Self {
         self.width = width;
+        self
+    }
+
+    /// Make the row bold.
+    pub fn bold(mut self) -> Self {
+        self.bold = true;
+        self
+    }
+
+    /// Underline the row.
+    pub fn underline(mut self) -> Self {
+        self.underline = true;
+        self
+    }
+
+    /// Invert the row (white on black).
+    pub fn invert(mut self) -> Self {
+        self.invert = true;
         self
     }
 }
@@ -174,9 +199,30 @@ impl Component for Columns {
             self.left,
             format!("{:>width$}", self.right, width = padding + self.right.len())
         );
+
         ops.push(Op::SetAlign(Alignment::Left));
+        if self.bold {
+            ops.push(Op::SetBold(true));
+        }
+        if self.underline {
+            ops.push(Op::SetUnderline(true));
+        }
+        if self.invert {
+            ops.push(Op::SetInvert(true));
+        }
+
         ops.push(Op::Text(line));
         ops.push(Op::Newline);
+
+        if self.invert {
+            ops.push(Op::SetInvert(false));
+        }
+        if self.underline {
+            ops.push(Op::SetUnderline(false));
+        }
+        if self.bold {
+            ops.push(Op::SetBold(false));
+        }
     }
 }
 
@@ -292,6 +338,30 @@ mod tests {
             }
         });
         assert!(has_columns);
+    }
+
+    #[test]
+    fn test_columns_bold() {
+        let cols = Columns::new("ITEM", "PRICE").bold();
+        let ir = cols.compile();
+        assert!(ir.ops.contains(&Op::SetBold(true)));
+        assert!(ir.ops.contains(&Op::SetBold(false)));
+    }
+
+    #[test]
+    fn test_columns_underline() {
+        let cols = Columns::new("A", "B").underline();
+        let ir = cols.compile();
+        assert!(ir.ops.contains(&Op::SetUnderline(true)));
+        assert!(ir.ops.contains(&Op::SetUnderline(false)));
+    }
+
+    #[test]
+    fn test_columns_invert() {
+        let cols = Columns::new("A", "B").invert();
+        let ir = cols.compile();
+        assert!(ir.ops.contains(&Op::SetInvert(true)));
+        assert!(ir.ops.contains(&Op::SetInvert(false)));
     }
 
     #[test]
