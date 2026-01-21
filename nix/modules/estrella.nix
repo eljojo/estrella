@@ -39,6 +39,9 @@ in
   };
 
   config = mkIf cfg.enable {
+    # Make estrella available system-wide
+    environment.systemPackages = [ cfg.package ];
+
     systemd.services.estrella = {
       description = "Estrella Thermal Printer HTTP Daemon";
       documentation = [ "https://github.com/eljojo/estrella" ];
