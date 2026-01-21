@@ -72,7 +72,7 @@
     )) // {
       # Overlay to add estrella to pkgs
       overlays.default = final: prev: {
-        estrella = self.packages.${prev.system}.default;
+        estrella = self.packages.${prev.stdenv.hostPlatform.system}.default;
       };
 
       # NixOS module for estrella HTTP server
