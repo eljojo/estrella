@@ -122,7 +122,7 @@ pub enum DitheringAlgorithm {
 
 impl Default for DitheringAlgorithm {
     fn default() -> Self {
-        Self::FloydSteinberg
+        Self::Bayer
     }
 }
 

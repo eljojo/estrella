@@ -108,7 +108,7 @@ pub struct Pattern {
 impl Pattern {
     /// Create a pattern with a name and height.
     ///
-    /// Uses the default printer width (576 dots) and Floyd-Steinberg dithering.
+    /// Uses the default printer width (576 dots) and Bayer dithering.
     pub fn new(name: impl Into<String>, height: usize) -> Self {
         Self {
             name: name.into(),
@@ -116,7 +116,7 @@ impl Pattern {
             height,
             mode: GraphicsMode::Raster,
             with_title: false,
-            dithering: dither::DitheringAlgorithm::FloydSteinberg,
+            dithering: dither::DitheringAlgorithm::Bayer,
         }
     }
 

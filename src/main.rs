@@ -96,7 +96,7 @@ enum Commands {
         raster: bool,
 
         /// Dithering algorithm (bayer or floyd-steinberg)
-        #[arg(long, default_value = "floyd-steinberg")]
+        #[arg(long, default_value = "bayer")]
         dither: String,
     },
 
