@@ -39,6 +39,7 @@ use estrella::{
     components::{ComponentExt, Pattern as PatternComponent, Receipt},
     logos,
     preview,
+    printer::PrinterConfig,
     protocol::{commands, nv_graphics},
     receipt,
     render::dither,
@@ -78,6 +79,11 @@ enum Commands {
         /// Pattern height in rows (defaults to pattern's recommended height, or 500)
         #[arg(long)]
         height: Option<usize>,
+
+        /// Pattern length in millimeters (e.g., "15mm" or "62.5mm").
+        /// Overrides --height if both are specified.
+        #[arg(long, value_name = "LENGTH")]
+        length: Option<String>,
 
         /// Print width in dots
         #[arg(long, default_value = "576")]
@@ -226,6 +232,7 @@ fn run() -> Result<(), EstrellaError> {
             png,
             device,
             height,
+            length,
             width,
             no_title,
             band,
@@ -298,7 +305,11 @@ fn run() -> Result<(), EstrellaError> {
 
                     let (default_width, default_height) = pattern_impl.default_dimensions();
                     let pattern_width = if width != 576 { width } else { default_width };
-                    let pattern_height = height.unwrap_or(default_height);
+                    let pattern_height = if let Some(ref len) = length {
+                        parse_length_mm(len)?
+                    } else {
+                        height.unwrap_or(default_height)
+                    };
 
                     // Parse dithering algorithm
                     let dither_algo = match dither.to_lowercase().as_str() {
@@ -398,7 +409,11 @@ fn run() -> Result<(), EstrellaError> {
             // Use pattern's default dimensions if user didn't specify
             let (default_width, default_height) = pattern_impl.default_dimensions();
             let width = if width != 576 { width } else { default_width };
-            let height = height.unwrap_or(default_height);
+            let height = if let Some(ref len) = length {
+                parse_length_mm(len)?
+            } else {
+                height.unwrap_or(default_height)
+            };
 
             let params_desc = pattern_impl.params_description();
             if !params_desc.is_empty() && !golden {
@@ -499,6 +514,27 @@ fn print_raw_to_device(device: &str, data: &[u8]) -> Result<(), EstrellaError> {
     let mut transport = BluetoothTransport::open(device)?;
     transport.write_all(data)?;
     Ok(())
+}
+
+/// Parse a length string like "15mm" or "62.5mm" and convert to height in dots.
+fn parse_length_mm(length: &str) -> Result<usize, EstrellaError> {
+    let length = length.trim().to_lowercase();
+    let mm_str = length.strip_suffix("mm").ok_or_else(|| {
+        EstrellaError::Pattern(format!(
+            "Invalid length format '{}'. Use format like '15mm' or '62.5mm'",
+            length
+        ))
+    })?;
+    let mm: f32 = mm_str.parse().map_err(|_| {
+        EstrellaError::Pattern(format!(
+            "Invalid length value '{}'. Use format like '15mm' or '62.5mm'",
+            length
+        ))
+    })?;
+    if mm <= 0.0 {
+        return Err(EstrellaError::Pattern("Length must be positive".to_string()));
+    }
+    Ok(PrinterConfig::TSP650II.mm_to_dots(mm) as usize)
 }
 
 /// Print a receipt as a full-page raster (no margins, 576px wide).
