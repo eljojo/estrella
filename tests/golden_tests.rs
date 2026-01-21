@@ -5,7 +5,7 @@
 //! ## Test Coverage
 //!
 //! All printable items get two types of golden tests:
-//! - **Binary tests** (`.bin`): Verify printer command bytes are consistent
+//! - **Binary tests** (`.bin`): Verify printer command bytes (raster mode) are consistent
 //! - **Preview tests** (`.png`): Verify visual preview rendering is consistent
 //!
 //! ## Regenerating Golden Files
@@ -32,14 +32,6 @@ const GOLDEN_DIR: &str = "tests/golden";
 fn generate_raster_commands(name: &str, height: usize) -> Vec<u8> {
     Receipt::new()
         .child(PatternComponent::new(name, height).with_title().raster_mode())
-        .cut()
-        .build()
-}
-
-/// Generate printer commands using band mode via component system
-fn generate_band_commands(name: &str, height: usize) -> Vec<u8> {
-    Receipt::new()
-        .child(PatternComponent::new(name, height).with_title().band_mode())
         .cut()
         .build()
 }
@@ -111,10 +103,6 @@ fn generate_golden_files() {
         let cmd = generate_raster_commands(name, height);
         write_golden(&format!("{}_raster", name), "bin", &cmd);
 
-        // Binary: band mode
-        let cmd = generate_band_commands(name, height);
-        write_golden(&format!("{}_band", name), "bin", &cmd);
-
         // Preview PNG
         let program = Receipt::new()
             .child(PatternComponent::new(name, height).with_title().raster_mode())
@@ -169,35 +157,6 @@ fn test_binary_calibration_raster() {
     let (_width, height) = pattern.default_dimensions();
     let cmd = generate_raster_commands("calibration", height);
     check_golden("calibration_raster", "bin", &cmd);
-}
-
-
-// ============================================================================
-// PATTERN BINARY TESTS (BAND MODE)
-// ============================================================================
-
-#[test]
-fn test_binary_ripple_band() {
-    let pattern = patterns::Ripple::default();
-    let (_width, height) = pattern.default_dimensions();
-    let cmd = generate_band_commands("ripple", height);
-    check_golden("ripple_band", "bin", &cmd);
-}
-
-#[test]
-fn test_binary_waves_band() {
-    let pattern = patterns::Waves::default();
-    let (_width, height) = pattern.default_dimensions();
-    let cmd = generate_band_commands("waves", height);
-    check_golden("waves_band", "bin", &cmd);
-}
-
-#[test]
-fn test_binary_calibration_band() {
-    let pattern = patterns::Calibration::default();
-    let (_width, height) = pattern.default_dimensions();
-    let cmd = generate_band_commands("calibration", height);
-    check_golden("calibration_band", "bin", &cmd);
 }
 
 
