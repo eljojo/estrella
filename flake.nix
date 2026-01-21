@@ -18,7 +18,7 @@
       flake-utils,
       ...
     }:
-    flake-utils.lib.eachDefaultSystem (
+    (flake-utils.lib.eachDefaultSystem (
       system:
       let
         overlays = [ (import rust-overlay) ];
@@ -69,6 +69,10 @@
           LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath buildInputs;
         };
       }
-    );
+    )) // {
+      # NixOS module for estrella HTTP server
+      nixosModules.default = import ./nix/modules/estrella.nix;
+      nixosModules.estrella = import ./nix/modules/estrella.nix;
+    };
     # based on https://github.com/hiveboardgame/hive/blob/50b3804378012ee4ecf62f6e47ca348454eb066b/flake.nix
 }

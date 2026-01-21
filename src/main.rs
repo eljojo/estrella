@@ -43,6 +43,7 @@ use estrella::{
     render::dither,
     render::patterns,
     render::preview,
+    server,
     transport::BluetoothTransport,
 };
 
@@ -104,6 +105,17 @@ enum Commands {
     Logo {
         #[command(subcommand)]
         action: LogoAction,
+    },
+
+    /// Start HTTP server for web-based printing
+    Serve {
+        /// Address and port to bind to
+        #[arg(long, default_value = "0.0.0.0:8080")]
+        listen: String,
+
+        /// Printer device path
+        #[arg(long, default_value = "/dev/rfcomm0")]
+        device: String,
     },
 }
 
@@ -380,6 +392,18 @@ fn run() -> Result<(), EstrellaError> {
                 logo_delete_all(&device, force)?;
             }
         },
+
+        Commands::Serve { listen, device } => {
+            let config = server::ServerConfig {
+                device_path: device,
+                listen_addr: listen,
+            };
+
+            // Create tokio runtime and run the server
+            tokio::runtime::Runtime::new()
+                .map_err(|e| EstrellaError::Transport(format!("Failed to create tokio runtime: {}", e)))?
+                .block_on(server::serve(config))?;
+        }
     }
 
     Ok(())

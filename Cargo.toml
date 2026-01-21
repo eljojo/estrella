@@ -15,5 +15,12 @@ pdf417 = "0.2"
 spleen-font = { version = "0.2", features = ["s6x12", "s8x16", "s12x24"] }
 barcoders = "2"
 
+# HTTP server dependencies
+axum = "0.7"
+tokio = { version = "1", features = ["full"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["fs", "trace"] }
+serde = { version = "1", features = ["derive"] }
+
 [dev-dependencies]
 pretty_assertions = "1"

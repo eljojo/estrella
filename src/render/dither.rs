@@ -537,7 +537,7 @@ mod tests {
 
     #[test]
     fn test_pack_row_empty() {
-        assert_eq!(pack_row(&[]), vec![]);
+        assert_eq!(pack_row(&[]), Vec::<u8>::new());
     }
 
     #[test]
