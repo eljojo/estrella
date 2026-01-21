@@ -70,6 +70,11 @@
         };
       }
     )) // {
+      # Overlay to add estrella to pkgs
+      overlays.default = final: prev: {
+        estrella = self.packages.${prev.system}.default;
+      };
+
       # NixOS module for estrella HTTP server
       nixosModules.default = import ./nix/modules/estrella.nix;
       nixosModules.estrella = import ./nix/modules/estrella.nix;

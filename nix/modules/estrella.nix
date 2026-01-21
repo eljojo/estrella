@@ -33,7 +33,11 @@ in
 
     package = mkOption {
       type = types.package;
-      default = pkgs.estrella or (throw "estrella package not found in pkgs");
+      default = pkgs.estrella or (throw ''
+        estrella package not found in pkgs.
+        You need to add the overlay to your nixpkgs.overlays:
+          nixpkgs.overlays = [ inputs.estrella.overlays.default ];
+      '');
       description = "Estrella package to use";
     };
   };
