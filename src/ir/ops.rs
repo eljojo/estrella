@@ -189,6 +189,10 @@ pub enum Op {
         height: u8,
     },
 
+    // ========== Position ==========
+    /// Move print position to absolute horizontal position (in dots from left margin).
+    SetAbsolutePosition(u16),
+
     // ========== NV Graphics ==========
     /// Store image in printer's non-volatile memory.
     NvStore {

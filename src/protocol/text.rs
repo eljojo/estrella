@@ -105,6 +105,39 @@ pub fn align_right() -> Vec<u8> {
 }
 
 // ============================================================================
+// HORIZONTAL POSITION
+// ============================================================================
+
+/// # Move to Absolute Position (ESC GS A n1 n2)
+///
+/// Moves the print position from the left margin to the specified position.
+///
+/// ## Protocol Details
+///
+/// | Format  | Bytes |
+/// |---------|-------|
+/// | ASCII   | ESC GS A n1 n2 |
+/// | Hex     | 1B 1D 41 n1 n2 |
+/// | Decimal | 27 29 65 n1 n2 |
+///
+/// ## Parameters
+///
+/// Position in dots = n1 + n2 × 256
+///
+/// ## Notes
+///
+/// - Ignored if position exceeds print region
+/// - Used to position NV graphics for centering
+///
+/// ## Reference
+///
+/// StarPRNT Command Spec Rev 4.10, Section 2.3.4, page 44
+pub fn absolute_position(dots: u16) -> Vec<u8> {
+    let [n1, n2] = dots.to_le_bytes();
+    vec![ESC, GS, b'A', n1, n2]
+}
+
+// ============================================================================
 // FONT SELECTION
 // ============================================================================
 

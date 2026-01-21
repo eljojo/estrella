@@ -280,6 +280,11 @@ impl PreviewRenderer {
                 self.render_barcode1d(*kind, data, *height);
             }
 
+            Op::SetAbsolutePosition(dots) => {
+                // Set horizontal position (in print coordinates)
+                self.state.x = (*dots as usize).min(self.print_width);
+            }
+
             Op::NvPrint { key, scale_x, scale_y } => {
                 // Look up logo from registry for preview
                 if let Some(raster) = crate::logos::get_raster(key) {
@@ -354,20 +359,18 @@ impl PreviewRenderer {
     }
 
     /// Render an NV logo from the registry.
+    ///
+    /// Uses current x position (set via SetAbsolutePosition) as the starting point.
     fn render_nv_logo(&mut self, raster: &crate::logos::LogoRaster, scale_x: u8, scale_y: u8) {
         let src_width = raster.width as usize;
         let src_height = raster.height as usize;
         let src_width_bytes = src_width.div_ceil(8);
 
-        let dest_width = src_width * scale_x as usize;
+        let _dest_width = src_width * scale_x as usize;
         let dest_height = src_height * scale_y as usize;
 
-        // Center in print area
-        let start_x = if dest_width < self.print_width {
-            (self.print_width - dest_width) / 2
-        } else {
-            0
-        };
+        // Use current x position (which may have been set by SetAbsolutePosition)
+        let start_x = self.state.x;
 
         self.ensure_height(self.state.y + dest_height);
 

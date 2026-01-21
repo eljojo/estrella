@@ -218,7 +218,7 @@ impl Component for Pattern {
 /// use estrella::components::{Receipt, NvLogo, Text};
 ///
 /// let receipt = Receipt::new()
-///     .child(NvLogo::new("LG"))  // Print logo stored with key "LG"
+///     .child(NvLogo::new("LG").center())  // Print centered logo
 ///     .child(Text::new("Thank you!").center())
 ///     .cut();
 /// ```
@@ -226,7 +226,13 @@ pub struct NvLogo {
     key: String,
     scale_x: u8,
     scale_y: u8,
+    centered: bool,
+    /// Print width in dots (for centering calculation)
+    print_width: u16,
 }
+
+/// Default print width for TSP650II (72mm at 203 DPI)
+const DEFAULT_PRINT_WIDTH: u16 = 576;
 
 impl NvLogo {
     /// Create an NV logo component with a 2-character key.
@@ -237,7 +243,25 @@ impl NvLogo {
             key: key.into(),
             scale_x: 1,
             scale_y: 1,
+            centered: false,
+            print_width: DEFAULT_PRINT_WIDTH,
         }
+    }
+
+    /// Center the logo horizontally.
+    ///
+    /// This looks up the logo dimensions from the registry and calculates
+    /// the position to center it on the paper. If the logo is not found
+    /// in the registry, centering is skipped.
+    pub fn center(mut self) -> Self {
+        self.centered = true;
+        self
+    }
+
+    /// Set the print width for centering calculations (default: 576 dots).
+    pub fn print_width(mut self, width: u16) -> Self {
+        self.print_width = width;
+        self
     }
 
     /// Set horizontal scale (1 = 1x, 2 = 2x).
@@ -267,6 +291,17 @@ impl NvLogo {
 
 impl Component for NvLogo {
     fn emit(&self, ops: &mut Vec<Op>) {
+        // If centering is enabled, look up logo dimensions and position
+        if self.centered {
+            if let Some(raster) = crate::logos::get_raster(&self.key) {
+                let scaled_width = (raster.width as u32) * (self.scale_x as u32);
+                if scaled_width < self.print_width as u32 {
+                    let position = ((self.print_width as u32) - scaled_width) / 2;
+                    ops.push(Op::SetAbsolutePosition(position as u16));
+                }
+            }
+        }
+
         ops.push(Op::NvPrint {
             key: self.key.clone(),
             scale_x: self.scale_x,

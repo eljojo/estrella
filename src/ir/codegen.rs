@@ -194,6 +194,11 @@ impl Program {
                     out.extend(barcode_fn(data.as_bytes(), *height));
                 }
 
+                // ===== Position =====
+                Op::SetAbsolutePosition(dots) => {
+                    out.extend(text::absolute_position(*dots));
+                }
+
                 // ===== NV Graphics =====
                 Op::NvStore {
                     key,
