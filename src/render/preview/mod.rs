@@ -661,6 +661,74 @@ pub fn render_preview(program: &Program) -> Result<Vec<u8>, PreviewError> {
     renderer.render(program)
 }
 
+/// Raw raster output for printing.
+pub struct RawRaster {
+    /// Width in pixels (576 for TSP650II)
+    pub width: usize,
+    /// Height in pixels
+    pub height: usize,
+    /// Packed 1-bit pixel data (MSB first, 1 = black)
+    pub data: Vec<u8>,
+}
+
+/// Render a program to raw 1-bit raster data with no margins.
+///
+/// Returns exactly 576 pixels wide (72mm at 203 DPI), packed 1-bit per pixel.
+/// This is suitable for direct raster printing via `Op::Raster`.
+pub fn render_raw(program: &Program) -> Result<RawRaster, PreviewError> {
+    // Create renderer with no margins: paper = print = 576px
+    let mut renderer = PreviewRenderer::new(576, 576, 0, 0);
+
+    for op in &program.ops {
+        // Skip Cut ops - we want the content only
+        if matches!(op, Op::Cut { .. }) {
+            continue;
+        }
+        renderer.process_op(op)?;
+    }
+
+    // Trim trailing empty rows
+    let mut actual_height = renderer.height;
+    while actual_height > 0 {
+        let row_start = (actual_height - 1) * renderer.paper_width;
+        let row_empty = renderer.buffer[row_start..row_start + renderer.paper_width]
+            .iter()
+            .all(|&p| p == 0);
+        if row_empty {
+            actual_height -= 1;
+        } else {
+            break;
+        }
+    }
+
+    // Ensure at least some height
+    actual_height = actual_height.max(1);
+
+    // Pack into 1-bit format
+    let width = renderer.paper_width;
+    let width_bytes = width.div_ceil(8);
+    let mut data = vec![0u8; width_bytes * actual_height];
+
+    for y in 0..actual_height {
+        for x in 0..width {
+            let src_idx = y * width + x;
+            let is_black = renderer.buffer.get(src_idx).copied().unwrap_or(0) != 0;
+
+            if is_black {
+                let byte_idx = y * width_bytes + x / 8;
+                let bit_idx = 7 - (x % 8);
+                data[byte_idx] |= 1 << bit_idx;
+            }
+        }
+    }
+
+    Ok(RawRaster {
+        width,
+        height: actual_height,
+        data,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

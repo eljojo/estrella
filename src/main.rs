@@ -38,10 +38,11 @@ use estrella::{
     EstrellaError,
     components::{ComponentExt, Pattern as PatternComponent, Receipt},
     logos,
-    protocol::{commands, nv_graphics},
+    protocol::{commands, graphics, nv_graphics},
     receipt,
     render::dither,
     render::patterns,
+    render::preview,
     transport::BluetoothTransport,
 };
 
@@ -88,6 +89,11 @@ enum Commands {
         /// Use band mode instead of raster mode for graphics
         #[arg(long)]
         band: bool,
+
+        /// Render as full-page raster (no margins, 576px wide)
+        /// Use this to test raster print quality vs normal text mode
+        #[arg(long)]
+        raster: bool,
     },
 
     /// Manage logos stored in printer's NV (non-volatile) memory
@@ -188,6 +194,7 @@ fn run() -> Result<(), EstrellaError> {
             width,
             no_title,
             band,
+            raster,
         } => {
             // List patterns if --list flag or no pattern specified
             if list || pattern.is_none() {
@@ -206,6 +213,11 @@ fn run() -> Result<(), EstrellaError> {
 
             // Check if it's a receipt template
             if receipt::is_receipt(name) {
+                if raster {
+                    // Raster mode: render as full-page raster (no margins)
+                    return print_as_raster(name, png.as_ref(), &device);
+                }
+
                 if let Some(png_path) = png {
                     // Render receipt to PNG preview
                     println!("Generating {} receipt preview...", name);
@@ -302,6 +314,70 @@ fn run() -> Result<(), EstrellaError> {
 fn print_raw_to_device(device: &str, data: &[u8]) -> Result<(), EstrellaError> {
     let mut transport = BluetoothTransport::open(device)?;
     transport.write_all(data)?;
+    Ok(())
+}
+
+/// Print a receipt as a full-page raster (no margins, 576px wide).
+///
+/// This renders the receipt to a pixel buffer and prints it as a single raster image.
+/// Useful for testing raster quality vs normal text mode printing.
+fn print_as_raster(name: &str, png_path: Option<&PathBuf>, device: &str) -> Result<(), EstrellaError> {
+    use image::{GrayImage, Luma};
+
+    println!("Rendering {} as raster (576px, no margins)...", name);
+
+    // Get the program for this receipt
+    let program = receipt::program_by_name(name).ok_or_else(|| {
+        EstrellaError::Pattern(format!("Unknown receipt '{}'", name))
+    })?;
+
+    // Render to raw pixel buffer (no margins)
+    let raw = preview::render_raw(&program).map_err(|e| {
+        EstrellaError::Image(format!("Failed to render: {}", e))
+    })?;
+
+    println!("Rendered {}x{} pixels ({} bytes)", raw.width, raw.height, raw.data.len());
+
+    // Save to PNG if requested
+    if let Some(png_path) = png_path {
+        let width_bytes = raw.width.div_ceil(8);
+        let mut img = GrayImage::new(raw.width as u32, raw.height as u32);
+
+        for y in 0..raw.height {
+            for x in 0..raw.width {
+                let byte_idx = y * width_bytes + x / 8;
+                let bit_idx = 7 - (x % 8);
+                let is_black = (raw.data[byte_idx] >> bit_idx) & 1 == 1;
+                let color = if is_black { 0u8 } else { 255u8 };
+                img.put_pixel(x as u32, y as u32, Luma([color]));
+            }
+        }
+
+        img.save(png_path).map_err(|e| {
+            EstrellaError::Image(format!("Failed to save PNG: {}", e))
+        })?;
+        println!("Saved raster preview to {}", png_path.display());
+    }
+
+    // Print to device if no PNG-only mode
+    if png_path.is_none() || std::env::args().any(|a| a == "--print") {
+        println!("Printing as raster...");
+
+        // Build raster print command
+        let mut data = commands::init();
+
+        // Use raster mode graphics command
+        let raster_cmd = graphics::raster(raw.width as u16, raw.height as u16, &raw.data);
+        data.extend(raster_cmd);
+
+        // Cut and feed
+        data.extend(commands::feed_mm(6.0));
+        data.extend(commands::cut_full());
+
+        print_raw_to_device(device, &data)?;
+        println!("Printed successfully!");
+    }
+
     Ok(())
 }
 
