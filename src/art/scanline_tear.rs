@@ -231,6 +231,26 @@ impl super::Pattern for ScanlineTear {
             ("seed", self.params.seed.to_string()),
         ]
     }
+
+    fn param_specs(&self) -> Vec<super::ParamSpec> {
+        use super::ParamSpec;
+        vec![
+            ParamSpec::slider("pattern_freq", "Pattern Frequency", 0.01, 0.04, 0.005)
+                .with_description("Base pattern frequency"),
+            ParamSpec::slider("tear_intensity", "Tear Intensity", 0.4, 0.9, 0.05)
+                .with_description("Tear intensity (0-1)"),
+            ParamSpec::int("tear_zones", "Tear Zones", Some(6), Some(20))
+                .with_description("Number of tear zones"),
+            ParamSpec::slider("max_displacement", "Max Displacement", 40.0, 120.0, 5.0)
+                .with_description("Maximum horizontal displacement"),
+            ParamSpec::int("tear_thickness", "Tear Thickness", Some(4), Some(16))
+                .with_description("Tear thickness in scanlines"),
+            ParamSpec::slider("static_noise", "Static Noise", 0.05, 0.3, 0.01)
+                .with_description("Add static noise"),
+            ParamSpec::int("seed", "Seed", Some(0), Some(999999))
+                .with_description("Seed for reproducibility"),
+        ]
+    }
 }
 
 #[cfg(test)]

@@ -248,6 +248,26 @@ impl super::Pattern for Crystal {
             ("length", format!("{:.2}", self.params.length)),
         ]
     }
+
+    fn param_specs(&self) -> Vec<super::ParamSpec> {
+        use super::ParamSpec;
+        vec![
+            ParamSpec::select("symmetry", "Symmetry", vec!["1", "4", "5", "6", "8"])
+                .with_description("Symmetry fold (1=none, 6=hexagonal snowflake)"),
+            ParamSpec::int("levels", "Levels", Some(3), Some(6))
+                .with_description("Number of recursive branch levels"),
+            ParamSpec::slider("decay", "Decay", 0.5, 0.75, 0.05)
+                .with_description("Branch length decay per level"),
+            ParamSpec::slider("spread", "Spread", 0.3, 0.8, 0.05)
+                .with_description("Branch angle spread in radians"),
+            ParamSpec::slider("thickness", "Thickness", 1.5, 3.5, 0.5)
+                .with_description("Line thickness"),
+            ParamSpec::int("seed", "Seed", Some(0), Some(999999))
+                .with_description("Seed for reproducibility"),
+            ParamSpec::slider("length", "Length", 0.2, 0.4, 0.02)
+                .with_description("Base branch length as fraction of size"),
+        ]
+    }
 }
 
 #[cfg(test)]

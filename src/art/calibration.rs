@@ -129,6 +129,22 @@ impl super::Pattern for Calibration {
             ("bar_margin", self.params.bar_margin.to_string()),
         ]
     }
+
+    fn param_specs(&self) -> Vec<super::ParamSpec> {
+        use super::ParamSpec;
+        vec![
+            ParamSpec::int("border_width", "Border Width", Some(2), Some(10))
+                .with_description("Border width in pixels"),
+            ParamSpec::int("diagonal_thickness", "Diagonal Thickness", Some(1), Some(4))
+                .with_description("Diagonal line thickness"),
+            ParamSpec::int("bar_column_width", "Bar Column Width", Some(24), Some(72))
+                .with_description("Column width for bar groups"),
+            ParamSpec::int("bar_base_width", "Bar Base Width", Some(1), Some(4))
+                .with_description("Base bar width"),
+            ParamSpec::int("bar_margin", "Bar Margin", Some(10), Some(40))
+                .with_description("Vertical margin for bars"),
+        ]
+    }
 }
 
 #[cfg(test)]

@@ -156,6 +156,24 @@ impl super::Pattern for Rings {
             ("gamma", format!("{:.2}", self.params.gamma)),
         ]
     }
+
+    fn param_specs(&self) -> Vec<super::ParamSpec> {
+        use super::ParamSpec;
+        vec![
+            ParamSpec::slider("ring_freq", "Ring Frequency", 20.0, 50.0, 1.0)
+                .with_description("Ring frequency multiplier"),
+            ParamSpec::slider("drift", "Drift", 15.0, 40.0, 1.0)
+                .with_description("Vertical drift divisor"),
+            ParamSpec::slider("diag_freq", "Diagonal Frequency", 15.0, 35.0, 1.0)
+                .with_description("Diagonal frequency divisor"),
+            ParamSpec::slider("ring_weight", "Ring Weight", 0.5, 0.8, 0.01)
+                .with_description("Ring weight in blend"),
+            ParamSpec::slider("diag_weight", "Diagonal Weight", 0.2, 0.5, 0.01)
+                .with_description("Diagonal weight in blend"),
+            ParamSpec::slider("gamma", "Gamma", 0.9, 1.4, 0.05)
+                .with_description("Gamma correction"),
+        ]
+    }
 }
 
 #[cfg(test)]

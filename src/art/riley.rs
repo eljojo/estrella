@@ -169,6 +169,28 @@ impl super::Pattern for Riley {
             ("phase", format!("{:.2}", self.params.phase)),
         ]
     }
+
+    fn param_specs(&self) -> Vec<super::ParamSpec> {
+        use super::ParamSpec;
+        vec![
+            ParamSpec::slider("line_spacing", "Line Spacing", 6.0, 12.0, 0.5)
+                .with_description("Base line spacing in pixels"),
+            ParamSpec::slider("amplitude1", "Amplitude 1", 10.0, 25.0, 0.5)
+                .with_description("Primary wave amplitude"),
+            ParamSpec::slider("freq1", "Frequency 1", 0.015, 0.035, 0.001)
+                .with_description("Primary wave frequency"),
+            ParamSpec::slider("amplitude2", "Amplitude 2", 4.0, 12.0, 0.5)
+                .with_description("Secondary wave amplitude"),
+            ParamSpec::slider("freq2", "Frequency 2", 0.03, 0.08, 0.005)
+                .with_description("Secondary wave frequency"),
+            ParamSpec::slider("thickness", "Thickness", 2.0, 5.0, 0.5)
+                .with_description("Line thickness"),
+            ParamSpec::slider("y_freq", "Y Frequency", 0.005, 0.02, 0.001)
+                .with_description("Vertical wave component"),
+            ParamSpec::slider("phase", "Phase", 0.0, 6.28, 0.1)
+                .with_description("Phase offset"),
+        ]
+    }
 }
 
 #[cfg(test)]

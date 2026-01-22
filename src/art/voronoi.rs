@@ -338,6 +338,24 @@ impl super::Pattern for Voronoi {
             ("jitter", format!("{:.2}", self.params.jitter)),
         ]
     }
+
+    fn param_specs(&self) -> Vec<super::ParamSpec> {
+        use super::ParamSpec;
+        vec![
+            ParamSpec::int("num_points", "Number of Points", Some(20), Some(100))
+                .with_description("Number of seed points"),
+            ParamSpec::slider("edge_thickness", "Edge Thickness", 1.0, 4.0, 0.5)
+                .with_description("Edge thickness"),
+            ParamSpec::select("mode", "Render Mode", vec!["edges", "distance", "cells", "cells_and_edges"])
+                .with_description("Rendering mode"),
+            ParamSpec::slider("metric_power", "Metric Power", 1.0, 3.0, 0.1)
+                .with_description("Distance metric power (2=Euclidean)"),
+            ParamSpec::int("seed", "Seed", Some(0), Some(999999))
+                .with_description("Seed for reproducibility"),
+            ParamSpec::slider("jitter", "Jitter", 0.0, 0.3, 0.01)
+                .with_description("Jitter amount for point positions"),
+        ]
+    }
 }
 
 #[cfg(test)]

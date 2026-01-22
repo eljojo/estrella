@@ -190,6 +190,26 @@ impl super::Pattern for Ripple {
             ("border", format!("{:.1}", self.params.border)),
         ]
     }
+
+    fn param_specs(&self) -> Vec<super::ParamSpec> {
+        use super::ParamSpec;
+        vec![
+            ParamSpec::slider("center_x", "Center X", 0.0, 1.0, 0.01)
+                .with_description("Horizontal center position (0-1)"),
+            ParamSpec::slider("center_y", "Center Y", 0.0, 1.0, 0.01)
+                .with_description("Vertical center position (0-1)"),
+            ParamSpec::slider("scale", "Scale", 2.0, 20.0, 0.5)
+                .with_description("Ripple wavelength"),
+            ParamSpec::slider("drift", "Drift", 20.0, 200.0, 5.0)
+                .with_description("Vertical drift factor"),
+            ParamSpec::slider("wobble_mix", "Wobble Mix", 0.0, 1.0, 0.01)
+                .with_description("Blend with wobble pattern"),
+            ParamSpec::slider("gamma", "Gamma", 0.5, 3.0, 0.05)
+                .with_description("Contrast adjustment"),
+            ParamSpec::slider("border", "Border", 0.0, 20.0, 1.0)
+                .with_description("Border width in pixels"),
+        ]
+    }
 }
 
 #[cfg(test)]

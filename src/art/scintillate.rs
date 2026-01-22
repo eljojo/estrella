@@ -176,6 +176,24 @@ impl super::Pattern for Scintillate {
             ("dot_intensity", format!("{:.2}", self.params.dot_intensity)),
         ]
     }
+
+    fn param_specs(&self) -> Vec<super::ParamSpec> {
+        use super::ParamSpec;
+        vec![
+            ParamSpec::slider("cell_size", "Cell Size", 24.0, 48.0, 1.0)
+                .with_description("Grid cell size in pixels"),
+            ParamSpec::slider("line_thickness", "Line Thickness", 6.0, 12.0, 0.5)
+                .with_description("Line thickness"),
+            ParamSpec::slider("dot_radius", "Dot Radius", 2.4, 8.4, 0.2)
+                .with_description("Dot radius at intersections"),
+            ParamSpec::slider("background", "Background", 0.0, 0.15, 0.01)
+                .with_description("Background intensity (0=white, 1=black)"),
+            ParamSpec::slider("line_intensity", "Line Intensity", 0.6, 0.9, 0.05)
+                .with_description("Line intensity"),
+            ParamSpec::slider("dot_intensity", "Dot Intensity", 0.0, 0.1, 0.01)
+                .with_description("Dot intensity (usually white/light)"),
+        ]
+    }
 }
 
 #[cfg(test)]

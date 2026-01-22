@@ -159,6 +159,26 @@ impl super::Pattern for Plasma {
             ("gamma", format!("{:.2}", self.params.gamma)),
         ]
     }
+
+    fn param_specs(&self) -> Vec<super::ParamSpec> {
+        use super::ParamSpec;
+        vec![
+            ParamSpec::slider("freq1", "Frequency 1", 7.0, 18.0, 0.5)
+                .with_description("First sine wave frequency divisor"),
+            ParamSpec::slider("freq2", "Frequency 2", 12.0, 30.0, 0.5)
+                .with_description("Second (diagonal) sine wave frequency divisor"),
+            ParamSpec::slider("freq3", "Frequency 3", 8.0, 20.0, 0.5)
+                .with_description("Vertical cosine wave frequency divisor"),
+            ParamSpec::slider("freq4", "Frequency 4", 5.0, 15.0, 0.5)
+                .with_description("Radial sine wave frequency divisor"),
+            ParamSpec::slider("center_x", "Center X", 0.2, 0.8, 0.01)
+                .with_description("Center X as fraction of width"),
+            ParamSpec::slider("center_y", "Center Y", 0.1, 0.5, 0.01)
+                .with_description("Center Y as fraction of height"),
+            ParamSpec::slider("gamma", "Gamma", 1.0, 1.5, 0.05)
+                .with_description("Gamma correction"),
+        ]
+    }
 }
 
 #[cfg(test)]

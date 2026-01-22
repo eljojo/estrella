@@ -201,6 +201,24 @@ impl super::Pattern for CorruptBarcode {
             ("seed", self.params.seed.to_string()),
         ]
     }
+
+    fn param_specs(&self) -> Vec<super::ParamSpec> {
+        use super::ParamSpec;
+        vec![
+            ParamSpec::int("bar_width", "Bar Width", Some(2), Some(8))
+                .with_description("Base bar width"),
+            ParamSpec::slider("corruption", "Corruption", 0.3, 0.9, 0.05)
+                .with_description("Corruption intensity (0-1)"),
+            ParamSpec::slider("tear_freq", "Tear Frequency", 0.01, 0.06, 0.005)
+                .with_description("Horizontal tear frequency"),
+            ParamSpec::int("stretch_zones", "Stretch Zones", Some(3), Some(8))
+                .with_description("Vertical stretch zones"),
+            ParamSpec::slider("noise", "Noise", 0.1, 0.4, 0.05)
+                .with_description("Noise interference amount"),
+            ParamSpec::int("seed", "Seed", Some(0), Some(999999))
+                .with_description("Seed for reproducibility"),
+        ]
+    }
 }
 
 #[cfg(test)]

@@ -286,6 +286,28 @@ impl super::Pattern for Woodgrain {
             ("seed", self.params.seed.to_string()),
         ]
     }
+
+    fn param_specs(&self) -> Vec<super::ParamSpec> {
+        use super::ParamSpec;
+        vec![
+            ParamSpec::slider("ring_spacing", "Ring Spacing", 5.0, 15.0, 0.5)
+                .with_description("Ring spacing"),
+            ParamSpec::slider("ring_thickness", "Ring Thickness", 1.0, 4.0, 0.5)
+                .with_description("Ring thickness"),
+            ParamSpec::slider("flow_freq", "Flow Frequency", 0.01, 0.04, 0.005)
+                .with_description("Grain flow frequency"),
+            ParamSpec::slider("flow_amp", "Flow Amplitude", 15.0, 50.0, 5.0)
+                .with_description("Grain flow amplitude"),
+            ParamSpec::int("num_knots", "Number of Knots", Some(0), Some(6))
+                .with_description("Number of knots"),
+            ParamSpec::slider("knot_size", "Knot Size", 25.0, 60.0, 5.0)
+                .with_description("Knot size"),
+            ParamSpec::slider("noise_amount", "Noise Amount", 0.1, 0.5, 0.05)
+                .with_description("Noise for grain variation"),
+            ParamSpec::int("seed", "Seed", Some(0), Some(999999))
+                .with_description("Seed for reproducibility"),
+        ]
+    }
 }
 
 #[cfg(test)]

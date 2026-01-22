@@ -222,6 +222,24 @@ impl super::Pattern for Mycelium {
             ("connectivity", format!("{:.2}", self.params.connectivity)),
         ]
     }
+
+    fn param_specs(&self) -> Vec<super::ParamSpec> {
+        use super::ParamSpec;
+        vec![
+            ParamSpec::slider("noise_scale", "Noise Scale", 0.01, 0.025, 0.001)
+                .with_description("Noise scale for branch direction"),
+            ParamSpec::slider("density", "Density", 0.05, 0.12, 0.01)
+                .with_description("Branch density"),
+            ParamSpec::slider("thickness", "Thickness", 1.0, 2.5, 0.1)
+                .with_description("Line thickness"),
+            ParamSpec::int("seed", "Seed", Some(0), Some(999999))
+                .with_description("Seed for reproducibility"),
+            ParamSpec::slider("chaos", "Chaos", 0.2, 0.6, 0.05)
+                .with_description("Chaos/randomness in branching"),
+            ParamSpec::slider("connectivity", "Connectivity", 0.4, 0.8, 0.05)
+                .with_description("Network connectivity"),
+        ]
+    }
 }
 
 #[cfg(test)]

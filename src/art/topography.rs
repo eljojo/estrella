@@ -134,6 +134,20 @@ impl super::Pattern for Topography {
             ("gamma", format!("{:.2}", self.params.gamma)),
         ]
     }
+
+    fn param_specs(&self) -> Vec<super::ParamSpec> {
+        use super::ParamSpec;
+        vec![
+            ParamSpec::slider("freq1", "Frequency 1", 10.0, 30.0, 1.0)
+                .with_description("First wave frequency divisor"),
+            ParamSpec::slider("freq2", "Frequency 2", 18.0, 45.0, 1.0)
+                .with_description("Second wave frequency divisor"),
+            ParamSpec::slider("freq3", "Frequency 3", 25.0, 60.0, 1.0)
+                .with_description("Third (diagonal) wave frequency divisor"),
+            ParamSpec::slider("gamma", "Gamma", 1.8, 2.8, 0.1)
+                .with_description("Gamma for contour sharpness"),
+        ]
+    }
 }
 
 #[cfg(test)]

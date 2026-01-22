@@ -163,6 +163,24 @@ impl super::Pattern for Density {
             ("gamma_heavy", format!("{:.2}", self.params.gamma_heavy)),
         ]
     }
+
+    fn param_specs(&self) -> Vec<super::ParamSpec> {
+        use super::ParamSpec;
+        vec![
+            ParamSpec::slider("scale", "Scale", 4.0, 10.0, 0.5)
+                .with_description("Ripple scale (wavelength)"),
+            ParamSpec::slider("drift", "Drift", 50.0, 120.0, 5.0)
+                .with_description("Vertical drift divisor"),
+            ParamSpec::slider("wobble_mix", "Wobble Mix", 0.15, 0.4, 0.01)
+                .with_description("Wobble blend factor"),
+            ParamSpec::slider("gamma_light", "Gamma Light", 0.6, 1.0, 0.05)
+                .with_description("Gamma for light band (top)"),
+            ParamSpec::slider("gamma_medium", "Gamma Medium", 0.9, 1.2, 0.05)
+                .with_description("Gamma for medium band (middle)"),
+            ParamSpec::slider("gamma_heavy", "Gamma Heavy", 1.3, 1.8, 0.05)
+                .with_description("Gamma for heavy band (bottom)"),
+        ]
+    }
 }
 
 #[cfg(test)]

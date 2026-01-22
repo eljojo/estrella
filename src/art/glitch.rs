@@ -177,6 +177,30 @@ impl super::Pattern for Glitch {
             ("gamma", format!("{:.2}", self.params.gamma)),
         ]
     }
+
+    fn param_specs(&self) -> Vec<super::ParamSpec> {
+        use super::ParamSpec;
+        vec![
+            ParamSpec::int("column_width", "Column Width", Some(8), Some(20))
+                .with_description("Column width in pixels"),
+            ParamSpec::slider("column_freq", "Column Frequency", 0.4, 1.2, 0.05)
+                .with_description("Column frequency multiplier"),
+            ParamSpec::slider("wobble_freq", "Wobble Frequency", 10.0, 25.0, 0.5)
+                .with_description("Wobble frequency divisor"),
+            ParamSpec::slider("wobble_vert", "Wobble Vertical", 4.0, 12.0, 0.5)
+                .with_description("Wobble vertical multiplier"),
+            ParamSpec::int("scanline_period", "Scanline Period", Some(16), Some(36))
+                .with_description("Scanline period in rows"),
+            ParamSpec::int("scanline_thickness", "Scanline Thickness", Some(1), Some(4))
+                .with_description("Scanline thickness in rows"),
+            ParamSpec::slider("base_weight", "Base Weight", 0.4, 0.7, 0.01)
+                .with_description("Base weight in blend"),
+            ParamSpec::slider("wobble_weight", "Wobble Weight", 0.3, 0.6, 0.01)
+                .with_description("Wobble weight in blend"),
+            ParamSpec::slider("gamma", "Gamma", 0.9, 1.3, 0.05)
+                .with_description("Gamma correction"),
+        ]
+    }
 }
 
 #[cfg(test)]

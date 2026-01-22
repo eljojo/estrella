@@ -172,6 +172,26 @@ impl super::Pattern for Waves {
             ("gamma", format!("{:.2}", self.params.gamma)),
         ]
     }
+
+    fn param_specs(&self) -> Vec<super::ParamSpec> {
+        use super::ParamSpec;
+        vec![
+            ParamSpec::slider("horiz_freq", "Horizontal Frequency", 12.0, 30.0, 0.5)
+                .with_description("Horizontal wave frequency divisor"),
+            ParamSpec::slider("vert_freq", "Vertical Frequency", 15.0, 35.0, 0.5)
+                .with_description("Vertical wave frequency divisor"),
+            ParamSpec::slider("radial_freq", "Radial Frequency", 15.0, 40.0, 0.5)
+                .with_description("Radial wave frequency"),
+            ParamSpec::slider("horiz_weight", "Horizontal Weight", 0.3, 0.5, 0.01)
+                .with_description("Weight of horizontal waves in blend"),
+            ParamSpec::slider("vert_weight", "Vertical Weight", 0.25, 0.45, 0.01)
+                .with_description("Weight of vertical waves in blend"),
+            ParamSpec::slider("radial_weight", "Radial Weight", 0.15, 0.35, 0.01)
+                .with_description("Weight of radial waves in blend"),
+            ParamSpec::slider("gamma", "Gamma", 1.0, 1.5, 0.05)
+                .with_description("Gamma correction"),
+        ]
+    }
 }
 
 #[cfg(test)]

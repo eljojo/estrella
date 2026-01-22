@@ -143,7 +143,7 @@ fn hatch_layer(x: f32, y: f32, angle_deg: f32, spacing: f32, thickness: f32, wob
     }
 }
 
-pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -> f32 {
+pub fn shade(x: usize, y: usize, _width: usize, _height: usize, params: &Params) -> f32 {
     let xf = x as f32;
     let yf = y as f32;
 
@@ -248,6 +248,28 @@ impl super::Pattern for Crosshatch {
             ("wobble", format!("{:.2}", self.params.wobble)),
             ("tone_freq", format!("{:.3}", self.params.tone_freq)),
             ("seed", self.params.seed.to_string()),
+        ]
+    }
+
+    fn param_specs(&self) -> Vec<super::ParamSpec> {
+        use super::ParamSpec;
+        vec![
+            ParamSpec::slider("spacing", "Spacing", 4.0, 10.0, 0.5)
+                .with_description("Line spacing"),
+            ParamSpec::slider("thickness", "Thickness", 1.0, 2.5, 0.1)
+                .with_description("Line thickness"),
+            ParamSpec::int("layers", "Layers", Some(2), Some(4))
+                .with_description("Number of hatch layers (1-4)"),
+            ParamSpec::slider("base_angle", "Base Angle", 0.0, 90.0, 5.0)
+                .with_description("Base angle in degrees"),
+            ParamSpec::slider("layer_angle", "Layer Angle", 20.0, 45.0, 1.0)
+                .with_description("Angle between layers"),
+            ParamSpec::slider("wobble", "Wobble", 0.0, 1.0, 0.05)
+                .with_description("Line wobble amount"),
+            ParamSpec::slider("tone_freq", "Tone Frequency", 0.005, 0.02, 0.001)
+                .with_description("Tonal variation frequency"),
+            ParamSpec::int("seed", "Seed", Some(0), Some(999999))
+                .with_description("Seed for wobble"),
         ]
     }
 }

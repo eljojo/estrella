@@ -197,6 +197,26 @@ impl super::Pattern for Vasarely {
             ("invert_sphere", self.params.invert_sphere.to_string()),
         ]
     }
+
+    fn param_specs(&self) -> Vec<super::ParamSpec> {
+        use super::ParamSpec;
+        vec![
+            ParamSpec::slider("cell_size", "Cell Size", 15.0, 30.0, 1.0)
+                .with_description("Grid cell size in pixels"),
+            ParamSpec::slider("line_thickness", "Line Thickness", 1.5, 4.0, 0.5)
+                .with_description("Line thickness"),
+            ParamSpec::slider("sphere_radius", "Sphere Radius", 0.25, 0.45, 0.01)
+                .with_description("Sphere radius as fraction of min dimension"),
+            ParamSpec::slider("bulge_strength", "Bulge Strength", 0.4, 0.8, 0.05)
+                .with_description("How much the sphere protrudes"),
+            ParamSpec::slider("center_x", "Center X", 0.3, 0.7, 0.01)
+                .with_description("Center X as fraction of width"),
+            ParamSpec::slider("center_y", "Center Y", 0.3, 0.7, 0.01)
+                .with_description("Center Y as fraction of height"),
+            ParamSpec::bool("invert_sphere", "Invert Sphere")
+                .with_description("Invert colors inside sphere"),
+        ]
+    }
 }
 
 #[cfg(test)]

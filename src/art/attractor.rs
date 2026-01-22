@@ -281,7 +281,7 @@ impl AttractorCache {
     }
 }
 
-/// Thread-local cache for attractor computation.
+// Thread-local cache for attractor computation.
 thread_local! {
     static CACHE: std::cell::RefCell<Option<(usize, usize, AttractorCache)>> = const { std::cell::RefCell::new(None) };
 }
@@ -389,6 +389,32 @@ impl super::Pattern for Attractor {
             ("b", format!("{:.2}", self.params.b)),
             ("c", format!("{:.2}", self.params.c)),
             ("d", format!("{:.2}", self.params.d)),
+        ]
+    }
+
+    fn param_specs(&self) -> Vec<super::ParamSpec> {
+        use super::ParamSpec;
+        vec![
+            ParamSpec::select("attractor", "Attractor Type", vec!["lorenz", "rossler", "clifford"])
+                .with_description("Attractor type"),
+            ParamSpec::int("iterations", "Iterations", Some(50000), Some(150000))
+                .with_description("Number of iterations"),
+            ParamSpec::slider("zoom", "Zoom", 60.0, 120.0, 5.0)
+                .with_description("Zoom level"),
+            ParamSpec::slider("offset_x", "Offset X", -20.0, 20.0, 1.0)
+                .with_description("X offset"),
+            ParamSpec::slider("offset_y", "Offset Y", -20.0, 20.0, 1.0)
+                .with_description("Y offset"),
+            ParamSpec::slider("brightness", "Brightness", 1.5, 4.0, 0.1)
+                .with_description("Brightness multiplier"),
+            ParamSpec::slider("a", "A Parameter", -2.0, -1.0, 0.1)
+                .with_description("Clifford a parameter"),
+            ParamSpec::slider("b", "B Parameter", 1.2, 2.0, 0.1)
+                .with_description("Clifford b parameter"),
+            ParamSpec::slider("c", "C Parameter", 0.5, 1.5, 0.1)
+                .with_description("Clifford c parameter"),
+            ParamSpec::slider("d", "D Parameter", 0.5, 1.2, 0.1)
+                .with_description("Clifford d parameter"),
         ]
     }
 }

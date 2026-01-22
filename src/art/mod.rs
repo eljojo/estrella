@@ -10,6 +10,8 @@
 //! 3. Add to [`PATTERNS`] array
 //! 4. Run `make golden` to generate test files
 
+use serde::Serialize;
+
 pub mod attractor;
 pub mod automata;
 pub mod calibration;
@@ -82,6 +84,107 @@ pub const PATTERNS: &[&str] = &[
     "calibration",
 ];
 
+/// Input type for a pattern parameter.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ParamType {
+    /// Floating point number with optional range and step.
+    Float {
+        min: Option<f32>,
+        max: Option<f32>,
+        step: Option<f32>,
+    },
+    /// Integer with optional range.
+    Int {
+        min: Option<i32>,
+        max: Option<i32>,
+    },
+    /// Slider (range input) with min, max, and step.
+    Slider {
+        min: f32,
+        max: f32,
+        step: f32,
+    },
+    /// Boolean toggle.
+    Bool,
+    /// Selection from a list of options.
+    Select {
+        options: Vec<&'static str>,
+    },
+}
+
+/// Specification for a pattern parameter.
+#[derive(Debug, Clone, Serialize)]
+pub struct ParamSpec {
+    /// Parameter name (matches the key in list_params).
+    pub name: &'static str,
+    /// Human-readable label for the UI.
+    pub label: &'static str,
+    /// Input type and constraints.
+    pub param_type: ParamType,
+    /// Optional description/tooltip.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<&'static str>,
+}
+
+impl ParamSpec {
+    /// Create a float parameter with a range (renders as slider).
+    pub fn slider(name: &'static str, label: &'static str, min: f32, max: f32, step: f32) -> Self {
+        Self {
+            name,
+            label,
+            param_type: ParamType::Slider { min, max, step },
+            description: None,
+        }
+    }
+
+    /// Create a float parameter.
+    pub fn float(name: &'static str, label: &'static str) -> Self {
+        Self {
+            name,
+            label,
+            param_type: ParamType::Float { min: None, max: None, step: None },
+            description: None,
+        }
+    }
+
+    /// Create an integer parameter.
+    pub fn int(name: &'static str, label: &'static str, min: Option<i32>, max: Option<i32>) -> Self {
+        Self {
+            name,
+            label,
+            param_type: ParamType::Int { min, max },
+            description: None,
+        }
+    }
+
+    /// Create a boolean parameter.
+    pub fn bool(name: &'static str, label: &'static str) -> Self {
+        Self {
+            name,
+            label,
+            param_type: ParamType::Bool,
+            description: None,
+        }
+    }
+
+    /// Create a select parameter.
+    pub fn select(name: &'static str, label: &'static str, options: Vec<&'static str>) -> Self {
+        Self {
+            name,
+            label,
+            param_type: ParamType::Select { options },
+            description: None,
+        }
+    }
+
+    /// Add a description to this param spec.
+    pub fn with_description(mut self, desc: &'static str) -> Self {
+        self.description = Some(desc);
+        self
+    }
+}
+
 /// Trait for pattern generators.
 pub trait Pattern: Send + Sync {
     /// Pattern name (lowercase, e.g., "ripple").
@@ -107,6 +210,11 @@ pub trait Pattern: Send + Sync {
 
     /// List available parameters as (name, current_value) pairs.
     fn list_params(&self) -> Vec<(&'static str, String)> {
+        vec![]
+    }
+
+    /// Get parameter specifications with type info for UI rendering.
+    fn param_specs(&self) -> Vec<ParamSpec> {
         vec![]
     }
 }

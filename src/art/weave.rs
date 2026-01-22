@@ -302,6 +302,28 @@ impl super::Pattern for Weave {
             ("seed", self.params.seed.to_string()),
         ]
     }
+
+    fn param_specs(&self) -> Vec<super::ParamSpec> {
+        use super::ParamSpec;
+        vec![
+            ParamSpec::slider("thread_width", "Thread Width", 4.0, 10.0, 0.5)
+                .with_description("Thread width"),
+            ParamSpec::slider("gap", "Gap", 0.5, 2.0, 0.1)
+                .with_description("Gap between threads"),
+            ParamSpec::select("weave_type", "Weave Type", vec!["plain", "twill", "satin", "basket", "herringbone"])
+                .with_description("Weave type"),
+            ParamSpec::int("shift", "Shift", Some(1), Some(4))
+                .with_description("Twill/satin shift amount"),
+            ParamSpec::slider("texture", "Texture", 0.1, 0.4, 0.05)
+                .with_description("Thread texture amount"),
+            ParamSpec::slider("warp_tone", "Warp Tone", 0.5, 0.9, 0.05)
+                .with_description("Warp thread darkness (0-1)"),
+            ParamSpec::slider("weft_tone", "Weft Tone", 0.3, 0.7, 0.05)
+                .with_description("Weft thread darkness (0-1)"),
+            ParamSpec::int("seed", "Seed", Some(0), Some(999999))
+                .with_description("Seed for texture randomness"),
+        ]
+    }
 }
 
 #[cfg(test)]

@@ -242,6 +242,26 @@ impl super::Pattern for Erosion {
             ("contrast", format!("{:.2}", self.params.contrast)),
         ]
     }
+
+    fn param_specs(&self) -> Vec<super::ParamSpec> {
+        use super::ParamSpec;
+        vec![
+            ParamSpec::slider("terrain_scale", "Terrain Scale", 0.004, 0.01, 0.001)
+                .with_description("Terrain noise scale"),
+            ParamSpec::int("octaves", "Octaves", Some(4), Some(7))
+                .with_description("Number of noise octaves for terrain"),
+            ParamSpec::int("droplets", "Droplets", Some(5000), Some(12000))
+                .with_description("Number of water droplets to simulate"),
+            ParamSpec::int("trail_length", "Trail Length", Some(50), Some(120))
+                .with_description("Droplet trail length"),
+            ParamSpec::slider("erosion_strength", "Erosion Strength", 0.2, 0.5, 0.05)
+                .with_description("Erosion strength"),
+            ParamSpec::int("seed", "Seed", Some(0), Some(999999))
+                .with_description("Seed for reproducibility"),
+            ParamSpec::slider("contrast", "Contrast", 1.2, 2.0, 0.1)
+                .with_description("Terrain contrast"),
+        ]
+    }
 }
 
 #[cfg(test)]

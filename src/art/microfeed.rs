@@ -99,6 +99,16 @@ impl super::Pattern for Microfeed {
             ("gap_increment", self.params.gap_increment.to_string()),
         ]
     }
+
+    fn param_specs(&self) -> Vec<super::ParamSpec> {
+        use super::ParamSpec;
+        vec![
+            ParamSpec::int("start_gap", "Start Gap", Some(1), Some(5))
+                .with_description("Starting gap in pixels for the first line"),
+            ParamSpec::int("gap_increment", "Gap Increment", Some(1), Some(3))
+                .with_description("How much the gap increases per line"),
+        ]
+    }
 }
 
 #[cfg(test)]

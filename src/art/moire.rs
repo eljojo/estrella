@@ -189,6 +189,26 @@ impl super::Pattern for Moire {
             ("center_y", format!("{:.1}", self.params.center_y)),
         ]
     }
+
+    fn param_specs(&self) -> Vec<super::ParamSpec> {
+        use super::ParamSpec;
+        vec![
+            ParamSpec::slider("spacing1", "Spacing 1", 4.0, 10.0, 0.5)
+                .with_description("Line spacing for first grid"),
+            ParamSpec::slider("spacing2", "Spacing 2", 4.0, 10.0, 0.5)
+                .with_description("Line spacing for second grid"),
+            ParamSpec::slider("angle_offset", "Angle Offset", 1.0, 8.0, 0.5)
+                .with_description("Angle offset in degrees for second grid"),
+            ParamSpec::slider("thickness", "Thickness", 1.0, 3.0, 0.5)
+                .with_description("Line thickness"),
+            ParamSpec::int("layers", "Layers", Some(2), Some(4))
+                .with_description("Number of overlapping grids"),
+            ParamSpec::slider("center_x", "Center X", -50.0, 50.0, 5.0)
+                .with_description("Center x offset"),
+            ParamSpec::slider("center_y", "Center Y", -50.0, 50.0, 5.0)
+                .with_description("Center y offset"),
+        ]
+    }
 }
 
 #[cfg(test)]

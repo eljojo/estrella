@@ -13,9 +13,20 @@ OUT_DIR := .cargo/target/release
 .PHONY: all
 all: build
 
-# Build release binary
+# Build frontend
+.PHONY: frontend
+frontend:
+	cd frontend && npm install && npm run build
+
+# Build release binary (requires frontend to be built first)
 .PHONY: build
-build:
+build: frontend
+	nix develop --command cargo build --release
+	@echo "Binary available at: $(OUT_DIR)/estrella"
+
+# Build without frontend (for quick Rust-only builds)
+.PHONY: build-rust
+build-rust:
 	nix develop --command cargo build --release
 	@echo "Binary available at: $(OUT_DIR)/estrella"
 
@@ -80,20 +91,40 @@ preview:
 	nix develop --command cargo run -- print --png /tmp/$(PATTERN).png $(PATTERN)
 	@echo "Preview saved to /tmp/$(PATTERN).png"
 
+# Start frontend dev server (for development)
+.PHONY: dev-frontend
+dev-frontend:
+	cd frontend && npm install && npm run dev
+
+# Start backend server (for development)
+.PHONY: dev-backend
+dev-backend: frontend
+	nix develop --command cargo run -- serve
+
+# Serve with hot reload (requires cargo-watch)
+.PHONY: serve
+serve: frontend
+	nix develop --command cargo run -- serve
+
 .PHONY: help
 help:
 	@echo "Estrella Makefile targets:"
 	@echo ""
-	@echo "  build        Build release binary"
-	@echo "  build-debug  Build debug binary (faster)"
-	@echo "  format       Format code with rustfmt"
-	@echo "  format-check Check formatting without changes"
-	@echo "  test         Run all tests"
-	@echo "  test-verbose Run tests with output"
-	@echo "  lint         Run clippy lints"
-	@echo "  golden       Regenerate golden test files"
-	@echo "  clean        Clean build artifacts"
-	@echo "  patterns     List available patterns"
-	@echo "  run          Run CLI (e.g., make run ARGS='print ripple')"
-	@echo "  preview      Generate preview PNG (e.g., make preview PATTERN=ripple)"
-	@echo "  help         Show this help"
+	@echo "  build         Build release binary (includes frontend)"
+	@echo "  build-rust    Build Rust only (no frontend rebuild)"
+	@echo "  build-debug   Build debug binary (faster)"
+	@echo "  frontend      Build frontend only"
+	@echo "  dev-frontend  Start frontend dev server (port 5173)"
+	@echo "  dev-backend   Start backend server (port 8080)"
+	@echo "  serve         Build and run HTTP server"
+	@echo "  format        Format code with rustfmt"
+	@echo "  format-check  Check formatting without changes"
+	@echo "  test          Run all tests"
+	@echo "  test-verbose  Run tests with output"
+	@echo "  lint          Run clippy lints"
+	@echo "  golden        Regenerate golden test files"
+	@echo "  clean         Clean build artifacts"
+	@echo "  patterns      List available patterns"
+	@echo "  run           Run CLI (e.g., make run ARGS='print ripple')"
+	@echo "  preview       Generate preview PNG (e.g., make preview PATTERN=ripple)"
+	@echo "  help          Show this help"

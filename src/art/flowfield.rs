@@ -233,6 +233,26 @@ impl super::Pattern for Flowfield {
             ("gamma", format!("{:.2}", self.params.gamma)),
         ]
     }
+
+    fn param_specs(&self) -> Vec<super::ParamSpec> {
+        use super::ParamSpec;
+        vec![
+            ParamSpec::slider("noise_scale", "Noise Scale", 0.005, 0.015, 0.001)
+                .with_description("Noise scale (smaller = larger features)"),
+            ParamSpec::int("octaves", "Octaves", Some(3), Some(6))
+                .with_description("Number of noise octaves"),
+            ParamSpec::slider("line_freq", "Line Frequency", 0.1, 0.25, 0.01)
+                .with_description("Line frequency (higher = more lines)"),
+            ParamSpec::slider("sharpness", "Sharpness", 2.0, 5.0, 0.5)
+                .with_description("Line sharpness"),
+            ParamSpec::slider("turbulence", "Turbulence", 0.3, 0.8, 0.05)
+                .with_description("Turbulence amount"),
+            ParamSpec::int("seed", "Seed", Some(0), Some(999999))
+                .with_description("Seed for reproducibility"),
+            ParamSpec::slider("gamma", "Gamma", 1.0, 1.5, 0.05)
+                .with_description("Gamma correction"),
+        ]
+    }
 }
 
 #[cfg(test)]

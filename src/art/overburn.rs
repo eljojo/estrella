@@ -172,6 +172,26 @@ impl super::Pattern for Overburn {
             ("gamma", format!("{:.2}", self.params.gamma)),
         ]
     }
+
+    fn param_specs(&self) -> Vec<super::ParamSpec> {
+        use super::ParamSpec;
+        vec![
+            ParamSpec::slider("scale", "Scale", 4.0, 10.0, 0.5)
+                .with_description("Ripple scale (wavelength)"),
+            ParamSpec::slider("drift", "Drift", 50.0, 120.0, 5.0)
+                .with_description("Vertical drift divisor"),
+            ParamSpec::slider("wobble_mix", "Wobble Mix", 0.15, 0.4, 0.01)
+                .with_description("Wobble blend factor"),
+            ParamSpec::slider("darken_mult", "Darken Multiplier", 0.5, 0.85, 0.05)
+                .with_description("Darkening multiplier"),
+            ParamSpec::slider("darken_offset", "Darken Offset", 0.2, 0.45, 0.05)
+                .with_description("Darkening offset"),
+            ParamSpec::slider("blur_amount", "Blur Amount", 0.1, 0.25, 0.01)
+                .with_description("Bloom/blur amount"),
+            ParamSpec::slider("gamma", "Gamma", 1.3, 2.0, 0.1)
+                .with_description("Gamma for extra contrast"),
+        ]
+    }
 }
 
 #[cfg(test)]

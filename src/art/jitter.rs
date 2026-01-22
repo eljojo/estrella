@@ -203,6 +203,32 @@ impl super::Pattern for Jitter {
             ("gamma", format!("{:.2}", self.params.gamma)),
         ]
     }
+
+    fn param_specs(&self) -> Vec<super::ParamSpec> {
+        use super::ParamSpec;
+        vec![
+            ParamSpec::slider("scale", "Scale", 4.0, 10.0, 0.5)
+                .with_description("Ripple scale (wavelength)"),
+            ParamSpec::slider("drift", "Drift", 50.0, 120.0, 5.0)
+                .with_description("Vertical drift divisor"),
+            ParamSpec::slider("wobble_mix", "Wobble Mix", 0.15, 0.4, 0.01)
+                .with_description("Wobble blend factor"),
+            ParamSpec::int("band_height", "Band Height", Some(16), Some(36))
+                .with_description("Height of each band in pixels"),
+            ParamSpec::slider("variation_freq", "Variation Frequency", 0.2, 0.5, 0.05)
+                .with_description("Variation multiplier"),
+            ParamSpec::slider("mod_min", "Mod Min", 0.85, 0.95, 0.01)
+                .with_description("Minimum band modifier"),
+            ParamSpec::slider("mod_range", "Mod Range", 0.1, 0.3, 0.05)
+                .with_description("Band modifier range"),
+            ParamSpec::slider("edge_darken", "Edge Darken", 0.1, 0.25, 0.01)
+                .with_description("Edge darkening amount"),
+            ParamSpec::int("edge_rows", "Edge Rows", Some(1), Some(4))
+                .with_description("Number of edge rows"),
+            ParamSpec::slider("gamma", "Gamma", 1.1, 1.6, 0.05)
+                .with_description("Gamma for contrast"),
+        ]
+    }
 }
 
 #[cfg(test)]

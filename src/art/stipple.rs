@@ -251,6 +251,26 @@ impl super::Pattern for Stipple {
             ("contrast", format!("{:.2}", self.params.contrast)),
         ]
     }
+
+    fn param_specs(&self) -> Vec<super::ParamSpec> {
+        use super::ParamSpec;
+        vec![
+            ParamSpec::slider("spacing", "Spacing", 3.0, 6.0, 0.5)
+                .with_description("Dot spacing (grid size)"),
+            ParamSpec::slider("max_radius", "Max Radius", 1.2, 2.5, 0.1)
+                .with_description("Maximum dot radius"),
+            ParamSpec::slider("min_radius", "Min Radius", 0.2, 0.5, 0.05)
+                .with_description("Minimum dot radius"),
+            ParamSpec::slider("noise_scale", "Noise Scale", 0.008, 0.025, 0.001)
+                .with_description("Noise scale for tonal variation"),
+            ParamSpec::slider("jitter", "Jitter", 0.1, 0.5, 0.05)
+                .with_description("Dot position jitter"),
+            ParamSpec::int("seed", "Seed", Some(0), Some(999999))
+                .with_description("Seed for reproducibility"),
+            ParamSpec::slider("contrast", "Contrast", 0.8, 1.5, 0.1)
+                .with_description("Contrast adjustment"),
+        ]
+    }
 }
 
 #[cfg(test)]

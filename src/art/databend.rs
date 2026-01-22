@@ -225,6 +225,24 @@ impl super::Pattern for Databend {
             ("seed", self.params.seed.to_string()),
         ]
     }
+
+    fn param_specs(&self) -> Vec<super::ParamSpec> {
+        use super::ParamSpec;
+        vec![
+            ParamSpec::int("block_size", "Block Size", Some(4), Some(16))
+                .with_description("Block size for data chunks"),
+            ParamSpec::slider("corruption_rate", "Corruption Rate", 0.05, 0.3, 0.01)
+                .with_description("Corruption probability per block"),
+            ParamSpec::slider("streak_length", "Streak Length", 1.0, 6.0, 0.5)
+                .with_description("Streak length multiplier"),
+            ParamSpec::int("bit_depth", "Bit Depth", Some(2), Some(8))
+                .with_description("Bit depth simulation (1-8)"),
+            ParamSpec::slider("row_shift", "Row Shift", 0.1, 0.5, 0.05)
+                .with_description("Row shift corruption amount"),
+            ParamSpec::int("seed", "Seed", Some(0), Some(999999))
+                .with_description("Seed for reproducibility"),
+        ]
+    }
 }
 
 #[cfg(test)]

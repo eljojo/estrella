@@ -228,6 +228,24 @@ impl super::Pattern for ReactionDiffusion {
             ("seed", self.params.seed.to_string()),
         ]
     }
+
+    fn param_specs(&self) -> Vec<super::ParamSpec> {
+        use super::ParamSpec;
+        vec![
+            ParamSpec::slider("feed", "Feed Rate", 0.02, 0.04, 0.002)
+                .with_description("Feed rate (affects pattern type)"),
+            ParamSpec::slider("kill", "Kill Rate", 0.049, 0.07, 0.002)
+                .with_description("Kill rate (affects pattern type)"),
+            ParamSpec::slider("scale", "Scale", 0.005, 0.015, 0.001)
+                .with_description("Pattern scale"),
+            ParamSpec::int("octaves", "Octaves", Some(3), Some(6))
+                .with_description("Number of noise octaves"),
+            ParamSpec::slider("contrast", "Contrast", 1.5, 3.0, 0.1)
+                .with_description("Contrast adjustment"),
+            ParamSpec::int("seed", "Seed", Some(0), Some(999999))
+                .with_description("Seed for reproducibility"),
+        ]
+    }
 }
 
 #[cfg(test)]

@@ -165,7 +165,7 @@ impl CellularAutomaton {
     }
 }
 
-/// Thread-local cache for automaton computation.
+// Thread-local cache for automaton computation.
 thread_local! {
     static CACHE: std::cell::RefCell<Option<(usize, usize, u8, u32, CellularAutomaton)>> =
         const { std::cell::RefCell::new(None) };
@@ -280,6 +280,24 @@ impl super::Pattern for Automata {
             ("density", format!("{:.2}", self.params.density)),
             ("seed", self.params.seed.to_string()),
             ("invert", self.params.invert.to_string()),
+        ]
+    }
+
+    fn param_specs(&self) -> Vec<super::ParamSpec> {
+        use super::ParamSpec;
+        vec![
+            ParamSpec::int("rule", "Rule", Some(0), Some(255))
+                .with_description("Wolfram rule number (0-255)"),
+            ParamSpec::int("cell_size", "Cell Size", Some(1), Some(4))
+                .with_description("Cell size in pixels"),
+            ParamSpec::select("init", "Init Type", vec!["single", "random", "alternating"])
+                .with_description("Initial state type"),
+            ParamSpec::slider("density", "Density", 0.3, 0.7, 0.05)
+                .with_description("Random initial density"),
+            ParamSpec::int("seed", "Seed", Some(0), Some(999999))
+                .with_description("Seed for random init"),
+            ParamSpec::bool("invert", "Invert")
+                .with_description("Invert output"),
         ]
     }
 }
