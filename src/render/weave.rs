@@ -99,6 +99,8 @@ impl<'a> Weave<'a> {
     /// Compute intensity at a pixel position.
     ///
     /// This handles blending between patterns during crossfade zones.
+    /// Each pattern is rendered with remapped coordinates so it thinks
+    /// it's being rendered independently at its own segment size.
     pub fn intensity(&self, x: usize, y: usize, width: usize, height: usize) -> f32 {
         let n = self.patterns.len();
         if n == 0 {
@@ -113,9 +115,10 @@ impl<'a> Weave<'a> {
         let crossfade_f = self.config.crossfade_pixels as f32;
         let half_crossfade = crossfade_f / 2.0;
 
-        // Transition points are at height * i / n for i in 1..n
-        // Each transition has a crossfade zone centered on it
-        //
+        // Each pattern gets a virtual segment of this height
+        let segment_height = height / n;
+        let segment_height_f = segment_height as f32;
+
         // Example with 3 patterns, height=900, crossfade=100:
         //   Transition 1 at y=300: crossfade from 250-350
         //   Transition 2 at y=600: crossfade from 550-650
@@ -124,6 +127,21 @@ impl<'a> Weave<'a> {
         //   Pattern 0: 0-250 solo, 250-350 fading out
         //   Pattern 1: 250-350 fading in, 350-550 solo, 550-650 fading out
         //   Pattern 2: 550-650 fading in, 650-900 solo
+        //
+        // Each pattern's y-coordinate is remapped to [0, segment_height) so it
+        // renders as if it were independent (centered patterns stay centered).
+
+        // Helper to get pattern intensity with remapped coordinates
+        // Pattern i thinks it's rendering into (width x segment_height)
+        // with y remapped to its local coordinate system
+        let pattern_intensity = |pattern_idx: usize, global_y: f32| -> f32 {
+            let segment_start = height_f * pattern_idx as f32 / n as f32;
+            let local_y = (global_y - segment_start).clamp(0.0, segment_height_f - 1.0);
+            self.patterns[pattern_idx].intensity(x, local_y as usize, width, segment_height)
+        };
+
+        // Transition points are at height * i / n for i in 1..n
+        // Each transition has a crossfade zone centered on it
 
         // Check each transition point
         for i in 1..n {
@@ -136,8 +154,8 @@ impl<'a> Weave<'a> {
                 let t = (y_f - fade_start) / crossfade_f;
                 let t = self.config.curve.apply(t);
 
-                let a = self.patterns[i - 1].intensity(x, y, width, height);
-                let b = self.patterns[i].intensity(x, y, width, height);
+                let a = pattern_intensity(i - 1, y_f);
+                let b = pattern_intensity(i, y_f);
 
                 return a * (1.0 - t) + b * t;
             }
@@ -157,12 +175,12 @@ impl<'a> Weave<'a> {
             };
 
             if y_f >= zone_start && y_f < zone_end {
-                return self.patterns[i].intensity(x, y, width, height);
+                return pattern_intensity(i, y_f);
             }
         }
 
         // Fallback to last pattern
-        self.patterns[n - 1].intensity(x, y, width, height)
+        pattern_intensity(n - 1, y_f)
     }
 
     /// Get the pattern names for display.
