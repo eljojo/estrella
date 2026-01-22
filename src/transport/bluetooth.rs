@@ -56,7 +56,9 @@ pub const DEFAULT_DEVICE: &str = "/dev/rfcomm0";
 const CHUNK_SIZE: usize = 4096;
 
 /// Delay between chunks (milliseconds)
-const CHUNK_DELAY_MS: u64 = 2;
+/// Throttles writes to ~200 KB/s to match Bluetooth SPP throughput.
+/// Too fast = printer buffer starvation on large prints (>300mm).
+const CHUNK_DELAY_MS: u64 = 20;
 
 /// # Bluetooth Printer Transport
 ///
