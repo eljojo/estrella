@@ -10,24 +10,36 @@
 //! 3. Add to [`PATTERNS`] array
 //! 4. Run `make golden` to generate test files
 
+pub mod attractor;
+pub mod automata;
 pub mod calibration;
+pub mod corrupt_barcode;
+pub mod crosshatch;
 pub mod crystal;
+pub mod databend;
 pub mod density;
 pub mod erosion;
 pub mod flowfield;
 pub mod glitch;
 pub mod jitter;
 pub mod microfeed;
+pub mod moire;
 pub mod mycelium;
 pub mod overburn;
 pub mod plasma;
+pub mod reaction_diffusion;
 pub mod riley;
 pub mod rings;
 pub mod ripple;
+pub mod scanline_tear;
 pub mod scintillate;
+pub mod stipple;
 pub mod topography;
 pub mod vasarely;
+pub mod voronoi;
 pub mod waves;
+pub mod weave;
+pub mod woodgrain;
 
 /// All available patterns, in display order.
 pub const PATTERNS: &[&str] = &[
@@ -47,6 +59,21 @@ pub const PATTERNS: &[&str] = &[
     "erosion",
     "crystal",
     "mycelium",
+    // Glitch / Digital
+    "corrupt_barcode",
+    "databend",
+    "scanline_tear",
+    // Algorithmic / Mathematical
+    "moire",
+    "reaction_diffusion",
+    "attractor",
+    "automata",
+    "voronoi",
+    // Texture / Tactile
+    "crosshatch",
+    "stipple",
+    "woodgrain",
+    "weave",
     // Diagnostic
     "microfeed",
     "density",
@@ -106,6 +133,22 @@ pub fn by_name_golden(name: &str) -> Option<Box<dyn Pattern>> {
         "erosion" => Some(Box::new(erosion::Erosion::golden())),
         "crystal" => Some(Box::new(crystal::Crystal::golden())),
         "mycelium" => Some(Box::new(mycelium::Mycelium::golden())),
+        // Glitch / Digital
+        "corrupt_barcode" => Some(Box::new(corrupt_barcode::CorruptBarcode::golden())),
+        "databend" => Some(Box::new(databend::Databend::golden())),
+        "scanline_tear" => Some(Box::new(scanline_tear::ScanlineTear::golden())),
+        // Algorithmic / Mathematical
+        "moire" => Some(Box::new(moire::Moire::golden())),
+        "reaction_diffusion" => Some(Box::new(reaction_diffusion::ReactionDiffusion::golden())),
+        "attractor" => Some(Box::new(attractor::Attractor::golden())),
+        "automata" => Some(Box::new(automata::Automata::golden())),
+        "voronoi" => Some(Box::new(voronoi::Voronoi::golden())),
+        // Texture / Tactile
+        "crosshatch" => Some(Box::new(crosshatch::Crosshatch::golden())),
+        "stipple" => Some(Box::new(stipple::Stipple::golden())),
+        "woodgrain" => Some(Box::new(woodgrain::Woodgrain::golden())),
+        "weave" => Some(Box::new(weave::Weave::golden())),
+        // Diagnostic
         "microfeed" => Some(Box::new(microfeed::Microfeed::golden())),
         "density" => Some(Box::new(density::Density::golden())),
         "overburn" => Some(Box::new(overburn::Overburn::golden())),
@@ -131,6 +174,22 @@ pub fn by_name_random(name: &str) -> Option<Box<dyn Pattern>> {
         "erosion" => Some(Box::new(erosion::Erosion::random())),
         "crystal" => Some(Box::new(crystal::Crystal::random())),
         "mycelium" => Some(Box::new(mycelium::Mycelium::random())),
+        // Glitch / Digital
+        "corrupt_barcode" => Some(Box::new(corrupt_barcode::CorruptBarcode::random())),
+        "databend" => Some(Box::new(databend::Databend::random())),
+        "scanline_tear" => Some(Box::new(scanline_tear::ScanlineTear::random())),
+        // Algorithmic / Mathematical
+        "moire" => Some(Box::new(moire::Moire::random())),
+        "reaction_diffusion" => Some(Box::new(reaction_diffusion::ReactionDiffusion::random())),
+        "attractor" => Some(Box::new(attractor::Attractor::random())),
+        "automata" => Some(Box::new(automata::Automata::random())),
+        "voronoi" => Some(Box::new(voronoi::Voronoi::random())),
+        // Texture / Tactile
+        "crosshatch" => Some(Box::new(crosshatch::Crosshatch::random())),
+        "stipple" => Some(Box::new(stipple::Stipple::random())),
+        "woodgrain" => Some(Box::new(woodgrain::Woodgrain::random())),
+        "weave" => Some(Box::new(weave::Weave::random())),
+        // Diagnostic
         "microfeed" => Some(Box::new(microfeed::Microfeed::random())),
         "density" => Some(Box::new(density::Density::random())),
         "overburn" => Some(Box::new(overburn::Overburn::random())),

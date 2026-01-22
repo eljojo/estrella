@@ -15,6 +15,7 @@ pub use art::by_name_golden;
 pub use art::by_name_random;
 pub use art::Pattern;
 pub use art::PATTERNS;
+// Classic patterns
 pub use art::calibration::Calibration;
 pub use art::crystal::Crystal;
 pub use art::density::Density;
@@ -33,6 +34,21 @@ pub use art::scintillate::Scintillate;
 pub use art::topography::Topography;
 pub use art::vasarely::Vasarely;
 pub use art::waves::Waves;
+// Glitch / Digital
+pub use art::corrupt_barcode::CorruptBarcode;
+pub use art::databend::Databend;
+pub use art::scanline_tear::ScanlineTear;
+// Algorithmic / Mathematical
+pub use art::attractor::Attractor;
+pub use art::automata::Automata;
+pub use art::moire::Moire;
+pub use art::reaction_diffusion::ReactionDiffusion;
+pub use art::voronoi::Voronoi;
+// Texture / Tactile
+pub use art::crosshatch::Crosshatch;
+pub use art::stipple::Stipple;
+pub use art::weave::Weave;
+pub use art::woodgrain::Woodgrain;
 
 /// List all available pattern names.
 pub fn list_patterns() -> &'static [&'static str] {
@@ -63,7 +79,11 @@ mod tests {
         assert!(patterns.contains(&"calibration"));
         assert!(patterns.contains(&"riley"));
         assert!(patterns.contains(&"mycelium"));
-        assert_eq!(patterns.len(), 18);
+        // New patterns
+        assert!(patterns.contains(&"corrupt_barcode"));
+        assert!(patterns.contains(&"voronoi"));
+        assert!(patterns.contains(&"weave"));
+        assert_eq!(patterns.len(), 30);
     }
 
     #[test]
