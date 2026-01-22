@@ -55,7 +55,8 @@ effect(() => {
 })
 
 // Helper to render the appropriate input for a param spec
-function ParamInput({
+// Exported for use in WeaveForm
+export function ParamInput({
   spec,
   value,
   onChange,

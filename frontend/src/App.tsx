@@ -2,11 +2,25 @@ import { signal } from '@preact/signals'
 import { Tabs } from './components/Tabs'
 import { ReceiptForm, receiptPreviewUrl } from './components/ReceiptForm'
 import { PatternForm, patternPreviewUrl } from './components/PatternForm'
+import { WeaveForm, weavePreviewUrl } from './components/WeaveForm'
 
-export const activeTab = signal<'receipt' | 'patterns'>('receipt')
+export const activeTab = signal<'receipt' | 'patterns' | 'weave'>('receipt')
+
+const previewUrls = {
+  receipt: () => receiptPreviewUrl.value,
+  patterns: () => patternPreviewUrl.value,
+  weave: () => weavePreviewUrl.value,
+}
+
+const placeholderTexts = {
+  receipt: 'Start typing to see preview...',
+  patterns: 'Select a pattern to see preview...',
+  weave: 'Add at least 2 patterns to see preview...',
+}
 
 export function App() {
-  const previewUrl = activeTab.value === 'receipt' ? receiptPreviewUrl.value : patternPreviewUrl.value
+  const previewUrl = previewUrls[activeTab.value]()
+  const placeholderText = placeholderTexts[activeTab.value]
 
   return (
     <div class="container">
@@ -15,7 +29,13 @@ export function App() {
       <Tabs />
       <div class="main-layout">
         <div class="form-panel">
-          {activeTab.value === 'receipt' ? <ReceiptForm /> : <PatternForm />}
+          {activeTab.value === 'receipt' ? (
+            <ReceiptForm />
+          ) : activeTab.value === 'patterns' ? (
+            <PatternForm />
+          ) : (
+            <WeaveForm />
+          )}
         </div>
         <div class="preview-panel">
           <h3>Preview</h3>
@@ -23,11 +43,7 @@ export function App() {
             {previewUrl ? (
               <img src={previewUrl} alt="Preview" />
             ) : (
-              <div class="loading">
-                {activeTab.value === 'receipt'
-                  ? 'Start typing to see preview...'
-                  : 'Select a pattern to see preview...'}
-              </div>
+              <div class="loading">{placeholderText}</div>
             )}
           </div>
         </div>

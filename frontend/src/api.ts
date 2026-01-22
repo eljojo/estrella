@@ -108,3 +108,66 @@ export async function fetchReceiptPreview(title: string, body: string): Promise<
   const blob = await response.blob()
   return URL.createObjectURL(blob)
 }
+
+// ===== Weave API =====
+
+/// A pattern entry for weave requests.
+export interface WeavePatternEntry {
+  name: string
+  params: Record<string, string>
+}
+
+/// Fetch weave preview as a blob URL.
+export async function fetchWeavePreview(
+  patterns: WeavePatternEntry[],
+  lengthMm: number,
+  crossfadeMm: number,
+  curve: string,
+  dither: string,
+  mode: string
+): Promise<string> {
+  const response = await fetch('/api/weave/preview', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      length_mm: lengthMm,
+      crossfade_mm: crossfadeMm,
+      curve,
+      dither,
+      mode,
+      patterns,
+    }),
+  })
+
+  if (!response.ok) {
+    const text = await response.text()
+    throw new Error(text || 'Failed to fetch weave preview')
+  }
+
+  const blob = await response.blob()
+  return URL.createObjectURL(blob)
+}
+
+/// Print a weave.
+export async function printWeave(
+  patterns: WeavePatternEntry[],
+  lengthMm: number,
+  crossfadeMm: number,
+  curve: string,
+  dither: string,
+  mode: string
+): Promise<PrintResult> {
+  const response = await fetch('/api/weave/print', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      length_mm: lengthMm,
+      crossfade_mm: crossfadeMm,
+      curve,
+      dither,
+      mode,
+      patterns,
+    }),
+  })
+  return response.json()
+}

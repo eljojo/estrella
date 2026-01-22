@@ -15,6 +15,12 @@ export function Tabs() {
       >
         Patterns
       </button>
+      <button
+        class={`tab ${activeTab.value === 'weave' ? 'active' : ''}`}
+        onClick={() => (activeTab.value = 'weave')}
+      >
+        Weave
+      </button>
     </div>
   )
 }

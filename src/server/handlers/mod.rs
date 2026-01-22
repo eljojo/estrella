@@ -2,3 +2,4 @@
 
 pub mod patterns;
 pub mod receipt;
+pub mod weave;

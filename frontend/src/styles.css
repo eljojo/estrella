@@ -306,6 +306,121 @@ button:disabled {
     }
 }
 
+/* Weave Pattern List */
+.weave-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.weave-entry {
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    background: white;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.weave-entry.drag-over {
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+}
+
+.weave-entry-header {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    cursor: pointer;
+    gap: 8px;
+    user-select: none;
+}
+
+.weave-entry-header:hover {
+    background: #f7fafc;
+}
+
+.weave-entry-handle {
+    cursor: grab;
+    color: #a0aec0;
+    font-size: 18px;
+    padding: 0 4px;
+}
+
+.weave-entry-handle:active {
+    cursor: grabbing;
+}
+
+.weave-entry-number {
+    color: #718096;
+    font-weight: 600;
+    min-width: 24px;
+}
+
+.weave-entry-name {
+    flex: 1;
+    font-weight: 600;
+    color: #2d3748;
+}
+
+.weave-entry-actions {
+    display: flex;
+    gap: 4px;
+}
+
+.weave-entry-actions button {
+    padding: 4px 8px;
+    font-size: 12px;
+    background: #e2e8f0;
+    color: #4a5568;
+    box-shadow: none;
+}
+
+.weave-entry-actions button:hover {
+    background: #cbd5e0;
+    transform: none;
+    box-shadow: none;
+}
+
+.weave-entry-toggle {
+    color: #a0aec0;
+    font-weight: bold;
+    width: 20px;
+    text-align: center;
+}
+
+.weave-entry-params {
+    padding: 12px;
+    padding-top: 0;
+    border-top: 1px solid #e2e8f0;
+}
+
+.weave-entry.collapsed .weave-entry-header {
+    border-radius: 6px;
+}
+
+.weave-add-select {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px dashed #cbd5e0;
+    border-radius: 8px;
+    background: #f7fafc;
+    color: #718096;
+    font-size: 14px;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.weave-add-select:hover {
+    border-color: #667eea;
+    background: white;
+}
+
+.weave-add-select:focus {
+    outline: none;
+    border-color: #667eea;
+    border-style: solid;
+}
+
 @media (max-width: 640px) {
     .container {
         padding: 24px;

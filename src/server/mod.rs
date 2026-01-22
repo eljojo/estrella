@@ -67,6 +67,9 @@ pub async fn serve(config: ServerConfig) -> Result<(), EstrellaError> {
             "/api/patterns/:name/print",
             post(handlers::patterns::print),
         )
+        // Weave API
+        .route("/api/weave/preview", post(handlers::weave::preview))
+        .route("/api/weave/print", post(handlers::weave::print))
         .with_state(app_state);
 
     println!("Estrella HTTP server starting...");
