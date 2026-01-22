@@ -85,20 +85,12 @@ export async function printPattern(
 
 /// Print a receipt.
 export async function printReceipt(title: string, body: string): Promise<PrintResult> {
-  const formData = new FormData()
-  if (title) formData.append('title', title)
-  formData.append('body', body)
-
   const response = await fetch('/api/receipt/print', {
     method: 'POST',
-    body: formData,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: title || null, body }),
   })
-
-  try {
-    return await response.json()
-  } catch {
-    return { success: response.ok, message: response.ok ? 'Printed!' : 'Print failed' }
-  }
+  return response.json()
 }
 
 /// Fetch receipt preview as a blob URL.

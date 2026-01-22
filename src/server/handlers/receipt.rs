@@ -4,7 +4,7 @@ use axum::{
     extract::State,
     http::{header, StatusCode},
     response::{Html, IntoResponse, Response},
-    Form, Json,
+    Json,
 };
 use serde::Deserialize;
 use std::sync::Arc;
@@ -31,7 +31,7 @@ pub struct ReceiptForm {
 /// Handle POST /api/receipt/print - print the receipt.
 pub async fn print(
     State(state): State<Arc<AppState>>,
-    Form(form): Form<ReceiptForm>,
+    Json(form): Json<ReceiptForm>,
 ) -> Response {
     // Validate input
     if form.body.trim().is_empty() {
