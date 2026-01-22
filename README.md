@@ -4,6 +4,9 @@ A Rust library and CLI for [Star Micronics TSP650II](https://star-m.jp/eng/produ
 
 ![My Desk](https://github.com/user-attachments/assets/30b569ec-d311-492a-9333-d069e9234289)
 
+![IMG_7337](https://github.com/user-attachments/assets/7a2d8847-0458-4a55-9044-65cd67a721d2)
+
+
 ## Component System
 
 Estrella provides a declarative, React-inspired component system for building receipts. Instead of manually sending printer commands, you describe *what* you want and the system handles the rest.
