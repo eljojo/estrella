@@ -6,6 +6,7 @@
 //!
 //! - [`dither`]: Bayer 8x8 ordered dithering for binary conversion
 //! - [`patterns`]: Visual patterns (ripple, waves, calibration)
+//! - [`weave`]: Pattern blending with crossfade transitions
 //!
 //! ## Usage Example
 //!
@@ -24,3 +25,4 @@
 
 pub mod dither;
 pub mod patterns;
+pub mod weave;

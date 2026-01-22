@@ -44,6 +44,7 @@ use estrella::{
     receipt,
     render::dither,
     render::patterns,
+    render::weave::{BlendCurve, Weave},
     server,
     transport::BluetoothTransport,
 };
@@ -141,6 +142,45 @@ enum Commands {
         /// Printer device path
         #[arg(long, default_value = "/dev/rfcomm0")]
         device: String,
+    },
+
+    /// Blend multiple patterns together with crossfade transitions (like a DJ mix)
+    Weave {
+        /// Patterns to blend together (e.g., riley mycelium plasma waves)
+        #[arg(required = true)]
+        patterns: Vec<String>,
+
+        /// Total length in millimeters (e.g., "500mm")
+        #[arg(long, value_name = "LENGTH", default_value = "200mm")]
+        length: String,
+
+        /// Crossfade transition length in millimeters (e.g., "30mm")
+        #[arg(long, value_name = "LENGTH", default_value = "30mm")]
+        crossfade: String,
+
+        /// Blend curve: linear, smooth, ease-in, ease-out
+        #[arg(long, default_value = "smooth")]
+        curve: String,
+
+        /// Output to PNG file instead of printing
+        #[arg(long, value_name = "FILE")]
+        png: Option<PathBuf>,
+
+        /// Printer device path
+        #[arg(long, default_value = "/dev/rfcomm0")]
+        device: String,
+
+        /// Print width in dots
+        #[arg(long, default_value = "576")]
+        width: usize,
+
+        /// Use golden (deterministic) parameters instead of randomized ones
+        #[arg(long)]
+        golden: bool,
+
+        /// Dithering algorithm (bayer or floyd-steinberg)
+        #[arg(long, default_value = "bayer")]
+        dither: String,
     },
 }
 
@@ -504,6 +544,30 @@ fn run() -> Result<(), EstrellaError> {
                 .map_err(|e| EstrellaError::Transport(format!("Failed to create tokio runtime: {}", e)))?
                 .block_on(server::serve(config))?;
         }
+
+        Commands::Weave {
+            patterns: pattern_names,
+            length,
+            crossfade,
+            curve,
+            png,
+            device,
+            width,
+            golden,
+            dither,
+        } => {
+            weave_patterns(
+                &pattern_names,
+                &length,
+                &crossfade,
+                &curve,
+                png.as_ref(),
+                &device,
+                width,
+                golden,
+                &dither,
+            )?;
+        }
     }
 
     Ok(())
@@ -836,6 +900,137 @@ fn logo_delete_all(device: &str, force: bool) -> Result<(), EstrellaError> {
 
     print_raw_to_device(device, &data)?;
     println!("All logos deleted successfully!");
+
+    Ok(())
+}
+
+// ============================================================================
+// WEAVE COMMAND
+// ============================================================================
+
+/// Blend multiple patterns together with crossfade transitions.
+fn weave_patterns(
+    pattern_names: &[String],
+    length: &str,
+    crossfade: &str,
+    curve: &str,
+    png_path: Option<&PathBuf>,
+    device: &str,
+    width: usize,
+    golden: bool,
+    dither_name: &str,
+) -> Result<(), EstrellaError> {
+    use image::{GrayImage, Luma};
+
+    if pattern_names.len() < 2 {
+        return Err(EstrellaError::Pattern(
+            "Weave requires at least 2 patterns".to_string(),
+        ));
+    }
+
+    // Parse length and crossfade
+    let height = parse_length_mm(length)?;
+    let crossfade_pixels = parse_length_mm(crossfade)?;
+
+    // Parse blend curve
+    let blend_curve = BlendCurve::from_str(curve).ok_or_else(|| {
+        EstrellaError::Pattern(format!(
+            "Unknown blend curve '{}'. Use: linear, smooth, ease-in, ease-out",
+            curve
+        ))
+    })?;
+
+    // Parse dithering algorithm
+    let dither_algo = match dither_name.to_lowercase().as_str() {
+        "bayer" => dither::DitheringAlgorithm::Bayer,
+        "floyd-steinberg" | "floyd_steinberg" | "fs" => dither::DitheringAlgorithm::FloydSteinberg,
+        _ => {
+            return Err(EstrellaError::Pattern(format!(
+                "Unknown dithering algorithm '{}'. Use 'bayer' or 'floyd-steinberg'",
+                dither_name
+            )));
+        }
+    };
+
+    // Load patterns
+    let mut pattern_impls: Vec<Box<dyn patterns::Pattern>> = Vec::new();
+    for name in pattern_names {
+        let pattern = if golden {
+            patterns::by_name_golden(name)
+        } else {
+            patterns::by_name_random(name)
+        }
+        .ok_or_else(|| {
+            EstrellaError::Pattern(format!(
+                "Unknown pattern '{}'. Run 'estrella print' to see available patterns.",
+                name
+            ))
+        })?;
+        pattern_impls.push(pattern);
+    }
+
+    // Create the weave
+    let pattern_refs: Vec<&dyn patterns::Pattern> =
+        pattern_impls.iter().map(|p| p.as_ref()).collect();
+    let weave = Weave::new(pattern_refs)
+        .crossfade_pixels(crossfade_pixels)
+        .curve(blend_curve);
+
+    println!(
+        "Weaving {} patterns ({}x{}) with {}px crossfade, {} curve...",
+        pattern_names.len(),
+        width,
+        height,
+        crossfade_pixels,
+        curve
+    );
+    println!("  Patterns: {}", pattern_names.join(" -> "));
+
+    // Render using the dithering module's generate_raster
+    let raster_data = dither::generate_raster(
+        width,
+        height,
+        |x, y, w, h| weave.intensity(x, y, w, h),
+        dither_algo,
+    );
+    let width_bytes = width.div_ceil(8);
+
+    // Output to PNG or printer
+    if let Some(png_path) = png_path {
+        let mut img = GrayImage::new(width as u32, height as u32);
+
+        for y in 0..height {
+            for x in 0..width {
+                let byte_idx = y * width_bytes + x / 8;
+                let bit_idx = 7 - (x % 8);
+                let is_black = (raster_data[byte_idx] >> bit_idx) & 1 == 1;
+                let color = if is_black { 0u8 } else { 255u8 };
+                img.put_pixel(x as u32, y as u32, Luma([color]));
+            }
+        }
+
+        img.save(png_path).map_err(|e| {
+            EstrellaError::Image(format!("Failed to save PNG: {}", e))
+        })?;
+        println!("Saved to {}", png_path.display());
+    } else {
+        // Print to device
+        use estrella::ir::{Op, Program};
+
+        let mut program = Program::new();
+        program.push(Op::Init);
+        program.push(Op::Raster {
+            width: width as u16,
+            height: height as u16,
+            data: raster_data,
+        });
+        program.push(Op::Feed { units: 24 }); // 6mm
+        program.push(Op::Cut { partial: false });
+
+        let print_data = program.to_bytes();
+        print_raw_to_device(device, &print_data)?;
+        println!("Printed successfully!");
+    }
 
     Ok(())
 }

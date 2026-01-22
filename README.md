@@ -230,6 +230,27 @@ Diagnostic pattern with borders, X-shaped diagonals, and progressive-width verti
 
 </details>
 
+## Weave (Pattern Crossfades)
+
+Blend multiple patterns together with smooth DJ-style crossfade transitions.
+
+```bash
+# Blend 3 patterns over 150mm with 30mm crossfades
+estrella weave riley plasma waves --length 150mm --crossfade 30mm --png output.png
+```
+
+![Weave Crossfade](tests/golden/weave_crossfade.png)
+
+### Options
+
+| Option | Description |
+|--------|-------------|
+| `--length` | Total output length (e.g., `500mm`) |
+| `--crossfade` | Transition length between patterns (default: `30mm`) |
+| `--curve` | Blend curve: `linear`, `smooth` (default), `ease-in`, `ease-out` |
+| `--golden` | Use deterministic parameters |
+| `--png FILE` | Output to PNG instead of printing |
+
 ## NV Graphics (Logos)
 
 Store images in the printer's non-volatile flash memory for instant recall across power cycles.

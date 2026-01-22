@@ -18,7 +18,9 @@
 use estrella::components::{ComponentExt, Pattern as PatternComponent, Receipt};
 use estrella::ir::Program;
 use estrella::receipt;
+use estrella::render::dither::{self, DitheringAlgorithm};
 use estrella::render::patterns::{self, Pattern};
+use estrella::render::weave::{BlendCurve, Weave};
 use std::fs;
 
 /// Path to golden test directory
@@ -39,6 +41,53 @@ fn generate_raster_commands(name: &str, height: usize) -> Vec<u8> {
 /// Generate preview PNG for a program
 fn generate_preview_png(program: &Program) -> Vec<u8> {
     program.to_preview_png().expect("Preview rendering failed")
+}
+
+/// Generate weave PNG for golden tests
+fn generate_weave_png(pattern_names: &[&str], height: usize, crossfade: usize) -> Vec<u8> {
+    use image::{GrayImage, Luma};
+
+    let width: usize = 576;
+    let width_bytes = width.div_ceil(8);
+
+    // Load patterns (golden/deterministic)
+    let pattern_impls: Vec<Box<dyn Pattern>> = pattern_names
+        .iter()
+        .map(|name| patterns::by_name_golden(name).unwrap())
+        .collect();
+
+    let pattern_refs: Vec<&dyn Pattern> = pattern_impls.iter().map(|p| p.as_ref()).collect();
+    let weave = Weave::new(pattern_refs)
+        .crossfade_pixels(crossfade)
+        .curve(BlendCurve::Smooth);
+
+    // Render with Bayer dithering
+    let raster_data = dither::generate_raster(
+        width,
+        height,
+        |x, y, w, h| weave.intensity(x, y, w, h),
+        DitheringAlgorithm::Bayer,
+    );
+
+    // Convert to PNG
+    let mut img = GrayImage::new(width as u32, height as u32);
+    for y in 0..height {
+        for x in 0..width {
+            let byte_idx = y * width_bytes + x / 8;
+            let bit_idx = 7 - (x % 8);
+            let is_black = (raster_data[byte_idx] >> bit_idx) & 1 == 1;
+            let color = if is_black { 0u8 } else { 255u8 };
+            img.put_pixel(x as u32, y as u32, Luma([color]));
+        }
+    }
+
+    let mut png_bytes = Vec::new();
+    img.write_to(
+        &mut std::io::Cursor::new(&mut png_bytes),
+        image::ImageFormat::Png,
+    )
+    .expect("Failed to encode PNG");
+    png_bytes
 }
 
 /// Write binary data to a golden file
@@ -127,6 +176,11 @@ fn generate_golden_files() {
 
     let markdown_program = receipt::program_by_name_golden("markdown").unwrap();
     write_golden("markdown_demo", "png", &generate_preview_png(&markdown_program));
+
+    // Weave (crossfade between patterns)
+    // Use 3 distinct patterns, 800px height (~100mm), 160px crossfade (~20mm)
+    let weave_png = generate_weave_png(&["riley", "plasma", "waves"], 800, 160);
+    write_golden("weave_crossfade", "png", &weave_png);
 
     println!("\nAll golden files written to {}/", GOLDEN_DIR);
 }
@@ -248,6 +302,16 @@ fn test_preview_markdown_demo() {
     let program = receipt::program_by_name_golden("markdown").unwrap();
     let png = generate_preview_png(&program);
     check_golden("markdown_demo", "png", &png);
+}
+
+// ============================================================================
+// WEAVE TESTS
+// ============================================================================
+
+#[test]
+fn test_preview_weave_crossfade() {
+    let weave_png = generate_weave_png(&["riley", "plasma", "waves"], 800, 160);
+    check_golden("weave_crossfade", "png", &weave_png);
 }
 
 // ============================================================================
