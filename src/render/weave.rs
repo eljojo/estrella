@@ -115,9 +115,13 @@ impl<'a> Weave<'a> {
         let crossfade_f = self.config.crossfade_pixels as f32;
         let half_crossfade = crossfade_f / 2.0;
 
-        // Each pattern gets a virtual segment of this height
+        // Each pattern gets a segment of this height (plus crossfade padding)
         let segment_height = height / n;
         let segment_height_f = segment_height as f32;
+
+        // Extended height includes crossfade regions so patterns can render
+        // beyond their segment boundary during blending
+        let extended_height = segment_height + self.config.crossfade_pixels;
 
         // Example with 3 patterns, height=900, crossfade=100:
         //   Transition 1 at y=300: crossfade from 250-350
@@ -128,16 +132,17 @@ impl<'a> Weave<'a> {
         //   Pattern 1: 250-350 fading in, 350-550 solo, 550-650 fading out
         //   Pattern 2: 550-650 fading in, 650-900 solo
         //
-        // Each pattern's y-coordinate is remapped to [0, segment_height) so it
-        // renders as if it were independent (centered patterns stay centered).
+        // Each pattern renders at extended_height so it can provide pixels
+        // for the crossfade regions beyond its solo zone.
 
-        // Helper to get pattern intensity with remapped coordinates
-        // Pattern i thinks it's rendering into (width x segment_height)
-        // with y remapped to its local coordinate system
+        // Helper to get pattern intensity with coordinates remapped to segment.
+        // Each pattern thinks it's rendering (width x extended_height).
+        // The segment_start is offset by half_crossfade so the crossfade
+        // region maps to valid coordinates in the pattern.
         let pattern_intensity = |pattern_idx: usize, global_y: f32| -> f32 {
-            let segment_start = height_f * pattern_idx as f32 / n as f32;
-            let local_y = (global_y - segment_start).clamp(0.0, segment_height_f - 1.0);
-            self.patterns[pattern_idx].intensity(x, local_y as usize, width, segment_height)
+            let segment_start = segment_height_f * pattern_idx as f32 - half_crossfade;
+            let local_y = (global_y - segment_start).clamp(0.0, extended_height as f32 - 1.0);
+            self.patterns[pattern_idx].intensity(x, local_y as usize, width, extended_height)
         };
 
         // Transition points are at height * i / n for i in 1..n
