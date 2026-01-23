@@ -49,6 +49,10 @@ fn default_mode() -> String {
     "raster".to_string()
 }
 
+fn default_true() -> bool {
+    true
+}
+
 /// Form data for print endpoint.
 #[derive(Debug, Deserialize)]
 pub struct PatternPrintForm {
@@ -59,6 +63,10 @@ pub struct PatternPrintForm {
     pub mode: String,
     #[serde(default)]
     pub params: HashMap<String, String>,
+    #[serde(default = "default_true")]
+    pub cut: bool,
+    #[serde(default = "default_true")]
+    pub print_details: bool,
 }
 
 /// GET /api/patterns - List all pattern names.
@@ -196,10 +204,28 @@ pub async fn print(
     let raster_data = patterns::render(pattern.as_ref(), width, height, dither_algo);
 
     // Build print command based on mode
+    use crate::components::{Component, Divider, Text};
     use crate::ir::{Op, Program};
+    use crate::protocol::text::Font;
 
     let mut program = Program::new();
     program.push(Op::Init);
+
+    // Print title if details enabled
+    if form.print_details {
+        // Title
+        let title = Text::new(pattern.name()).center().bold().size(2, 1);
+        let mut title_ops = Vec::new();
+        title.emit(&mut title_ops);
+        program.extend(title_ops);
+        program.push(Op::Newline);
+
+        // Divider
+        let divider = Divider::dashed();
+        let mut divider_ops = Vec::new();
+        divider.emit(&mut divider_ops);
+        program.extend(divider_ops);
+    }
 
     if form.mode == "band" {
         program.push(Op::Band {
@@ -214,8 +240,34 @@ pub async fn print(
         });
     }
 
+    // Print parameters if details enabled
+    if form.print_details {
+        let divider = Divider::dashed();
+        let mut divider_ops = Vec::new();
+        divider.emit(&mut divider_ops);
+        program.extend(divider_ops);
+
+        // Parameters
+        let params_list = pattern.list_params();
+        if !params_list.is_empty() {
+            let params_text = params_list
+                .iter()
+                .map(|(k, v)| format!("{}={}", k, v))
+                .collect::<Vec<_>>()
+                .join(", ");
+            let params = Text::new(&params_text).center().font(Font::B);
+            let mut params_ops = Vec::new();
+            params.emit(&mut params_ops);
+            program.extend(params_ops);
+            program.push(Op::Newline);
+        }
+    }
+
     program.push(Op::Feed { units: 24 }); // 6mm
-    program.push(Op::Cut { partial: false });
+
+    if form.cut {
+        program.push(Op::Cut { partial: false });
+    }
 
     let print_data = program.to_bytes();
 

@@ -68,7 +68,9 @@ export async function printPattern(
   lengthMm: number,
   params: Record<string, string>,
   dither: string,
-  mode: string
+  mode: string,
+  cut: boolean = true,
+  printDetails: boolean = true
 ): Promise<PrintResult> {
   const response = await fetch(`/api/patterns/${name}/print`, {
     method: 'POST',
@@ -78,27 +80,39 @@ export async function printPattern(
       dither,
       mode,
       params,
+      cut,
+      print_details: printDetails,
     }),
   })
   return response.json()
 }
 
 /// Print a receipt.
-export async function printReceipt(title: string, body: string): Promise<PrintResult> {
+export async function printReceipt(
+  title: string,
+  body: string,
+  cut: boolean = true,
+  printDetails: boolean = true
+): Promise<PrintResult> {
   const response = await fetch('/api/receipt/print', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title: title || null, body }),
+    body: JSON.stringify({ title: title || null, body, cut, print_details: printDetails }),
   })
   return response.json()
 }
 
 /// Fetch receipt preview as a blob URL.
-export async function fetchReceiptPreview(title: string, body: string): Promise<string> {
+export async function fetchReceiptPreview(
+  title: string,
+  body: string,
+  cut: boolean = true,
+  printDetails: boolean = true
+): Promise<string> {
   const response = await fetch('/api/receipt/preview', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title: title || null, body }),
+    body: JSON.stringify({ title: title || null, body, cut, print_details: printDetails }),
   })
 
   if (!response.ok) {
@@ -155,7 +169,9 @@ export async function printWeave(
   crossfadeMm: number,
   curve: string,
   dither: string,
-  mode: string
+  mode: string,
+  cut: boolean = true,
+  printDetails: boolean = true
 ): Promise<PrintResult> {
   const response = await fetch('/api/weave/print', {
     method: 'POST',
@@ -167,6 +183,8 @@ export async function printWeave(
       dither,
       mode,
       patterns,
+      cut,
+      print_details: printDetails,
     }),
   })
   return response.json()

@@ -3,6 +3,8 @@ import { printReceipt, fetchReceiptPreview } from '../api'
 
 const title = signal('')
 const body = signal('')
+const cut = signal(true)
+const printDetails = signal(true)
 const status = signal<{ type: 'success' | 'error'; message: string } | null>(null)
 const loading = signal(false)
 
@@ -31,7 +33,7 @@ effect(() => {
   // Debounce preview requests
   previewTimeout = window.setTimeout(async () => {
     try {
-      const url = await fetchReceiptPreview(currentTitle, currentBody)
+      const url = await fetchReceiptPreview(currentTitle, currentBody, cut.value, printDetails.value)
       receiptPreviewUrl.value = url
     } catch (err) {
       console.error('Preview failed:', err)
@@ -51,7 +53,7 @@ export function ReceiptForm() {
     status.value = null
 
     try {
-      const result = await printReceipt(title.value, body.value)
+      const result = await printReceipt(title.value, body.value, cut.value, printDetails.value)
       if (result.success) {
         status.value = { type: 'success', message: result.message || 'Printed successfully!' }
       } else {
@@ -97,6 +99,25 @@ Supports **Markdown** formatting:
           onInput={(e) => (body.value = (e.target as HTMLTextAreaElement).value)}
         />
         <p class="hint">Required. Supports Markdown formatting.</p>
+      </div>
+
+      <div class="form-group checkbox-group">
+        <label>
+          <input
+            type="checkbox"
+            checked={cut.value}
+            onChange={(e) => (cut.value = (e.target as HTMLInputElement).checked)}
+          />
+          Cut page after printing
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={printDetails.value}
+            onChange={(e) => (printDetails.value = (e.target as HTMLInputElement).checked)}
+          />
+          Print details (date footer)
+        </label>
       </div>
 
       <button type="submit" disabled={loading.value}>

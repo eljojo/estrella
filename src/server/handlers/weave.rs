@@ -33,6 +33,10 @@ pub struct WeavePatternEntry {
     pub params: HashMap<String, String>,
 }
 
+fn default_true() -> bool {
+    true
+}
+
 /// Request body for weave preview/print.
 #[derive(Debug, Deserialize)]
 pub struct WeaveRequest {
@@ -46,6 +50,10 @@ pub struct WeaveRequest {
     #[serde(default = "default_mode")]
     pub mode: String,
     pub patterns: Vec<WeavePatternEntry>,
+    #[serde(default = "default_true")]
+    pub cut: bool,
+    #[serde(default = "default_true")]
+    pub print_details: bool,
 }
 
 fn default_crossfade() -> f32 {
@@ -211,7 +219,9 @@ pub async fn print(
     );
 
     // Build print command based on mode
+    use crate::components::{Component, Divider, Text};
     use crate::ir::{Op, Program};
+    use crate::protocol::text::Font;
 
     let mut program = Program::new();
     program.push(Op::Init);
@@ -229,15 +239,48 @@ pub async fn print(
         });
     }
 
+    // For success message
+    let pattern_names: Vec<&str> = req.patterns.iter().map(|p| p.name.as_str()).collect();
+    let pattern_list = pattern_names.join(" -> ");
+
+    // Print details at bottom if enabled
+    if req.print_details {
+        let divider = Divider::dashed();
+        let mut divider_ops = Vec::new();
+        divider.emit(&mut divider_ops);
+        program.extend(divider_ops);
+
+        // Each pattern with its params
+        for (i, entry) in req.patterns.iter().enumerate() {
+            let params_str = if entry.params.is_empty() {
+                String::new()
+            } else {
+                let params: Vec<String> = entry
+                    .params
+                    .iter()
+                    .map(|(k, v)| format!("{}={}", k, v))
+                    .collect();
+                format!(" ({})", params.join(", "))
+            };
+            let line = format!("{}. {}{}", i + 1, entry.name, params_str);
+            let text = Text::new(&line).font(Font::B);
+            let mut text_ops = Vec::new();
+            text.emit(&mut text_ops);
+            program.extend(text_ops);
+            program.push(Op::Newline);
+        }
+    }
+
     program.push(Op::Feed { units: 24 }); // 6mm
-    program.push(Op::Cut { partial: false });
+
+    if req.cut {
+        program.push(Op::Cut { partial: false });
+    }
 
     let print_data = program.to_bytes();
 
     // Print to device
     let device_path = state.config.device_path.clone();
-    let pattern_names: Vec<&str> = req.patterns.iter().map(|p| p.name.as_str()).collect();
-    let pattern_list = pattern_names.join(" -> ");
 
     let print_result = tokio::task::spawn_blocking(move || {
         let mut transport = BluetoothTransport::open(&device_path)?;

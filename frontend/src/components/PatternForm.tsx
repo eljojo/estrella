@@ -15,6 +15,8 @@ const specs = signal<ParamSpec[]>([])
 const lengthMm = signal(100)
 const dithering = signal<'bayer' | 'floyd-steinberg' | 'atkinson' | 'jarvis'>('jarvis')
 const renderMode = signal<'raster' | 'band'>('raster')
+const cut = signal(true)
+const printDetails = signal(true)
 const status = signal<{ type: 'success' | 'error'; message: string } | null>(null)
 const loading = signal(false)
 const previewKey = signal(0) // Force refresh preview
@@ -215,7 +217,9 @@ export function PatternForm() {
         lengthMm.value,
         params.value,
         dithering.value,
-        renderMode.value
+        renderMode.value,
+        cut.value,
+        printDetails.value
       )
       if (result.success) {
         status.value = { type: 'success', message: result.message || 'Printed successfully!' }
@@ -308,6 +312,25 @@ export function PatternForm() {
           <option value="raster">Raster</option>
           <option value="band">Band (24-row chunks)</option>
         </select>
+      </div>
+
+      <div class="form-group checkbox-group">
+        <label>
+          <input
+            type="checkbox"
+            checked={cut.value}
+            onChange={(e) => (cut.value = (e.target as HTMLInputElement).checked)}
+          />
+          Cut page after printing
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={printDetails.value}
+            onChange={(e) => (printDetails.value = (e.target as HTMLInputElement).checked)}
+          />
+          Print details (title and parameters)
+        </label>
       </div>
 
       {paramEntries.length > 0 && (

@@ -19,6 +19,10 @@ use crate::{
 
 use super::super::state::AppState;
 
+fn default_true() -> bool {
+    true
+}
+
 /// Form data for receipt operations.
 #[derive(Debug, Deserialize)]
 pub struct ReceiptForm {
@@ -26,6 +30,12 @@ pub struct ReceiptForm {
     pub title: Option<String>,
     /// Body text (required)
     pub body: String,
+    /// Whether to cut the page after printing
+    #[serde(default = "default_true")]
+    pub cut: bool,
+    /// Whether to print the date footer
+    #[serde(default = "default_true")]
+    pub print_details: bool,
 }
 
 /// Handle POST /api/receipt/print - print the receipt.
@@ -71,17 +81,23 @@ fn build_receipt(form: &ReceiptForm) -> Program {
     // Parse body as Markdown
     receipt = receipt.child(Markdown::new(&form.body));
 
-    // Add date footer
-    receipt = receipt
-        .child(Spacer::mm(3.0))
-        .child(Divider::dashed())
-        .child(
-            Text::new(&format!("Printed: {}", current_datetime()))
-                .center()
-                .font(Font::B),
-        )
-        .child(Spacer::mm(6.0))
-        .cut();
+    // Add date footer if print_details is enabled
+    if form.print_details {
+        receipt = receipt
+            .child(Spacer::mm(3.0))
+            .child(Divider::dashed())
+            .child(
+                Text::new(&format!("Printed: {}", current_datetime()))
+                    .center()
+                    .font(Font::B),
+            );
+    }
+
+    receipt = receipt.child(Spacer::mm(6.0));
+
+    if form.cut {
+        receipt = receipt.cut();
+    }
 
     receipt.compile()
 }
