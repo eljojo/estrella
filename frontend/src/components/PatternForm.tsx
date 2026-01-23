@@ -20,6 +20,17 @@ export const printDetails = signal(true)
 const status = signal<{ type: 'success' | 'error'; message: string } | null>(null)
 const loading = signal(false)
 const previewKey = signal(0) // Force refresh preview
+const estrellaDefaults = signal<Record<string, string> | null>(null)
+
+const areParamsEqual = (a: Record<string, string>, b: Record<string, string>) => {
+  const aKeys = Object.keys(a)
+  const bKeys = Object.keys(b)
+  if (aKeys.length !== bKeys.length) return false
+  for (const key of aKeys) {
+    if (a[key] !== b[key]) return false
+  }
+  return true
+}
 
 // Export preview URL for App.tsx
 export const patternPreviewUrl = computed(() => {
@@ -59,11 +70,21 @@ effect(() => {
       .then((info) => {
         params.value = info.params
         specs.value = info.specs
+        if (info.name === 'estrella') {
+          estrellaDefaults.value = { ...info.params }
+        }
       })
       .catch((e) => {
         console.error('Failed to fetch params:', e)
       })
   }
+})
+
+export const patternCustomized = computed(() => {
+  if (!selectedPattern.value) return false
+  if (selectedPattern.value !== 'estrella') return true
+  if (!estrellaDefaults.value) return false
+  return !areParamsEqual(params.value, estrellaDefaults.value)
 })
 
 // Helper to render the appropriate input for a param spec

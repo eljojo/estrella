@@ -1,8 +1,8 @@
-import { signal, effect } from '@preact/signals'
+import { signal, effect, computed } from '@preact/signals'
 import { printReceipt, fetchReceiptPreview } from '../api'
 
-const title = signal('Churra Mart')
-const body = signal(`# Groceries
+const DEFAULT_TITLE = 'Churra Mart'
+const DEFAULT_BODY = `# Groceries
 
 you can use **bold text** or \`  this thing  \` aaaaa!!
 
@@ -15,11 +15,17 @@ you can use **bold text** or \`  this thing  \` aaaaa!!
 1. dos
 1. tres
 
-#### gracias`)
+#### gracias`
+const title = signal(DEFAULT_TITLE)
+const body = signal(DEFAULT_BODY)
 export const cut = signal(true)
 export const printDetails = signal(true)
 const status = signal<{ type: 'success' | 'error'; message: string } | null>(null)
 const loading = signal(false)
+
+export const receiptCustomized = computed(
+  () => title.value !== DEFAULT_TITLE || body.value !== DEFAULT_BODY
+)
 
 // Export preview URL for App.tsx
 export const receiptPreviewUrl = signal('')

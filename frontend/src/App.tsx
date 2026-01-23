@@ -1,9 +1,28 @@
-import { signal } from '@preact/signals'
+import { signal, effect } from '@preact/signals'
+import { useEffect } from 'preact/hooks'
 import { Tabs } from './components/Tabs'
-import { ReceiptForm, receiptPreviewUrl, cut as receiptCut, printDetails as receiptPrintDetails } from './components/ReceiptForm'
-import { PatternForm, patternPreviewUrl, cut as patternCut, printDetails as patternPrintDetails } from './components/PatternForm'
-import { WeaveForm, weavePreviewUrl, cut as weaveCut, printDetails as weavePrintDetails } from './components/WeaveForm'
-import { PhotoForm, photoPreviewUrl } from './components/PhotoForm'
+import {
+  ReceiptForm,
+  receiptPreviewUrl,
+  cut as receiptCut,
+  printDetails as receiptPrintDetails,
+  receiptCustomized,
+} from './components/ReceiptForm'
+import {
+  PatternForm,
+  patternPreviewUrl,
+  cut as patternCut,
+  printDetails as patternPrintDetails,
+  patternCustomized,
+} from './components/PatternForm'
+import {
+  WeaveForm,
+  weavePreviewUrl,
+  cut as weaveCut,
+  printDetails as weavePrintDetails,
+  weaveHasBlend,
+} from './components/WeaveForm'
+import { PhotoForm, photoPreviewUrl, photoGrayscaleActive, handlePhotoDrop } from './components/PhotoForm'
 import { PrintOptions } from './components/PrintOptions'
 
 export const activeTab = signal<'receipt' | 'patterns' | 'weave' | 'photos'>('receipt')
@@ -22,9 +41,57 @@ const placeholderTexts = {
   photos: 'Upload an image to see preview...',
 }
 
+const grayscaleStates = {
+  receipt: () => receiptCustomized.value,
+  patterns: () => patternCustomized.value,
+  weave: () => weaveHasBlend.value,
+  photos: () => photoGrayscaleActive.value,
+}
+
+effect(() => {
+  const active = grayscaleStates[activeTab.value]()
+  document.documentElement.classList.toggle('grayscale', active)
+})
+
 export function App() {
   const previewUrl = previewUrls[activeTab.value]()
   const placeholderText = placeholderTexts[activeTab.value]
+
+  useEffect(() => {
+    const root = document.getElementById('app')
+    if (!root) return
+
+    const handleDragEnter = (e: DragEvent) => {
+      const types = e.dataTransfer?.types
+      if (types && Array.from(types).includes('Files')) {
+        activeTab.value = 'photos'
+      }
+    }
+
+    const handleDragOver = (e: DragEvent) => {
+      if (activeTab.value !== 'photos') return
+      e.preventDefault()
+    }
+
+    const handleDrop = (e: DragEvent) => {
+      const file = e.dataTransfer?.files[0]
+      if (file && file.type.startsWith('image/')) {
+        activeTab.value = 'photos'
+        e.preventDefault()
+        handlePhotoDrop(file)
+      }
+    }
+
+    root.addEventListener('dragenter', handleDragEnter)
+    root.addEventListener('dragover', handleDragOver)
+    root.addEventListener('drop', handleDrop)
+
+    return () => {
+      root.removeEventListener('dragenter', handleDragEnter)
+      root.removeEventListener('dragover', handleDragOver)
+      root.removeEventListener('drop', handleDrop)
+    }
+  }, [])
 
   return (
     <div class="container">
@@ -46,11 +113,15 @@ export function App() {
         <div class="preview-panel">
           <h3>Preview</h3>
           <div class="preview-container">
-            {previewUrl ? (
-              <img src={previewUrl} alt="Preview" />
-            ) : (
-              <div class="loading">{placeholderText}</div>
-            )}
+            <div class="preview-stage">
+              {previewUrl ? (
+                <img src={previewUrl} alt="Preview" class="preview-image" />
+              ) : (
+                <div class="preview-placeholder">
+                  <div class="preview-placeholder-text">{placeholderText}</div>
+                </div>
+              )}
+            </div>
           </div>
           {activeTab.value === 'receipt' && (
             <PrintOptions

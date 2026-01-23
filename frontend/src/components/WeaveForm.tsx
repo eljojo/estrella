@@ -47,6 +47,7 @@ const generateId = () => `weave-pattern-${nextId++}`
 
 // Export preview URL for App.tsx (computed as blob URL)
 export const weavePreviewUrl = signal<string>('')
+export const weaveHasBlend = computed(() => weavePatterns.value.length >= 2)
 
 // Debounced preview fetching
 let previewTimeout: number | null = null

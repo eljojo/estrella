@@ -16,12 +16,14 @@ const printing = signal(false)
 
 // Preview URL - updated only when we actually want to fetch
 export const photoPreviewUrl = signal('')
+export const photoGrayscaleActive = signal(false)
 
 // Request state for debouncing
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 let requestPending = false
 let needsRefreshAfter = false
 const DEBOUNCE_MS = 300
+let grayscaleOnNextLoad = false
 
 // Store image data for re-upload if session expires
 let storedImageData: ArrayBuffer | null = null
@@ -60,6 +62,13 @@ function triggerPreviewUpdate() {
   img.onload = () => {
     requestPending = false
     photoPreviewUrl.value = url
+    if (grayscaleOnNextLoad) {
+      grayscaleOnNextLoad = false
+      photoGrayscaleActive.value = false
+      requestAnimationFrame(() => {
+        photoGrayscaleActive.value = true
+      })
+    }
 
     // If settings changed while loading, trigger another update
     if (needsRefreshAfter) {
@@ -93,14 +102,19 @@ async function handleFileSelect(file: File) {
     const response = await uploadPhoto(arrayBuffer, file.name)
     sessionId.value = response.id
     filename.value = response.filename
+    grayscaleOnNextLoad = true
     triggerPreviewUpdate()
-    status.value = { type: 'success', message: `Uploaded: ${file.name}` }
   } catch (err) {
     status.value = { type: 'error', message: `Upload failed: ${err}` }
     sessionId.value = null
+    photoGrayscaleActive.value = false
   } finally {
     uploading.value = false
   }
+}
+
+export function handlePhotoDrop(file: File) {
+  void handleFileSelect(file)
 }
 
 // Re-upload if session expired
@@ -236,17 +250,15 @@ export function PhotoForm() {
     photoPreviewUrl.value = ''
     requestPending = false
     needsRefreshAfter = false
+    grayscaleOnNextLoad = false
+    photoGrayscaleActive.value = false
   }
 
   return (
-    <div>
+    <div class="drop-zone photo-drop-zone" onDrop={handleDrop} onDragOver={handleDragOver}>
       {status.value && <div class={status.value.type}>{status.value.message}</div>}
 
-      <div
-        class="form-group drop-zone"
-        onDrop={handleDrop}
-        onDragOver={handleDragOver}
-      >
+      <div class="form-group">
         <label>Image</label>
         <div class="file-input-wrapper">
           <input
