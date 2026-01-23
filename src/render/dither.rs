@@ -86,14 +86,44 @@
 //! - **Organic look**: Less visible pattern structure
 //! - **Sequential**: Must process pixels in order (not parallelizable)
 //!
+//! ## Atkinson Dithering
+//!
+//! Atkinson dithering was developed by Bill Atkinson for the original Macintosh.
+//! It only diffuses 6/8 (75%) of the error, intentionally losing some information.
+//! This produces higher contrast output with more pure blacks and whites.
+//!
+//! ### Error Distribution
+//!
+//! ```text
+//!        X    1/8   1/8
+//!   1/8  1/8  1/8
+//!        1/8
+//! ```
+//!
+//! Note: 2/8 of the error is intentionally discarded.
+//!
+//! ## Jarvis-Judice-Ninke Dithering
+//!
+//! Jarvis-Judice-Ninke spreads the error over a larger area (12 neighbors)
+//! compared to Floyd-Steinberg (4 neighbors). This produces smoother gradients
+//! with less visible artifacts.
+//!
+//! ### Error Distribution
+//!
+//! ```text
+//!              X    7/48  5/48
+//!   3/48  5/48  7/48  5/48  3/48
+//!   1/48  3/48  5/48  3/48  1/48
+//! ```
+//!
 //! ## Comparison
 //!
 //! | Method | Speed | Quality | Artifacts | Best For |
 //! |--------|-------|---------|-----------|----------|
 //! | Bayer | Fast | Good | Regular pattern | Text, graphics, patterns |
-//! | Floyd-Steinberg | Slower | Better | Occasional worms | Photos, continuous tones |
-//! | Random | Fast | Poor | Noisy | Testing only |
-//! | Threshold | Fastest | Poor | Banding | High contrast only |
+//! | Floyd-Steinberg | Medium | Better | Occasional worms | Photos, continuous tones |
+//! | Atkinson | Medium | Good | Higher contrast | Retro look, line art |
+//! | Jarvis | Slower | Best | Smoothest | High-quality photos |
 //!
 //! ## Usage Example
 //!
@@ -118,6 +148,10 @@ pub enum DitheringAlgorithm {
     Bayer,
     /// Floyd-Steinberg error diffusion (slower, organic look)
     FloydSteinberg,
+    /// Atkinson dithering (classic Macintosh look, higher contrast)
+    Atkinson,
+    /// Jarvis-Judice-Ninke dithering (smoother gradients, larger diffusion)
+    Jarvis,
 }
 
 impl Default for DitheringAlgorithm {
@@ -303,6 +337,8 @@ where
         DitheringAlgorithm::FloydSteinberg => {
             generate_raster_floyd_steinberg(width, height, intensity_fn)
         }
+        DitheringAlgorithm::Atkinson => generate_raster_atkinson(width, height, intensity_fn),
+        DitheringAlgorithm::Jarvis => generate_raster_jarvis(width, height, intensity_fn),
     }
 }
 
@@ -352,21 +388,20 @@ where
 
     // Buffer to accumulate errors - current row and next row
     // We use f32 to track fractional intensity values with accumulated error
-    let mut curr_row = Vec::with_capacity(width);
+    // curr_row holds accumulated error from previous row, we add base intensity to it
+    let mut curr_row = vec![0.0f32; width];
     let mut next_row = vec![0.0f32; width];
 
     for y in 0..height {
-        // Initialize current row with base intensity values
-        curr_row.clear();
+        // Add base intensity to accumulated error for current row
         for x in 0..width {
-            let intensity = intensity_fn(x, y, width, height);
-            curr_row.push(intensity);
+            curr_row[x] += intensity_fn(x, y, width, height);
         }
 
         // Process current row left-to-right
         let mut row_pixels = Vec::with_capacity(width);
         for x in 0..width {
-            // Get intensity with accumulated error from previous pixels
+            // Get intensity with accumulated error, clamped to valid range
             let intensity = curr_row[x].clamp(0.0, 1.0);
 
             // Threshold at 0.5
@@ -399,10 +434,209 @@ where
         // Pack the row into bytes and add to data
         data.extend(pack_row(&row_pixels));
 
-        // Swap buffers: next_row becomes curr_row for next iteration
+        // Swap buffers: next_row (with accumulated error) becomes curr_row
         std::mem::swap(&mut curr_row, &mut next_row);
-        // Clear next_row for the following iteration
+        // Clear next_row (old curr_row) for accumulating errors for row y+2
         next_row.fill(0.0);
+    }
+
+    data
+}
+
+// ============================================================================
+// ATKINSON DITHERING
+// ============================================================================
+
+/// Generate a dithered raster using Atkinson dithering.
+///
+/// Atkinson dithering was developed by Bill Atkinson for the original Macintosh.
+/// It only diffuses 6/8 (75%) of the error, resulting in higher contrast output
+/// with more pure blacks and whites. This gives a distinctive "classic Mac" look.
+///
+/// ## Error Distribution
+///
+/// ```text
+///        X    1/8   1/8
+///   1/8  1/8  1/8
+///        1/8
+/// ```
+///
+/// Note: 2/8 of the error is intentionally discarded, creating higher contrast.
+fn generate_raster_atkinson<F>(width: usize, height: usize, intensity_fn: F) -> Vec<u8>
+where
+    F: Fn(usize, usize, usize, usize) -> f32,
+{
+    let width_bytes = width.div_ceil(8);
+    let mut data = Vec::with_capacity(width_bytes * height);
+
+    // Buffer to accumulate errors - we need current row and two rows ahead
+    // curr_row holds accumulated error from previous rows, we add base intensity to it
+    let mut curr_row = vec![0.0f32; width];
+    let mut next_row = vec![0.0f32; width];
+    let mut next_next_row = vec![0.0f32; width];
+
+    for y in 0..height {
+        // Add base intensity to accumulated error for current row
+        for x in 0..width {
+            curr_row[x] += intensity_fn(x, y, width, height);
+        }
+
+        // Process current row left-to-right
+        let mut row_pixels = Vec::with_capacity(width);
+        for x in 0..width {
+            // Get intensity with accumulated error from previous pixels
+            let intensity = curr_row[x].clamp(0.0, 1.0);
+
+            // Threshold at 0.5
+            let output = if intensity >= 0.5 { 1.0 } else { 0.0 };
+            row_pixels.push(output > 0.5);
+
+            // Calculate quantization error
+            let error = intensity - output;
+            let diffused = error / 8.0; // Each neighbor gets 1/8
+
+            // Distribute error to neighbors (if they exist)
+            // Atkinson only distributes 6/8 of the error, 2/8 is lost
+
+            // Right: 1/8
+            if x + 1 < width {
+                curr_row[x + 1] += diffused;
+            }
+
+            // Right+1: 1/8
+            if x + 2 < width {
+                curr_row[x + 2] += diffused;
+            }
+
+            // Bottom-left: 1/8
+            if x > 0 {
+                next_row[x - 1] += diffused;
+            }
+
+            // Bottom: 1/8
+            next_row[x] += diffused;
+
+            // Bottom-right: 1/8
+            if x + 1 < width {
+                next_row[x + 1] += diffused;
+            }
+
+            // Two rows down, center: 1/8
+            next_next_row[x] += diffused;
+        }
+
+        // Pack the row into bytes and add to data
+        data.extend(pack_row(&row_pixels));
+
+        // Rotate buffers
+        std::mem::swap(&mut curr_row, &mut next_row);
+        std::mem::swap(&mut next_row, &mut next_next_row);
+        // Clear the furthest row for the next iteration
+        next_next_row.fill(0.0);
+    }
+
+    data
+}
+
+// ============================================================================
+// JARVIS-JUDICE-NINKE DITHERING
+// ============================================================================
+
+/// Generate a dithered raster using Jarvis-Judice-Ninke dithering.
+///
+/// Jarvis-Judice-Ninke spreads the error over a larger area (12 neighbors)
+/// compared to Floyd-Steinberg (4 neighbors). This produces smoother gradients
+/// and less visible artifacts, but is slightly slower.
+///
+/// ## Error Distribution
+///
+/// ```text
+///              X    7/48  5/48
+///   3/48  5/48  7/48  5/48  3/48
+///   1/48  3/48  5/48  3/48  1/48
+/// ```
+fn generate_raster_jarvis<F>(width: usize, height: usize, intensity_fn: F) -> Vec<u8>
+where
+    F: Fn(usize, usize, usize, usize) -> f32,
+{
+    let width_bytes = width.div_ceil(8);
+    let mut data = Vec::with_capacity(width_bytes * height);
+
+    // Buffer to accumulate errors - we need current row and two rows ahead
+    // curr_row holds accumulated error from previous rows, we add base intensity to it
+    let mut curr_row = vec![0.0f32; width];
+    let mut next_row = vec![0.0f32; width];
+    let mut next_next_row = vec![0.0f32; width];
+
+    for y in 0..height {
+        // Add base intensity to accumulated error for current row
+        for x in 0..width {
+            curr_row[x] += intensity_fn(x, y, width, height);
+        }
+
+        // Process current row left-to-right
+        let mut row_pixels = Vec::with_capacity(width);
+        for x in 0..width {
+            // Get intensity with accumulated error from previous pixels
+            let intensity = curr_row[x].clamp(0.0, 1.0);
+
+            // Threshold at 0.5
+            let output = if intensity >= 0.5 { 1.0 } else { 0.0 };
+            row_pixels.push(output > 0.5);
+
+            // Calculate quantization error
+            let error = intensity - output;
+
+            // Distribute error to neighbors using Jarvis-Judice-Ninke coefficients
+            // Total = 48, all coefficients sum to 48
+
+            // Current row: X, +1, +2
+            if x + 1 < width {
+                curr_row[x + 1] += error * (7.0 / 48.0);
+            }
+            if x + 2 < width {
+                curr_row[x + 2] += error * (5.0 / 48.0);
+            }
+
+            // Next row: -2, -1, 0, +1, +2
+            if x >= 2 {
+                next_row[x - 2] += error * (3.0 / 48.0);
+            }
+            if x >= 1 {
+                next_row[x - 1] += error * (5.0 / 48.0);
+            }
+            next_row[x] += error * (7.0 / 48.0);
+            if x + 1 < width {
+                next_row[x + 1] += error * (5.0 / 48.0);
+            }
+            if x + 2 < width {
+                next_row[x + 2] += error * (3.0 / 48.0);
+            }
+
+            // Row after next: -2, -1, 0, +1, +2
+            if x >= 2 {
+                next_next_row[x - 2] += error * (1.0 / 48.0);
+            }
+            if x >= 1 {
+                next_next_row[x - 1] += error * (3.0 / 48.0);
+            }
+            next_next_row[x] += error * (5.0 / 48.0);
+            if x + 1 < width {
+                next_next_row[x + 1] += error * (3.0 / 48.0);
+            }
+            if x + 2 < width {
+                next_next_row[x + 2] += error * (1.0 / 48.0);
+            }
+        }
+
+        // Pack the row into bytes and add to data
+        data.extend(pack_row(&row_pixels));
+
+        // Rotate buffers
+        std::mem::swap(&mut curr_row, &mut next_row);
+        std::mem::swap(&mut next_row, &mut next_next_row);
+        // Clear the furthest row for the next iteration
+        next_next_row.fill(0.0);
     }
 
     data
@@ -593,6 +827,82 @@ mod tests {
             1,
             |x, _, w, _| x as f32 / w as f32,
             DitheringAlgorithm::FloydSteinberg,
+        );
+        assert_eq!(data.len(), 8); // 64 pixels / 8 = 8 bytes
+
+        // Left side should be mostly white (low intensity)
+        assert!(data[0] < 0x80); // First byte should have few bits set
+
+        // Right side should be mostly black (high intensity)
+        assert!(data[7] > 0x7F); // Last byte should have many bits set
+    }
+
+    #[test]
+    fn test_atkinson_dimensions() {
+        let data = generate_raster(576, 100, |_, _, _, _| 0.5, DitheringAlgorithm::Atkinson);
+        assert_eq!(data.len(), 72 * 100); // 576/8 = 72 bytes per row
+    }
+
+    #[test]
+    fn test_atkinson_all_black() {
+        let data = generate_raster(16, 2, |_, _, _, _| 1.0, DitheringAlgorithm::Atkinson);
+        assert_eq!(data.len(), 4); // 16/8 = 2 bytes per row, 2 rows
+        assert!(data.iter().all(|&b| b == 0xFF));
+    }
+
+    #[test]
+    fn test_atkinson_all_white() {
+        let data = generate_raster(16, 2, |_, _, _, _| 0.0, DitheringAlgorithm::Atkinson);
+        assert_eq!(data.len(), 4);
+        assert!(data.iter().all(|&b| b == 0x00));
+    }
+
+    #[test]
+    fn test_atkinson_gradient() {
+        // Test that Atkinson produces reasonable output for a gradient
+        let data = generate_raster(
+            64,
+            1,
+            |x, _, w, _| x as f32 / w as f32,
+            DitheringAlgorithm::Atkinson,
+        );
+        assert_eq!(data.len(), 8); // 64 pixels / 8 = 8 bytes
+
+        // Left side should be mostly white (low intensity)
+        assert!(data[0] < 0x80); // First byte should have few bits set
+
+        // Right side should be mostly black (high intensity)
+        assert!(data[7] > 0x7F); // Last byte should have many bits set
+    }
+
+    #[test]
+    fn test_jarvis_dimensions() {
+        let data = generate_raster(576, 100, |_, _, _, _| 0.5, DitheringAlgorithm::Jarvis);
+        assert_eq!(data.len(), 72 * 100); // 576/8 = 72 bytes per row
+    }
+
+    #[test]
+    fn test_jarvis_all_black() {
+        let data = generate_raster(16, 2, |_, _, _, _| 1.0, DitheringAlgorithm::Jarvis);
+        assert_eq!(data.len(), 4); // 16/8 = 2 bytes per row, 2 rows
+        assert!(data.iter().all(|&b| b == 0xFF));
+    }
+
+    #[test]
+    fn test_jarvis_all_white() {
+        let data = generate_raster(16, 2, |_, _, _, _| 0.0, DitheringAlgorithm::Jarvis);
+        assert_eq!(data.len(), 4);
+        assert!(data.iter().all(|&b| b == 0x00));
+    }
+
+    #[test]
+    fn test_jarvis_gradient() {
+        // Test that Jarvis produces reasonable output for a gradient
+        let data = generate_raster(
+            64,
+            1,
+            |x, _, w, _| x as f32 / w as f32,
+            DitheringAlgorithm::Jarvis,
         );
         assert_eq!(data.len(), 8); // 64 pixels / 8 = 8 bytes
 

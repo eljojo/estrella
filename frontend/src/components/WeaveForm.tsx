@@ -28,7 +28,7 @@ const weavePatterns = signal<WeavePatternEntry[]>([])
 const weaveLengthMm = signal(200)
 const crossfadeMm = signal(30)
 const blendCurve = signal<string>('smooth')
-const dithering = signal<'bayer' | 'floyd-steinberg'>('bayer')
+const dithering = signal<'bayer' | 'floyd-steinberg' | 'atkinson' | 'jarvis'>('bayer')
 const renderMode = signal<'raster' | 'band'>('raster')
 const status = signal<{ type: 'success' | 'error'; message: string } | null>(null)
 const loading = signal(false)
@@ -285,12 +285,14 @@ export function WeaveForm() {
           id="weave-dither"
           value={dithering.value}
           onChange={(e) => {
-            dithering.value = (e.target as HTMLSelectElement).value as 'bayer' | 'floyd-steinberg'
+            dithering.value = (e.target as HTMLSelectElement).value as 'bayer' | 'floyd-steinberg' | 'atkinson' | 'jarvis'
             handleSettingChange()
           }}
         >
           <option value="bayer">Bayer (ordered)</option>
           <option value="floyd-steinberg">Floyd-Steinberg (diffusion)</option>
+          <option value="atkinson">Atkinson (classic Mac)</option>
+          <option value="jarvis">Jarvis (smooth)</option>
         </select>
       </div>
 

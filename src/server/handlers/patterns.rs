@@ -128,6 +128,8 @@ pub async fn preview(
     // Parse dithering algorithm
     let dither_algo = match query.dither.to_lowercase().as_str() {
         "floyd-steinberg" | "floyd_steinberg" | "fs" => dither::DitheringAlgorithm::FloydSteinberg,
+        "atkinson" => dither::DitheringAlgorithm::Atkinson,
+        "jarvis" | "jjn" => dither::DitheringAlgorithm::Jarvis,
         _ => dither::DitheringAlgorithm::Bayer,
     };
 
@@ -185,6 +187,8 @@ pub async fn print(
     // Parse dithering algorithm
     let dither_algo = match form.dither.to_lowercase().as_str() {
         "floyd-steinberg" | "floyd_steinberg" | "fs" => dither::DitheringAlgorithm::FloydSteinberg,
+        "atkinson" => dither::DitheringAlgorithm::Atkinson,
+        "jarvis" | "jjn" => dither::DitheringAlgorithm::Jarvis,
         _ => dither::DitheringAlgorithm::Bayer,
     };
 

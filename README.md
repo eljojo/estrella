@@ -340,3 +340,53 @@ Image::from_raster(576, 480, data).band_mode()
 - **Paper:** 80mm (72mm printable area)
 - **Resolution:** 203 DPI (576 dots across)
 - **Interface:** Bluetooth RFCOMM at `/dev/rfcomm0`
+
+---
+
+<details>
+<summary>Dithering Algorithms</summary>
+
+Estrella supports four dithering algorithms for converting grayscale images to binary (black/white) output. Each has different characteristics suited to different use cases.
+
+### Bayer (Ordered)
+
+Fast, deterministic ordered dithering using an 8x8 threshold matrix. Produces a regular halftone pattern. Best for text, graphics, and patterns.
+
+![Bayer Dithering](tests/golden/dither_bayer.png)
+
+### Floyd-Steinberg (Error Diffusion)
+
+Classic error diffusion algorithm that distributes quantization errors to neighboring pixels. Produces organic, photograph-like results with smooth gradients.
+
+![Floyd-Steinberg Dithering](tests/golden/dither_floyd_steinberg.png)
+
+### Atkinson
+
+Bill Atkinson's algorithm from the original Macintosh. Only diffuses 75% of the error, intentionally losing information to produce higher contrast output with more pure blacks and whites. Gives a distinctive "classic Mac" look.
+
+![Atkinson Dithering](tests/golden/dither_atkinson.png)
+
+### Jarvis (Jarvis-Judice-Ninke)
+
+Spreads error over a larger area (12 neighbors across 3 rows) compared to Floyd-Steinberg (4 neighbors). Produces the smoothest gradients with the least visible artifacts, but is slightly slower.
+
+![Jarvis Dithering](tests/golden/dither_jarvis.png)
+
+### Usage
+
+```bash
+# CLI
+estrella print ripple --dither bayer
+estrella print ripple --dither floyd-steinberg
+estrella print ripple --dither atkinson
+estrella print ripple --dither jarvis
+```
+
+```rust
+// Code
+use estrella::render::dither::{generate_raster, DitheringAlgorithm};
+
+let data = generate_raster(576, 400, intensity_fn, DitheringAlgorithm::Atkinson);
+```
+
+</details>

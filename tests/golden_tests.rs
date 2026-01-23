@@ -62,6 +62,16 @@ fn generate_preview_png(program: &Program) -> Vec<u8> {
 
 /// Generate weave PNG for golden tests
 fn generate_weave_png(pattern_names: &[&str], height: usize, crossfade: usize) -> Vec<u8> {
+    generate_weave_png_with_dither(pattern_names, height, crossfade, DitheringAlgorithm::Bayer)
+}
+
+/// Generate weave PNG with a specific dithering algorithm
+fn generate_weave_png_with_dither(
+    pattern_names: &[&str],
+    height: usize,
+    crossfade: usize,
+    algorithm: DitheringAlgorithm,
+) -> Vec<u8> {
     use image::{GrayImage, Luma};
 
     let width: usize = 576;
@@ -78,12 +88,12 @@ fn generate_weave_png(pattern_names: &[&str], height: usize, crossfade: usize) -
         .crossfade_pixels(crossfade)
         .curve(BlendCurve::Smooth);
 
-    // Render with Bayer dithering
+    // Render with specified dithering algorithm
     let raster_data = dither::generate_raster(
         width,
         height,
         |x, y, w, h| weave.intensity(x, y, w, h),
-        DitheringAlgorithm::Bayer,
+        algorithm,
     );
 
     // Convert to PNG
@@ -106,6 +116,11 @@ fn generate_weave_png(pattern_names: &[&str], height: usize, crossfade: usize) -
     .expect("Failed to encode PNG");
     png_bytes
 }
+
+/// Patterns used for dithering algorithm comparison tests
+const DITHER_TEST_PATTERNS: &[&str] = &["plasma", "rings", "ripple", "topography"];
+const DITHER_TEST_HEIGHT: usize = 1200;
+const DITHER_TEST_CROSSFADE: usize = 200;
 
 /// Write binary data to a golden file
 fn write_golden(name: &str, ext: &str, data: &[u8]) {
@@ -204,6 +219,40 @@ fn generate_golden_files() {
     // Use 3 distinct patterns, 800px height (~100mm), 160px crossfade (~20mm)
     let weave_png = generate_weave_png(&["riley", "plasma", "waves"], 800, 160);
     write_golden("weave_crossfade", "png", &weave_png);
+
+    // Dithering algorithm comparison
+    // Use 4 patterns (plasma, ring, ripple, topography) to show each algorithm's characteristics
+    let dither_bayer = generate_weave_png_with_dither(
+        DITHER_TEST_PATTERNS,
+        DITHER_TEST_HEIGHT,
+        DITHER_TEST_CROSSFADE,
+        DitheringAlgorithm::Bayer,
+    );
+    write_golden("dither_bayer", "png", &dither_bayer);
+
+    let dither_floyd_steinberg = generate_weave_png_with_dither(
+        DITHER_TEST_PATTERNS,
+        DITHER_TEST_HEIGHT,
+        DITHER_TEST_CROSSFADE,
+        DitheringAlgorithm::FloydSteinberg,
+    );
+    write_golden("dither_floyd_steinberg", "png", &dither_floyd_steinberg);
+
+    let dither_atkinson = generate_weave_png_with_dither(
+        DITHER_TEST_PATTERNS,
+        DITHER_TEST_HEIGHT,
+        DITHER_TEST_CROSSFADE,
+        DitheringAlgorithm::Atkinson,
+    );
+    write_golden("dither_atkinson", "png", &dither_atkinson);
+
+    let dither_jarvis = generate_weave_png_with_dither(
+        DITHER_TEST_PATTERNS,
+        DITHER_TEST_HEIGHT,
+        DITHER_TEST_CROSSFADE,
+        DitheringAlgorithm::Jarvis,
+    );
+    write_golden("dither_jarvis", "png", &dither_jarvis);
 
     println!("\nAll golden files written to {}/", GOLDEN_DIR);
 }
@@ -311,6 +360,54 @@ fn test_preview_markdown_demo() {
 fn test_preview_weave_crossfade() {
     let weave_png = generate_weave_png(&["riley", "plasma", "waves"], 800, 160);
     check_golden("weave_crossfade", "png", &weave_png);
+}
+
+// ============================================================================
+// DITHERING ALGORITHM TESTS
+// ============================================================================
+
+#[test]
+fn test_dither_bayer() {
+    let png = generate_weave_png_with_dither(
+        DITHER_TEST_PATTERNS,
+        DITHER_TEST_HEIGHT,
+        DITHER_TEST_CROSSFADE,
+        DitheringAlgorithm::Bayer,
+    );
+    check_golden("dither_bayer", "png", &png);
+}
+
+#[test]
+fn test_dither_floyd_steinberg() {
+    let png = generate_weave_png_with_dither(
+        DITHER_TEST_PATTERNS,
+        DITHER_TEST_HEIGHT,
+        DITHER_TEST_CROSSFADE,
+        DitheringAlgorithm::FloydSteinberg,
+    );
+    check_golden("dither_floyd_steinberg", "png", &png);
+}
+
+#[test]
+fn test_dither_atkinson() {
+    let png = generate_weave_png_with_dither(
+        DITHER_TEST_PATTERNS,
+        DITHER_TEST_HEIGHT,
+        DITHER_TEST_CROSSFADE,
+        DitheringAlgorithm::Atkinson,
+    );
+    check_golden("dither_atkinson", "png", &png);
+}
+
+#[test]
+fn test_dither_jarvis() {
+    let png = generate_weave_png_with_dither(
+        DITHER_TEST_PATTERNS,
+        DITHER_TEST_HEIGHT,
+        DITHER_TEST_CROSSFADE,
+        DitheringAlgorithm::Jarvis,
+    );
+    check_golden("dither_jarvis", "png", &png);
 }
 
 // ============================================================================
