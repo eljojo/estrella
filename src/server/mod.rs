@@ -17,6 +17,7 @@ mod static_files;
 pub use state::ServerConfig;
 
 use axum::{
+    extract::DefaultBodyLimit,
     routing::{get, post},
     Router,
 };
@@ -70,8 +71,11 @@ pub async fn serve(config: ServerConfig) -> Result<(), EstrellaError> {
         // Weave API
         .route("/api/weave/preview", post(handlers::weave::preview))
         .route("/api/weave/print", post(handlers::weave::print))
-        // Photo API
-        .route("/api/photo/upload", post(handlers::photo::upload))
+        // Photo API (50MB limit for uploads)
+        .route(
+            "/api/photo/upload",
+            post(handlers::photo::upload).layer(DefaultBodyLimit::max(50 * 1024 * 1024)),
+        )
         .route("/api/photo/:id/preview", get(handlers::photo::preview))
         .route("/api/photo/:id/print", post(handlers::photo::print))
         .with_state(app_state);

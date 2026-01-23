@@ -28,6 +28,7 @@ serde_json = "1"
 include_dir = "0.7"
 mime_guess = "2"
 uuid = { version = "1", features = ["v4"] }
+libheif-rs = "1"
 
 [dev-dependencies]
 pretty_assertions = "1"

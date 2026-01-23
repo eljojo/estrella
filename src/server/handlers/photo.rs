@@ -6,7 +6,8 @@ use axum::{
     response::IntoResponse,
     Json,
 };
-use image::{imageops::FilterType, DynamicImage, GrayImage, Luma};
+use image::{imageops::FilterType, DynamicImage, GrayImage, Luma, RgbImage};
+use libheif_rs::{ColorSpace, HeifContext, LibHeif, RgbChroma};
 use serde::{Deserialize, Serialize};
 use std::{io::Cursor, sync::Arc, time::Instant};
 use uuid::Uuid;
@@ -105,12 +106,30 @@ pub async fn upload(
     let image_bytes = image_data
         .ok_or((StatusCode::BAD_REQUEST, "No image field found".to_string()))?;
 
-    // Decode the image
-    let img = image::load_from_memory(&image_bytes)
-        .map_err(|e| (StatusCode::BAD_REQUEST, format!("Failed to decode image: {}", e)))?;
+    // Decode the image (try HEIC first if it looks like HEIC, otherwise use image crate)
+    let img = if is_heic(&image_bytes) || filename.to_lowercase().ends_with(".heic") || filename.to_lowercase().ends_with(".heif") {
+        decode_heic(&image_bytes)
+            .map_err(|e| (StatusCode::BAD_REQUEST, format!("Failed to decode HEIC: {}", e)))?
+    } else {
+        image::load_from_memory(&image_bytes)
+            .map_err(|e| (StatusCode::BAD_REQUEST, format!("Failed to decode image: {}", e)))?
+    };
 
     let width = img.width();
     let height = img.height();
+
+    // Pre-resize to a reasonable size for preview generation
+    // Use 1152px (2x printer width) as max dimension to handle any rotation
+    // while keeping preview generation fast
+    let max_dim = 1152u32;
+    let img = if width > max_dim || height > max_dim {
+        let scale = max_dim as f32 / width.max(height) as f32;
+        let new_width = (width as f32 * scale).round() as u32;
+        let new_height = (height as f32 * scale).round() as u32;
+        img.resize(new_width, new_height, FilterType::Triangle)
+    } else {
+        img
+    };
 
     // Generate session ID and store
     let session_id = Uuid::new_v4();
@@ -460,6 +479,66 @@ async fn cleanup_expired_sessions(state: &AppState) {
         let elapsed = now.duration_since(session.last_accessed);
         elapsed.as_secs() < SESSION_EXPIRATION_SECS
     });
+}
+
+/// Check if the data looks like a HEIC/HEIF file by examining magic bytes.
+/// HEIC files have an "ftyp" box near the start with HEIC-related brand codes.
+fn is_heic(data: &[u8]) -> bool {
+    if data.len() < 12 {
+        return false;
+    }
+
+    // HEIC files start with a box size (4 bytes) followed by "ftyp" (bytes 4-7)
+    if &data[4..8] != b"ftyp" {
+        return false;
+    }
+
+    // Check the brand (bytes 8-11) for HEIC-related identifiers
+    let brand = &data[8..12];
+    matches!(
+        brand,
+        b"heic" | b"heix" | b"hevc" | b"hevx" | b"heim" | b"heis" | b"hevm" | b"hevs" | b"mif1" | b"msf1" | b"avif"
+    )
+}
+
+/// Decode a HEIC/HEIF image using libheif.
+fn decode_heic(data: &[u8]) -> Result<DynamicImage, String> {
+    let lib_heif = LibHeif::new();
+    let ctx = HeifContext::read_from_bytes(data).map_err(|e| format!("Failed to read HEIC: {}", e))?;
+
+    let handle = ctx
+        .primary_image_handle()
+        .map_err(|e| format!("Failed to get primary image: {}", e))?;
+
+    let image = lib_heif
+        .decode(&handle, ColorSpace::Rgb(RgbChroma::Rgb), None)
+        .map_err(|e| format!("Failed to decode HEIC image: {}", e))?;
+
+    let planes = image.planes();
+    let interleaved = planes
+        .interleaved
+        .ok_or("No interleaved RGB data in HEIC")?;
+
+    let width = image.width();
+    let height = image.height();
+    let stride = interleaved.stride;
+    let data = interleaved.data;
+
+    // Create an RgbImage from the raw data
+    let mut rgb_image = RgbImage::new(width, height);
+    for y in 0..height {
+        for x in 0..width {
+            let offset = (y as usize * stride) + (x as usize * 3);
+            if offset + 2 < data.len() {
+                let r = data[offset];
+                let g = data[offset + 1];
+                let b = data[offset + 2];
+                rgb_image.put_pixel(x, y, image::Rgb([r, g, b]));
+            }
+        }
+    }
+
+    Ok(DynamicImage::ImageRgb8(rgb_image))
 }
 
 #[cfg(test)]

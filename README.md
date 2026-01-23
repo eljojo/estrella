@@ -312,6 +312,27 @@ estrella logo store mylogo.png --key A0
 estrella logo delete --key A0
 ```
 
+## Web Interface
+
+Estrella includes a web UI for printing patterns, receipts, and photos directly from your browser.
+
+```bash
+estrella serve                      # Start on default port 8080
+estrella serve --listen 0.0.0.0:3000  # Custom address/port
+```
+
+### Photo Printing
+
+Upload photos from your computer or phone and print them with real-time preview. The web UI provides:
+
+- **Drag & drop or file picker** - supports JPEG, PNG, GIF, WEBP, and HEIC (iPhone photos)
+- **Rotation** - 0°, 90°, 180°, 270°
+- **Brightness/Contrast** - adjust for optimal thermal printing results
+- **Dithering algorithms** - Jarvis (smooth), Atkinson (classic Mac), Bayer (ordered), Floyd-Steinberg (diffusion)
+- **Render mode** - Raster (default) or Band (24-row chunks)
+
+Photos are automatically resized to the printer's 576-pixel width while maintaining aspect ratio.
+
 ## Development
 
 ```bash

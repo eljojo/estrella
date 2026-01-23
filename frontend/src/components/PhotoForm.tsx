@@ -95,7 +95,20 @@ async function handleFileSelect(file: File) {
   uploading.value = true
 
   try {
-    const arrayBuffer = await file.arrayBuffer()
+    // Read file data - this can fail when dragging from Photos app
+    // because it uses "file promises" that may not be immediately available
+    let arrayBuffer: ArrayBuffer
+    try {
+      arrayBuffer = await file.arrayBuffer()
+    } catch (readErr) {
+      throw new Error('Could not read file. Try dragging from Finder instead of Photos app, or use the file picker.')
+    }
+
+    // Check if we got actual data (Photos app sometimes provides empty files)
+    if (arrayBuffer.byteLength === 0) {
+      throw new Error('File appears to be empty. Try dragging from Finder instead of Photos app, or use the file picker.')
+    }
+
     storedImageData = arrayBuffer
     storedFilename = file.name
 
@@ -105,7 +118,7 @@ async function handleFileSelect(file: File) {
     grayscaleOnNextLoad = true
     triggerPreviewUpdate()
   } catch (err) {
-    status.value = { type: 'error', message: `Upload failed: ${err}` }
+    status.value = { type: 'error', message: `Upload failed: ${err instanceof Error ? err.message : err}` }
     sessionId.value = null
     photoGrayscaleActive.value = false
   } finally {
@@ -141,8 +154,12 @@ export function PhotoForm() {
     e.preventDefault()
     e.stopPropagation()
     const file = e.dataTransfer?.files[0]
-    if (file && file.type.startsWith('image/')) {
-      handleFileSelect(file)
+    if (file) {
+      const isImage = file.type.startsWith('image/')
+      const isHeic = file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif')
+      if (isImage || isHeic) {
+        handleFileSelect(file)
+      }
     }
   }
 
@@ -263,7 +280,7 @@ export function PhotoForm() {
         <div class="file-input-wrapper">
           <input
             type="file"
-            accept="image/*"
+            accept="image/*,.heic,.heif"
             onChange={handleFileInput}
             id="photo-input"
             class="hidden-file-input"
@@ -276,7 +293,7 @@ export function PhotoForm() {
                 : 'Choose Image or Drag & Drop'}
           </label>
         </div>
-        <p class="hint">Supports JPEG, PNG, GIF, WEBP</p>
+        <p class="hint">Supports JPEG, PNG, GIF, WEBP, HEIC</p>
       </div>
 
       {sessionId.value && (

@@ -58,7 +58,7 @@
           src = ./.;
           cargoLock.lockFile = ./Cargo.lock;
           nativeBuildInputs = [ pkg-config ];
-          buildInputs = [ openssl ];
+          buildInputs = [ openssl libheif ];
 
           # Copy frontend build before cargo build
           preBuild = ''
@@ -76,6 +76,7 @@
               cargo
               rustfmt
               openssl
+              libheif
               rustToolchain
               # nodejs_24
               # nodePackages.npm
