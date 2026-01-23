@@ -1,10 +1,19 @@
-# estrella
+# ⭐️ estrella 
 
 A Rust library for [Star Micronics TSP650II](https://star-m.jp/eng/products/s_print/tsp650ii/index.html) thermal receipt printers over Bluetooth. Implements the [StarPRNT](https://starmicronics.com/support/download/starprnt-command-specifications/) protocol with a React-inspired component system, an optimizing compiler, and a web UI for photo printing.
 
 ![My Desk](https://github.com/user-attachments/assets/30b569ec-d311-492a-9333-d069e9234289)
 
-![IMG_7337](https://github.com/user-attachments/assets/7a2d8847-0458-4a55-9044-65cd67a721d2)
+## Photo Printing
+
+The web UI supports printing photos with real-time dithered preview:
+
+- **Formats:** JPEG, PNG, GIF, WEBP, HEIC (iPhone photos)
+- **Adjustments:** Rotation, brightness, contrast
+- **Dithering:** Choose algorithm for best results
+- Auto-resize to 576px printer width
+
+<img width="1125" height="1068" alt="Screenshot 2026-01-23 at 18 19 25" src="https://github.com/user-attachments/assets/d8e7779d-7940-47c6-a304-4fc6c7b2992e" />
 
 ## The Component System
 
@@ -31,6 +40,8 @@ let receipt = Receipt::new()
 let bytes = receipt.build();  // StarPRNT bytes, ready to send
 ```
 
+![Demo Receipt](tests/golden/demo_receipt.png)
+
 ### Components
 
 | Component | Description |
@@ -43,54 +54,6 @@ let bytes = receipt.build();  // StarPRNT bytes, ready to send
 | `Image` | Raster graphics with dithering |
 | `QrCode`, `Pdf417`, `Barcode` | 1D and 2D barcodes |
 | `NvLogo` | Logo from printer's flash memory |
-
-![Demo Receipt](tests/golden/demo_receipt.png)
-
-## How It Works: The Compilation Pipeline
-
-Components emit an intermediate representation (IR), which gets optimized before generating StarPRNT bytes:
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              COMPILATION PIPELINE                           │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│   ┌─────────────┐      ┌─────────────┐      ┌─────────────┐      ┌───────┐  │
-│   │  Components │      │     IR      │      │  Optimizer  │      │ Bytes │  │
-│   │             │      │             │      │             │      │       │  │
-│   │  Receipt    │      │  Op::Init   │      │  4 passes   │      │ ESC @ │  │
-│   │  Text       │ ───► │  Op::Text   │ ───► │  that remove│ ───► │ ...   │  │
-│   │  QrCode     │ emit │  Op::Bold   │      │  redundant  │ gen  │ 1D 69 │  │
-│   │  ...        │      │  Op::Cut    │      │  operations │      │ ...   │  │
-│   │             │      │  ...        │      │             │      │       │  │
-│   └─────────────┘      └─────────────┘      └─────────────┘      └───────┘  │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-### Optimizer Passes
-
-The optimizer runs four passes to eliminate redundant operations:
-
-```
-Pass 1: Remove Redundant Init     Pass 2: Collapse Style Toggles
-┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄     ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄
-Init  ←── keep                    SetBold(true)
-...                               Text("Hello")
-Init  ←── remove                  SetBold(false) ┐
-...                               SetBold(true)  ┘── remove pair
-Init  ←── remove                  Text("World")
-
-
-Pass 3: Remove Redundant Styles   Pass 4: Merge Adjacent Text
-┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄    ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄
-SetBold(true)                     Text("Hello")  ┐
-Text("A")                         Newline        │── merge into
-SetBold(true) ←── remove          Text("World")  ┘   "Hello\nWorld"
-Text("B")
-```
-
-**Result:** 11 ops → 6 ops, ~5-8% smaller output with identical visual results.
 
 ## Dithering Algorithms
 
@@ -108,6 +71,8 @@ Thermal printers are binary (black or white), so grayscale images need dithering
 | ![Floyd-Steinberg](tests/golden/dither_floyd_steinberg.png) | ![Atkinson](tests/golden/dither_atkinson.png) | ![Jarvis](tests/golden/dither_jarvis.png) | ![Bayer](tests/golden/dither_bayer.png) |
 
 ## Pattern Generation
+
+![The web ui allows to preview patterns](https://github.com/user-attachments/assets/7a2d8847-0458-4a55-9044-65cd67a721d2)
 
 Procedural patterns for artistic prints and printer calibration. Each pattern has randomizable parameters.
 
@@ -174,26 +139,51 @@ estrella weave ripple plasma waves --length 200mm --crossfade 30mm
 
 ![Weave Crossfade](tests/golden/weave_crossfade.png)
 
-## Photo Printing
+## How It Works: The Compilation Pipeline
 
-The web UI supports printing photos with real-time dithered preview:
+Components emit an intermediate representation (IR), which gets optimized before generating StarPRNT bytes:
 
-- **Formats:** JPEG, PNG, GIF, WEBP, HEIC (iPhone photos)
-- **Adjustments:** Rotation, brightness, contrast
-- **Dithering:** Choose algorithm for best results
-- Auto-resize to 576px printer width
-
-## Web Interface
-
-Start the server and open your browser:
-
-```bash
-estrella serve  # http://localhost:8080
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              COMPILATION PIPELINE                           │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│   ┌─────────────┐      ┌─────────────┐      ┌─────────────┐      ┌───────┐  │
+│   │  Components │      │     IR      │      │  Optimizer  │      │ Bytes │  │
+│   │             │      │             │      │             │      │       │  │
+│   │  Receipt    │      │  Op::Init   │      │  4 passes   │      │ ESC @ │  │
+│   │  Text       │ ───► │  Op::Text   │ ───► │  that remove│ ───► │ ...   │  │
+│   │  QrCode     │ emit │  Op::Bold   │      │  redundant  │ gen  │ 1D 69 │  │
+│   │  ...        │      │  Op::Cut    │      │  operations │      │ ...   │  │
+│   │             │      │  ...        │      │             │      │       │  │
+│   └─────────────┘      └─────────────┘      └─────────────┘      └───────┘  │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Tabs:** Patterns, Photos, Receipts, Weave
+### Optimizer Passes
 
----
+The optimizer runs four passes to eliminate redundant operations:
+
+```
+Pass 1: Remove Redundant Init     Pass 2: Collapse Style Toggles
+┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄     ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄
+Init  ←── keep                    SetBold(true)
+...                               Text("Hello")
+Init  ←── remove                  SetBold(false) ┐
+...                               SetBold(true)  ┘── remove pair
+Init  ←── remove                  Text("World")
+
+
+Pass 3: Remove Redundant Styles   Pass 4: Merge Adjacent Text
+┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄    ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄
+SetBold(true)                     Text("Hello")  ┐
+Text("A")                         Newline        │── merge into
+SetBold(true) ←── remove          Text("World")  ┘   "Hello\nWorld"
+Text("B")
+```
+
+**Result:** 11 ops → 6 ops, ~5-8% smaller output with identical visual results.
 
 ## Running at Home
 
