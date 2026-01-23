@@ -455,7 +455,7 @@ impl super::Pattern for Estrella {
                 .with_description("Inner/outer ratio (lower = deeper valleys)"),
             ParamSpec::slider("roundness", "Roundness", 0.0, 1.0, 0.05)
                 .with_description("Shape smoothness (0 = pointy, 1 = blobby)"),
-            ParamSpec::slider("size", "Size", 0.2, 0.5, 0.01)
+            ParamSpec::slider("size", "Size", 0.2, 0.8, 0.01)
                 .with_description("Star size relative to image"),
             ParamSpec::slider("outline", "Outline", 0.01, 0.1, 0.005)
                 .with_description("Outline thickness"),

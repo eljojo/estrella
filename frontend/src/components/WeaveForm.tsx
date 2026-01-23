@@ -30,8 +30,8 @@ const crossfadeMm = signal(30)
 const blendCurve = signal<string>('smooth')
 const dithering = signal<'bayer' | 'floyd-steinberg' | 'atkinson' | 'jarvis'>('jarvis')
 const renderMode = signal<'raster' | 'band'>('raster')
-const cut = signal(true)
-const printDetails = signal(true)
+export const cut = signal(true)
+export const printDetails = signal(true)
 const status = signal<{ type: 'success' | 'error'; message: string } | null>(null)
 const loading = signal(false)
 const previewLoading = signal(false)
@@ -298,25 +298,6 @@ export function WeaveForm() {
           <option value="bayer">Bayer (ordered)</option>
           <option value="floyd-steinberg">Floyd-Steinberg (diffusion)</option>
         </select>
-      </div>
-
-      <div class="form-group checkbox-group">
-        <label>
-          <input
-            type="checkbox"
-            checked={cut.value}
-            onChange={(e) => (cut.value = (e.target as HTMLInputElement).checked)}
-          />
-          Cut page after printing
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            checked={printDetails.value}
-            onChange={(e) => (printDetails.value = (e.target as HTMLInputElement).checked)}
-          />
-          Print details (title and parameters)
-        </label>
       </div>
 
       {/* Pattern List */}

@@ -192,6 +192,11 @@ button:disabled {
     overflow-y: auto;
 }
 
+.receipt-options {
+    margin-top: 16px;
+    padding: 4px 0 0;
+}
+
 .preview-container img {
     max-width: 576px;
     display: block;
@@ -292,6 +297,7 @@ button:disabled {
     width: 18px;
     height: 18px;
     cursor: pointer;
+    accent-color: #777;
 }
 
 .loading {

@@ -9,14 +9,14 @@ import {
 } from '../api'
 
 const patterns = signal<string[]>([])
-const selectedPattern = signal('')
+const selectedPattern = signal('estrella')
 const params = signal<Record<string, string>>({})
 const specs = signal<ParamSpec[]>([])
 const lengthMm = signal(100)
 const dithering = signal<'bayer' | 'floyd-steinberg' | 'atkinson' | 'jarvis'>('jarvis')
 const renderMode = signal<'raster' | 'band'>('raster')
-const cut = signal(true)
-const printDetails = signal(true)
+export const cut = signal(true)
+export const printDetails = signal(true)
 const status = signal<{ type: 'success' | 'error'; message: string } | null>(null)
 const loading = signal(false)
 const previewKey = signal(0) // Force refresh preview
@@ -40,6 +40,16 @@ effect(() => {
   fetchPatterns()
     .then((p) => (patterns.value = p.sort()))
     .catch((e) => console.error('Failed to fetch patterns:', e))
+})
+
+// Ensure a valid default selection once patterns load
+effect(() => {
+  if (patterns.value.length === 0) return
+  if (!patterns.value.includes(selectedPattern.value)) {
+    selectedPattern.value = patterns.value.includes('estrella')
+      ? 'estrella'
+      : patterns.value[0]
+  }
 })
 
 // Fetch params when pattern changes
@@ -312,25 +322,6 @@ export function PatternForm() {
           <option value="raster">Raster</option>
           <option value="band">Band (24-row chunks)</option>
         </select>
-      </div>
-
-      <div class="form-group checkbox-group">
-        <label>
-          <input
-            type="checkbox"
-            checked={cut.value}
-            onChange={(e) => (cut.value = (e.target as HTMLInputElement).checked)}
-          />
-          Cut page after printing
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            checked={printDetails.value}
-            onChange={(e) => (printDetails.value = (e.target as HTMLInputElement).checked)}
-          />
-          Print details (title and parameters)
-        </label>
       </div>
 
       {paramEntries.length > 0 && (

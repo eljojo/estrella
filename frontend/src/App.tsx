@@ -1,9 +1,10 @@
 import { signal } from '@preact/signals'
 import { Tabs } from './components/Tabs'
-import { ReceiptForm, receiptPreviewUrl } from './components/ReceiptForm'
-import { PatternForm, patternPreviewUrl } from './components/PatternForm'
-import { WeaveForm, weavePreviewUrl } from './components/WeaveForm'
+import { ReceiptForm, receiptPreviewUrl, cut as receiptCut, printDetails as receiptPrintDetails } from './components/ReceiptForm'
+import { PatternForm, patternPreviewUrl, cut as patternCut, printDetails as patternPrintDetails } from './components/PatternForm'
+import { WeaveForm, weavePreviewUrl, cut as weaveCut, printDetails as weavePrintDetails } from './components/WeaveForm'
 import { PhotoForm, photoPreviewUrl } from './components/PhotoForm'
+import { PrintOptions } from './components/PrintOptions'
 
 export const activeTab = signal<'receipt' | 'patterns' | 'weave' | 'photos'>('receipt')
 
@@ -51,6 +52,27 @@ export function App() {
               <div class="loading">{placeholderText}</div>
             )}
           </div>
+          {activeTab.value === 'receipt' && (
+            <PrintOptions
+              cut={receiptCut}
+              printDetails={receiptPrintDetails}
+              detailsLabel="Print details (date footer)"
+            />
+          )}
+          {activeTab.value === 'patterns' && (
+            <PrintOptions
+              cut={patternCut}
+              printDetails={patternPrintDetails}
+              detailsLabel="Print details (title and parameters)"
+            />
+          )}
+          {activeTab.value === 'weave' && (
+            <PrintOptions
+              cut={weaveCut}
+              printDetails={weavePrintDetails}
+              detailsLabel="Print details (title and parameters)"
+            />
+          )}
         </div>
       </div>
     </div>
