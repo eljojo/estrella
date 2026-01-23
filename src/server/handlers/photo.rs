@@ -193,43 +193,42 @@ pub async fn preview(
     Ok(([(header::CONTENT_TYPE, "image/png")], png_bytes))
 }
 
-/// Generate a dithered preview PNG (runs on blocking thread pool).
-fn generate_preview_png(
+/// Prepare image for printing: rotate, resize to printer width, adjust brightness/contrast.
+fn prepare_for_print(
     source_image: DynamicImage,
     rotation: i32,
     brightness: i32,
     contrast: i32,
-    dither_algo: DitheringAlgorithm,
-) -> Result<Vec<u8>, String> {
-    let config = PrinterConfig::TSP650II;
-    let target_width = config.width_dots as u32;
+    filter: FilterType,
+) -> DynamicImage {
+    let target_width = PrinterConfig::TSP650II.width_dots as u32;
 
-    // First, resize to target width to reduce processing time
-    // Account for rotation when calculating dimensions
-    let (src_w, src_h) = if rotation % 180 == 90 || rotation % 180 == -90 {
-        // Will be rotated 90 or 270, so swap dimensions for aspect ratio
-        (source_image.height(), source_image.width())
-    } else {
-        (source_image.width(), source_image.height())
+    // Rotate first to get correct orientation
+    let rotated = match rotation % 360 {
+        90 | -270 => source_image.rotate90(),
+        180 | -180 => source_image.rotate180(),
+        270 | -90 => source_image.rotate270(),
+        _ => source_image,
     };
 
-    let aspect_ratio = src_h as f32 / src_w as f32;
+    // Resize to target width (576px)
+    let aspect_ratio = rotated.height() as f32 / rotated.width() as f32;
     let target_height = (target_width as f32 * aspect_ratio).round() as u32;
+    let resized = rotated.resize(target_width, target_height, filter);
 
-    // Resize first (use Triangle filter for speed - good enough for thermal printer)
-    let resized = source_image.resize(target_width, target_height, FilterType::Triangle);
+    // Apply brightness/contrast
+    apply_brightness_contrast_if_needed(&resized, brightness, contrast)
+}
 
-    // Now apply rotation, brightness, contrast to the smaller image
-    let processed = process_image(&resized, rotation, brightness, contrast);
+/// Generate dithered raster data from a grayscale image.
+fn generate_dithered_raster(
+    img: &DynamicImage,
+    dither_algo: DitheringAlgorithm,
+) -> (usize, usize, Vec<u8>) {
+    let width = img.width() as usize;
+    let height = img.height() as usize;
+    let grayscale = img.to_luma8();
 
-    // Get final dimensions after rotation
-    let width = processed.width() as usize;
-    let height = processed.height() as usize;
-
-    // Convert to grayscale
-    let grayscale = processed.to_luma8();
-
-    // Generate dithered raster
     let raster_data = dither::generate_raster(
         width,
         height,
@@ -240,16 +239,20 @@ fn generate_preview_png(
         dither_algo,
     );
 
-    // Convert dithered raster to PNG
+    (width, height, raster_data)
+}
+
+/// Convert dithered raster to PNG bytes.
+fn raster_to_png(width: usize, height: usize, raster_data: &[u8]) -> Result<Vec<u8>, String> {
     let width_bytes = width.div_ceil(8);
     let mut img = GrayImage::new(width as u32, height as u32);
+
     for y in 0..height {
         for x in 0..width {
             let byte_idx = y * width_bytes + x / 8;
             let bit_idx = 7 - (x % 8);
             let is_black = (raster_data[byte_idx] >> bit_idx) & 1 == 1;
-            let color = if is_black { 0u8 } else { 255u8 };
-            img.put_pixel(x as u32, y as u32, Luma([color]));
+            img.put_pixel(x as u32, y as u32, Luma([if is_black { 0 } else { 255 }]));
         }
     }
 
@@ -260,6 +263,20 @@ fn generate_preview_png(
     Ok(png_bytes)
 }
 
+/// Generate a dithered preview PNG (runs on blocking thread pool).
+fn generate_preview_png(
+    source_image: DynamicImage,
+    rotation: i32,
+    brightness: i32,
+    contrast: i32,
+    dither_algo: DitheringAlgorithm,
+) -> Result<Vec<u8>, String> {
+    // Use Triangle filter for speed in preview
+    let processed = prepare_for_print(source_image, rotation, brightness, contrast, FilterType::Triangle);
+    let (width, height, raster_data) = generate_dithered_raster(&processed, dither_algo);
+    raster_to_png(width, height, &raster_data)
+}
+
 /// Generate raster data for printing (runs on blocking thread pool).
 fn generate_print_raster(
     source_image: DynamicImage,
@@ -267,45 +284,10 @@ fn generate_print_raster(
     brightness: i32,
     contrast: i32,
     dither_algo: DitheringAlgorithm,
-) -> Result<(usize, usize, Vec<u8>), String> {
-    let config = PrinterConfig::TSP650II;
-    let target_width = config.width_dots as u32;
-
-    // Account for rotation when calculating dimensions
-    let (src_w, src_h) = if rotation % 180 == 90 || rotation % 180 == -90 {
-        (source_image.height(), source_image.width())
-    } else {
-        (source_image.width(), source_image.height())
-    };
-
-    let aspect_ratio = src_h as f32 / src_w as f32;
-    let target_height = (target_width as f32 * aspect_ratio).round() as u32;
-
-    // Resize first, then apply transformations (use Lanczos3 for print quality)
-    let resized = source_image.resize(target_width, target_height, FilterType::Lanczos3);
-
-    // Apply rotation, brightness, contrast to the smaller image
-    let processed = process_image(&resized, rotation, brightness, contrast);
-
-    // Get final dimensions after rotation
-    let width = processed.width() as usize;
-    let height = processed.height() as usize;
-
-    // Convert to grayscale
-    let grayscale = processed.to_luma8();
-
-    // Generate dithered raster
-    let raster_data = dither::generate_raster(
-        width,
-        height,
-        |x, y, _w, _h| {
-            let pixel = grayscale.get_pixel(x as u32, y as u32);
-            1.0 - (pixel[0] as f32 / 255.0)
-        },
-        dither_algo,
-    );
-
-    Ok((width, height, raster_data))
+) -> (usize, usize, Vec<u8>) {
+    // Use Lanczos3 for print quality
+    let processed = prepare_for_print(source_image, rotation, brightness, contrast, FilterType::Lanczos3);
+    generate_dithered_raster(&processed, dither_algo)
 }
 
 /// POST /api/photo/:id/print - Print the uploaded image.
@@ -348,13 +330,8 @@ pub async fn print(
     // Move all CPU-intensive work to blocking thread pool
     let print_result = tokio::task::spawn_blocking(move || {
         // Generate raster data
-        let raster_result =
+        let (width, height, raster_data) =
             generate_print_raster(source_image, rotation, brightness, contrast, dither_algo);
-
-        let (width, height, raster_data) = match raster_result {
-            Ok(data) => data,
-            Err(e) => return Err(crate::EstrellaError::Image(e)),
-        };
 
         // Build print command
         use crate::ir::{Op, Program};
@@ -406,24 +383,13 @@ pub async fn print(
     }
 }
 
-/// Process an image: apply rotation, brightness, and contrast adjustments.
-fn process_image(img: &DynamicImage, rotation: i32, brightness: i32, contrast: i32) -> DynamicImage {
-    let mut result = img.clone();
-
-    // Apply rotation
-    result = match rotation % 360 {
-        90 | -270 => result.rotate90(),
-        180 | -180 => result.rotate180(),
-        270 | -90 => result.rotate270(),
-        _ => result,
-    };
-
-    // Apply brightness and contrast adjustments
+/// Apply brightness and contrast if needed, otherwise return a clone.
+fn apply_brightness_contrast_if_needed(img: &DynamicImage, brightness: i32, contrast: i32) -> DynamicImage {
     if brightness != 0 || contrast != 0 {
-        result = apply_brightness_contrast(&result, brightness, contrast);
+        apply_brightness_contrast(img, brightness, contrast)
+    } else {
+        img.clone()
     }
-
-    result
 }
 
 /// Apply brightness and contrast adjustments to an image.
