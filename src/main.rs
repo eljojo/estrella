@@ -103,8 +103,8 @@ enum Commands {
         #[arg(long)]
         raster: bool,
 
-        /// Dithering algorithm (bayer or floyd-steinberg)
-        #[arg(long, default_value = "bayer")]
+        /// Dithering algorithm (bayer, floyd-steinberg, atkinson, jarvis)
+        #[arg(long, default_value = "jarvis")]
         dither: String,
 
         /// Use golden (deterministic) parameters instead of randomized ones.
@@ -178,8 +178,8 @@ enum Commands {
         #[arg(long)]
         golden: bool,
 
-        /// Dithering algorithm (bayer or floyd-steinberg)
-        #[arg(long, default_value = "bayer")]
+        /// Dithering algorithm (bayer, floyd-steinberg, atkinson, jarvis)
+        #[arg(long, default_value = "jarvis")]
         dither: String,
     },
 }

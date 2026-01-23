@@ -57,7 +57,7 @@ fn default_curve() -> String {
 }
 
 fn default_dither() -> String {
-    "bayer".to_string()
+    "jarvis".to_string()
 }
 
 fn default_mode() -> String {
