@@ -21,6 +21,7 @@ pub mod crystal;
 pub mod databend;
 pub mod density;
 pub mod erosion;
+pub mod estrella;
 pub mod flowfield;
 pub mod glitch;
 pub mod jitter;
@@ -61,6 +62,8 @@ pub const PATTERNS: &[&str] = &[
     "erosion",
     "crystal",
     "mycelium",
+    // Mascot
+    "estrella",
     // Glitch / Digital
     "corrupt_barcode",
     "databend",
@@ -241,6 +244,8 @@ pub fn by_name_golden(name: &str) -> Option<Box<dyn Pattern>> {
         "erosion" => Some(Box::new(erosion::Erosion::golden())),
         "crystal" => Some(Box::new(crystal::Crystal::golden())),
         "mycelium" => Some(Box::new(mycelium::Mycelium::golden())),
+        // Mascot
+        "estrella" => Some(Box::new(estrella::Estrella::golden())),
         // Glitch / Digital
         "corrupt_barcode" => Some(Box::new(corrupt_barcode::CorruptBarcode::golden())),
         "databend" => Some(Box::new(databend::Databend::golden())),
@@ -282,6 +287,8 @@ pub fn by_name_random(name: &str) -> Option<Box<dyn Pattern>> {
         "erosion" => Some(Box::new(erosion::Erosion::random())),
         "crystal" => Some(Box::new(crystal::Crystal::random())),
         "mycelium" => Some(Box::new(mycelium::Mycelium::random())),
+        // Mascot
+        "estrella" => Some(Box::new(estrella::Estrella::random())),
         // Glitch / Digital
         "corrupt_barcode" => Some(Box::new(corrupt_barcode::CorruptBarcode::random())),
         "databend" => Some(Box::new(databend::Databend::random())),
