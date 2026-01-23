@@ -20,7 +20,6 @@ pub use art::calibration::Calibration;
 pub use art::crystal::Crystal;
 pub use art::density::Density;
 pub use art::erosion::Erosion;
-pub use art::estrella::Estrella;
 pub use art::flowfield::Flowfield;
 pub use art::glitch::Glitch;
 pub use art::jitter::Jitter;
@@ -84,7 +83,7 @@ mod tests {
         assert!(patterns.contains(&"corrupt_barcode"));
         assert!(patterns.contains(&"voronoi"));
         assert!(patterns.contains(&"weave"));
-        assert_eq!(patterns.len(), 31);
+        assert_eq!(patterns.len(), 30);
     }
 
     #[test]
