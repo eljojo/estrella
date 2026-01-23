@@ -65,7 +65,7 @@ fn default_curve() -> String {
 }
 
 fn default_dither() -> String {
-    "jarvis".to_string()
+    "floyd-steinberg".to_string()
 }
 
 fn default_mode() -> String {

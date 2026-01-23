@@ -5,7 +5,7 @@ import { uploadPhoto, buildPhotoPreviewUrl, printPhoto } from '../api'
 const sessionId = signal<string | null>(null)
 const filename = signal('')
 const rotation = signal<0 | 90 | 180 | 270>(0)
-const dithering = signal<'jarvis' | 'atkinson' | 'bayer' | 'floyd-steinberg'>('jarvis')
+const dithering = signal<'jarvis' | 'atkinson' | 'bayer' | 'floyd-steinberg'>('floyd-steinberg')
 const brightness = signal(0)
 const contrast = signal(0)
 const renderMode = signal<'raster' | 'band'>('raster')

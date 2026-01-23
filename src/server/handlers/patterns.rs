@@ -42,7 +42,7 @@ pub struct PreviewQuery {
 }
 
 fn default_dither() -> String {
-    "jarvis".to_string()
+    "floyd-steinberg".to_string()
 }
 
 fn default_mode() -> String {

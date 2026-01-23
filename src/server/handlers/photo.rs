@@ -43,7 +43,7 @@ pub struct PreviewQuery {
 }
 
 fn default_dither() -> String {
-    "jarvis".to_string()
+    "floyd-steinberg".to_string()
 }
 
 fn default_mode() -> String {
@@ -466,7 +466,7 @@ fn parse_dither(dither: &str) -> DitheringAlgorithm {
         "atkinson" => DitheringAlgorithm::Atkinson,
         "jarvis" | "jjn" => DitheringAlgorithm::Jarvis,
         "bayer" => DitheringAlgorithm::Bayer,
-        _ => DitheringAlgorithm::Jarvis,
+        _ => DitheringAlgorithm::FloydSteinberg,
     }
 }
 
