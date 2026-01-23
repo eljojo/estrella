@@ -3,19 +3,22 @@ import { Tabs } from './components/Tabs'
 import { ReceiptForm, receiptPreviewUrl } from './components/ReceiptForm'
 import { PatternForm, patternPreviewUrl } from './components/PatternForm'
 import { WeaveForm, weavePreviewUrl } from './components/WeaveForm'
+import { PhotoForm, photoPreviewUrl } from './components/PhotoForm'
 
-export const activeTab = signal<'receipt' | 'patterns' | 'weave'>('receipt')
+export const activeTab = signal<'receipt' | 'patterns' | 'weave' | 'photos'>('receipt')
 
 const previewUrls = {
   receipt: () => receiptPreviewUrl.value,
   patterns: () => patternPreviewUrl.value,
   weave: () => weavePreviewUrl.value,
+  photos: () => photoPreviewUrl.value,
 }
 
 const placeholderTexts = {
   receipt: 'Start typing to see preview...',
   patterns: 'Select a pattern to see preview...',
   weave: 'Add at least 2 patterns to see preview...',
+  photos: 'Upload an image to see preview...',
 }
 
 export function App() {
@@ -33,8 +36,10 @@ export function App() {
             <ReceiptForm />
           ) : activeTab.value === 'patterns' ? (
             <PatternForm />
-          ) : (
+          ) : activeTab.value === 'weave' ? (
             <WeaveForm />
+          ) : (
+            <PhotoForm />
           )}
         </div>
         <div class="preview-panel">

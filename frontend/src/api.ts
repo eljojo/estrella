@@ -189,3 +189,78 @@ export async function printWeave(
   })
   return response.json()
 }
+
+// ===== Photo API =====
+
+/// Response from photo upload.
+export interface PhotoUploadResponse {
+  id: string
+  filename: string
+  width: number
+  height: number
+}
+
+/// Upload an image and get a session ID.
+export async function uploadPhoto(imageData: ArrayBuffer, filename: string): Promise<PhotoUploadResponse> {
+  const formData = new FormData()
+  formData.append('image', new Blob([imageData]), filename)
+
+  const response = await fetch('/api/photo/upload', {
+    method: 'POST',
+    body: formData,
+  })
+
+  if (!response.ok) {
+    const text = await response.text()
+    throw new Error(text || 'Failed to upload photo')
+  }
+
+  return response.json()
+}
+
+/// Build preview URL for a photo session.
+export function buildPhotoPreviewUrl(
+  sessionId: string,
+  rotation: number,
+  dither: string,
+  brightness: number,
+  contrast: number,
+  cacheKey?: number
+): string {
+  const searchParams = new URLSearchParams({
+    rotation: rotation.toString(),
+    dither,
+    brightness: brightness.toString(),
+    contrast: contrast.toString(),
+  })
+  // Add cache key if provided to bust browser cache
+  if (cacheKey !== undefined) {
+    searchParams.set('_t', cacheKey.toString())
+  }
+  return `/api/photo/${sessionId}/preview?${searchParams.toString()}`
+}
+
+/// Print a photo.
+export async function printPhoto(
+  sessionId: string,
+  rotation: number,
+  dither: string,
+  brightness: number,
+  contrast: number,
+  mode: string,
+  cut: boolean
+): Promise<PrintResult> {
+  const response = await fetch(`/api/photo/${sessionId}/print`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      rotation,
+      dither,
+      brightness,
+      contrast,
+      mode,
+      cut,
+    }),
+  })
+  return response.json()
+}
