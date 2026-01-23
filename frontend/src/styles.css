@@ -30,7 +30,7 @@ body {
 
 .form-panel {
     flex: 1;
-    min-width: 0;
+    min-width: 400px;
 }
 
 .preview-panel {
@@ -127,7 +127,7 @@ select:focus {
 }
 
 textarea {
-    min-height: 150px;
+    min-height: 400px;
     resize: vertical;
     font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
 }

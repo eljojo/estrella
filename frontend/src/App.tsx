@@ -28,7 +28,7 @@ export function App() {
 
   return (
     <div class="container">
-      <h1>Estrella Printer</h1>
+      <h1>Estrella ⭐️</h1>
       <p class="subtitle">Print text receipts or visual patterns to your thermal printer</p>
       <Tabs />
       <div class="main-layout">

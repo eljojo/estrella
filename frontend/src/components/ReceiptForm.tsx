@@ -1,8 +1,21 @@
 import { signal, effect } from '@preact/signals'
 import { printReceipt, fetchReceiptPreview } from '../api'
 
-const title = signal('')
-const body = signal('')
+const title = signal('Churra Mart')
+const body = signal(`# Groceries
+
+you can use **bold text** or \`  this thing  \` aaaaa!!
+
+[underscoring]() is also possible
+
+- thing one
+- thing two
+
+1. uno
+1. dos
+1. tres
+
+#### gracias`)
 export const cut = signal(true)
 export const printDetails = signal(true)
 const status = signal<{ type: 'success' | 'error'; message: string } | null>(null)
