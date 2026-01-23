@@ -529,7 +529,7 @@ mod tests {
         assert_eq!(img.width(), 100);
         assert_eq!(img.height(), 50);
 
-        let rotated = process_image(&img, 90, 0, 0);
+        let rotated = img.rotate90();
         assert_eq!(rotated.width(), 50);
         assert_eq!(rotated.height(), 100);
     }
@@ -537,7 +537,7 @@ mod tests {
     #[test]
     fn test_rotation_180() {
         let img = create_test_image(100, 50);
-        let rotated = process_image(&img, 180, 0, 0);
+        let rotated = img.rotate180();
         assert_eq!(rotated.width(), 100);
         assert_eq!(rotated.height(), 50);
     }
@@ -545,7 +545,7 @@ mod tests {
     #[test]
     fn test_rotation_270() {
         let img = create_test_image(100, 50);
-        let rotated = process_image(&img, 270, 0, 0);
+        let rotated = img.rotate270();
         assert_eq!(rotated.width(), 50);
         assert_eq!(rotated.height(), 100);
     }
@@ -555,7 +555,7 @@ mod tests {
         let img = create_test_image(10, 10);
         let original_pixel = img.to_rgba8().get_pixel(5, 5).0;
 
-        let brightened = process_image(&img, 0, 50, 0);
+        let brightened = apply_brightness_contrast(&img, 50, 0);
         let bright_pixel = brightened.to_rgba8().get_pixel(5, 5).0;
 
         // Brightness increase should make pixels brighter (higher values)
@@ -572,7 +572,7 @@ mod tests {
         let img = create_test_image(10, 10);
         let original_pixel = img.to_rgba8().get_pixel(5, 5).0;
 
-        let darkened = process_image(&img, 0, -50, 0);
+        let darkened = apply_brightness_contrast(&img, -50, 0);
         let dark_pixel = darkened.to_rgba8().get_pixel(5, 5).0;
 
         // Brightness decrease should make pixels darker (lower values)
@@ -595,7 +595,7 @@ mod tests {
         }
         let img = DynamicImage::ImageRgb8(img);
 
-        let contrasted = process_image(&img, 0, 0, 50);
+        let contrasted = apply_brightness_contrast(&img, 0, 50);
         let pixel = contrasted.to_rgba8().get_pixel(5, 5).0;
 
         // With contrast increase, values below 128 should go lower
@@ -608,7 +608,7 @@ mod tests {
         let img = create_test_image(10, 10);
         let original_pixel = img.to_rgba8().get_pixel(5, 5).0;
 
-        let unchanged = process_image(&img, 0, 0, 0);
+        let unchanged = apply_brightness_contrast_if_needed(&img, 0, 0);
         let new_pixel = unchanged.to_rgba8().get_pixel(5, 5).0;
 
         assert_eq!(original_pixel[0], new_pixel[0]);

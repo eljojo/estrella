@@ -1,15 +1,14 @@
 # estrella
 
-A Rust library and CLI for [Star Micronics TSP650II](https://star-m.jp/eng/products/s_print/tsp650ii/index.html) thermal receipt printers. Implements the [StarPRNT](https://starmicronics.com/support/download/starprnt-command-specifications/) protocol for text formatting, graphics rendering, barcode printing, and more.
+A Rust library for [Star Micronics TSP650II](https://star-m.jp/eng/products/s_print/tsp650ii/index.html) thermal receipt printers over Bluetooth. Implements the [StarPRNT](https://starmicronics.com/support/download/starprnt-command-specifications/) protocol with a React-inspired component system, an optimizing compiler, and a web UI for photo printing.
 
 ![My Desk](https://github.com/user-attachments/assets/30b569ec-d311-492a-9333-d069e9234289)
 
 ![IMG_7337](https://github.com/user-attachments/assets/7a2d8847-0458-4a55-9044-65cd67a721d2)
 
+## The Component System
 
-## Component System
-
-Estrella provides a declarative, React-inspired component system for building receipts. Instead of manually sending printer commands, you describe *what* you want and the system handles the rest.
+Instead of manually constructing printer escape sequences, Estrella provides a declarative API inspired by React. You describe *what* you want, and the system figures out the bytes.
 
 ```rust
 use estrella::components::*;
@@ -29,73 +28,27 @@ let receipt = Receipt::new()
     .child(Text::new("Thank you!").center().bold())
     .cut();
 
-let bytes = receipt.build();  // Ready to send to printer
+let bytes = receipt.build();  // StarPRNT bytes, ready to send
 ```
 
-### Available Components
+### Components
 
 | Component | Description |
 |-----------|-------------|
-| `Receipt` | Root container, handles init and optional cut |
-| `Text` | Styled text with alignment, bold, underline, size, etc. |
-| `Header` | Pre-styled centered bold header |
-| `LineItem` | Left-aligned name + right-aligned price |
-| `Total` | Right-aligned totals with optional bold/double-width |
-| `Divider` | Horizontal line (dashed, solid, double, equals) |
-| `Spacer` | Vertical space in mm or line units |
-| `Image` | Raster graphics (band or raster mode) |
-| `Pattern` | Named pattern generator (ripple, waves, etc.) |
-| `NvLogo` | Print logo from NV memory with optional scaling |
-| `QrCode` | QR code with configurable size and error correction |
-| `Pdf417` | PDF417 2D barcode |
-| `Barcode` | 1D barcodes (Code39, Code128, EAN-13, UPC-A, ITF) |
-
-### Text Styling
-
-```rust
-Text::new("content")
-    .center()           // Alignment: .left(), .center(), .right()
-    .bold()             // Bold emphasis
-    .underline()        // Underline
-    .upperline()        // Line above text
-    .invert()           // White on black
-    .double_width()     // 2x width
-    .double_height()    // 2x height
-    .size(2, 2)         // Custom size multiplier (0-7)
-    .font(Font::B)      // Font: A (12x24), B (9x24), C (9x17)
-    .upside_down()      // Rotate 180°
-```
-
-## Receipts
-
-### Demo Receipt
-
-Showcases text styling capabilities:
-
-- Bold headers with size scaling
-- Inverted (white on black) banners
-- Underline and upperline (boxed text)
-- Item list with totals
-- Reduced printing (fine print)
-- Upside-down text
+| `Text` | Styled text with `.bold()`, `.center()`, `.invert()`, `.size(w, h)`, etc. |
+| `LineItem` | Left name + right price (e.g., "Coffee" ... "$4.50") |
+| `Total` | Right-aligned total line |
+| `Divider` | Horizontal line (`.dashed()`, `.solid()`, `.double()`) |
+| `Spacer` | Vertical space in mm or lines |
+| `Image` | Raster graphics with dithering |
+| `QrCode`, `Pdf417`, `Barcode` | 1D and 2D barcodes |
+| `NvLogo` | Logo from printer's flash memory |
 
 ![Demo Receipt](tests/golden/demo_receipt.png)
 
-### Full Receipt
+## How It Works: The Compilation Pipeline
 
-Everything from demo receipt, plus:
-
-- NV logo support
-- Font showcase (A, B, C)
-- Code39 barcode with HRI
-- QR code
-- PDF417 barcode
-
-![Full Receipt](tests/golden/full_receipt.png)
-
-## Architecture
-
-Components compile to an intermediate representation (IR), which is then optimized and converted to StarPRNT bytes:
+Components emit an intermediate representation (IR), which gets optimized before generating StarPRNT bytes:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -117,7 +70,7 @@ Components compile to an intermediate representation (IR), which is then optimiz
 
 ### Optimizer Passes
 
-The optimizer runs four passes to produce smaller output:
+The optimizer runs four passes to eliminate redundant operations:
 
 ```
 Pass 1: Remove Redundant Init     Pass 2: Collapse Style Toggles
@@ -137,277 +90,199 @@ SetBold(true) ←── remove          Text("World")  ┘   "Hello\nWorld"
 Text("B")
 ```
 
-### Before/After Example
+**Result:** 11 ops → 6 ops, ~5-8% smaller output with identical visual results.
 
-```
-BEFORE OPTIMIZATION               AFTER OPTIMIZATION
-───────────────────               ──────────────────
-Op::Init                          Op::Init
-Op::SetBold(true)                 Op::SetBold(true)
-Op::Text("Hello")                 Op::Text("Hello World")
-Op::Newline                       Op::Newline
-Op::SetBold(false)     ─┐         Op::SetBold(false)
-Op::SetBold(true)      ─┘ gone    Op::Cut
-Op::Text(" World")     ─┐
-Op::Newline            ─┘ merged
-Op::SetBold(false)     ── gone
-Op::Cut
+## Dithering Algorithms
 
-         11 ops  ───────►  6 ops
-```
+Thermal printers are binary (black or white), so grayscale images need dithering. Estrella implements four algorithms:
 
-This produces **~5-8% smaller output** while maintaining identical visual results.
+| Algorithm | Characteristics |
+|-----------|-----------------|
+| **Floyd-Steinberg** | Classic error diffusion. Smooth gradients, organic look. Default for photos. |
+| **Atkinson** | Bill Atkinson's Mac algorithm. Higher contrast, loses 25% of error intentionally. |
+| **Jarvis** | Spreads error over 12 neighbors. Smoothest gradients, slightly slower. |
+| **Bayer** | Ordered 8x8 matrix. Fast, deterministic, halftone pattern. Best for patterns. |
 
-## Patterns
+| Floyd-Steinberg | Atkinson | Jarvis | Bayer |
+|-----------------|----------|--------|-------|
+| ![Floyd-Steinberg](tests/golden/dither_floyd_steinberg.png) | ![Atkinson](tests/golden/dither_atkinson.png) | ![Jarvis](tests/golden/dither_jarvis.png) | ![Bayer](tests/golden/dither_bayer.png) |
 
-Visual patterns for testing and artistic prints. Each pattern lives in its own file under `src/art/`.
+## Pattern Generation
 
-### Ripple ([source](src/art/ripple.rs))
+Procedural patterns for artistic prints and printer calibration. Each pattern has randomizable parameters.
 
-Radial ripples with wobble interference - creates a hypnotic expanding wave effect.
-
-![Ripple Pattern](tests/golden/ripple.png)
-
-### Waves ([source](src/art/waves.rs))
-
-Multi-oscillator interference pattern - overlapping sine waves create complex moiré effects.
-
-![Waves Pattern](tests/golden/waves.png)
+| ![Ripple](tests/golden/ripple.png) | ![Waves](tests/golden/waves.png) | ![Plasma](tests/golden/plasma.png) |
+|:--:|:--:|:--:|
+| Ripple | Waves | Plasma |
 
 <details>
 <summary>More patterns</summary>
 
-### Plasma ([source](src/art/plasma.rs))
+**Op Art**
 
-Plasma/Moiré interference pattern with smooth color transitions.
+| ![Riley](tests/golden/riley.png) | ![Vasarely](tests/golden/vasarely.png) | ![Scintillate](tests/golden/scintillate.png) | ![Moire](tests/golden/moire.png) |
+|:--:|:--:|:--:|:--:|
+| Riley | Vasarely | Scintillate | Moire |
 
-![Plasma Pattern](tests/golden/plasma.png)
+**Organic**
 
-### Rings ([source](src/art/rings.rs))
+| ![Topography](tests/golden/topography.png) | ![Rings](tests/golden/rings.png) | ![Flowfield](tests/golden/flowfield.png) | ![Mycelium](tests/golden/mycelium.png) |
+|:--:|:--:|:--:|:--:|
+| Topography | Rings | Flowfield | Mycelium |
 
-Concentric rings with diagonal wave interference.
+| ![Erosion](tests/golden/erosion.png) | ![Crystal](tests/golden/crystal.png) | ![Reaction Diffusion](tests/golden/reaction_diffusion.png) | ![Voronoi](tests/golden/voronoi.png) |
+|:--:|:--:|:--:|:--:|
+| Erosion | Crystal | Reaction Diffusion | Voronoi |
 
-![Rings Pattern](tests/golden/rings.png)
+**Glitch**
 
-### Topography ([source](src/art/topography.rs))
+| ![Glitch](tests/golden/glitch.png) | ![Corrupt Barcode](tests/golden/corrupt_barcode.png) | ![Databend](tests/golden/databend.png) | ![Scanline Tear](tests/golden/scanline_tear.png) |
+|:--:|:--:|:--:|:--:|
+| Glitch | Corrupt Barcode | Databend | Scanline Tear |
 
-Topographic contour lines simulating elevation maps.
+**Generative**
 
-![Topography Pattern](tests/golden/topography.png)
+| ![Attractor](tests/golden/attractor.png) | ![Automata](tests/golden/automata.png) | ![Estrella](tests/golden/estrella.png) |
+|:--:|:--:|:--:|
+| Attractor | Automata | Estrella |
 
-### Glitch ([source](src/art/glitch.rs))
+**Textures**
 
-Digital glitch effect with scanlines and noise.
+| ![Crosshatch](tests/golden/crosshatch.png) | ![Stipple](tests/golden/stipple.png) | ![Woodgrain](tests/golden/woodgrain.png) | ![Weave](tests/golden/weave.png) |
+|:--:|:--:|:--:|:--:|
+| Crosshatch | Stipple | Woodgrain | Weave |
 
-![Glitch Pattern](tests/golden/glitch.png)
+**Calibration**
 
-### Microfeed ([source](src/art/microfeed.rs))
+| ![Calibration](tests/golden/calibration.png) | ![Microfeed](tests/golden/microfeed.png) | ![Density](tests/golden/density.png) | ![Jitter](tests/golden/jitter.png) |
+|:--:|:--:|:--:|:--:|
+| Calibration | Microfeed | Density | Jitter |
 
-Horizontal lines with progressively increasing spacing - tests printer feed accuracy.
-
-![Microfeed Pattern](tests/golden/microfeed.png)
-
-### Density ([source](src/art/density.rs))
-
-Ripple pattern at three different gamma levels for density testing.
-
-![Density Pattern](tests/golden/density.png)
-
-### Overburn ([source](src/art/overburn.rs))
-
-Double-pass darkening effect for maximum ink density.
-
-![Overburn Pattern](tests/golden/overburn.png)
-
-### Jitter ([source](src/art/jitter.rs))
-
-Banding and scanline artifacts pattern.
-
-![Jitter Pattern](tests/golden/jitter.png)
-
-### Calibration ([source](src/art/calibration.rs))
-
-Diagnostic pattern with borders, X-shaped diagonals, and progressive-width vertical bars.
-
-![Calibration Pattern](tests/golden/calibration.png)
+| ![Overburn](tests/golden/overburn.png) |
+|:--:|
+| Overburn |
 
 </details>
 
-## Weave (Pattern Crossfades)
+### Pattern Weaving
 
-Blend multiple patterns together with smooth DJ-style crossfade transitions.
+Blend multiple patterns with DJ-style crossfade transitions:
 
 ```bash
-# Blend 3 patterns over 150mm with 30mm crossfades
-estrella weave riley plasma waves --length 150mm --crossfade 30mm --png output.png
+estrella weave ripple plasma waves --length 200mm --crossfade 30mm
 ```
 
 ![Weave Crossfade](tests/golden/weave_crossfade.png)
 
-### Options
+## Photo Printing
 
-| Option | Description |
-|--------|-------------|
-| `--length` | Total output length (e.g., `500mm`) |
-| `--crossfade` | Transition length between patterns (default: `30mm`) |
-| `--curve` | Blend curve: `linear`, `smooth` (default), `ease-in`, `ease-out` |
-| `--golden` | Use deterministic parameters |
-| `--png FILE` | Output to PNG instead of printing |
+The web UI supports printing photos with real-time dithered preview:
 
-## NV Graphics (Logos)
-
-Store images in the printer's non-volatile flash memory for instant recall across power cycles.
-
-### Storing a Logo
-
-```bash
-estrella logo store mylogo.png              # Store with key "A0" (default)
-estrella logo store logo.png --key LG       # Custom 2-char key
-estrella logo store badge.png --width 288   # Custom width
-```
-
-Images are automatically converted to grayscale, scaled, and dithered using Bayer 8x8 ordered dithering.
-
-### Using Logos in Code
-
-```rust
-let receipt = Receipt::new()
-    .child(NvLogo::new("A0"))                    // 1x scale
-    .child(NvLogo::new("LG").double())           // 2x scale
-    .child(NvLogo::new("B1").scale_x(2).scale_y(1))  // Custom scaling
-    .child(Text::new("ACME CORP").center().bold())
-    .cut();
-```
-
-### Managing Logos
-
-```bash
-estrella logo delete --key A0       # Delete specific logo
-estrella logo delete-all            # Delete all (with confirmation)
-estrella logo delete-all --force    # Skip confirmation
-```
-
-**Key format:** Exactly 2 printable ASCII characters (e.g., `A0`, `LG`, `01`)
-
-## Usage
-
-```bash
-# List available patterns and receipts
-estrella print
-
-# Print patterns
-estrella print ripple
-estrella print waves
-estrella print --height 1000 plasma
-
-# Save as PNG preview
-estrella print --png output.png ripple
-
-# Print receipts
-estrella print receipt
-estrella print receipt-full
-
-# Logo management
-estrella logo store mylogo.png --key A0
-estrella logo delete --key A0
-```
+- **Formats:** JPEG, PNG, GIF, WEBP, HEIC (iPhone photos)
+- **Adjustments:** Rotation, brightness, contrast
+- **Dithering:** Choose algorithm for best results
+- Auto-resize to 576px printer width
 
 ## Web Interface
 
-Estrella includes a web UI for printing patterns, receipts, and photos directly from your browser.
+Start the server and open your browser:
 
 ```bash
-estrella serve                      # Start on default port 8080
-estrella serve --listen 0.0.0.0:3000  # Custom address/port
+estrella serve  # http://localhost:8080
 ```
 
-### Photo Printing
-
-Upload photos from your computer or phone and print them with real-time preview. The web UI provides:
-
-- **Drag & drop or file picker** - supports JPEG, PNG, GIF, WEBP, and HEIC (iPhone photos)
-- **Rotation** - 0°, 90°, 180°, 270°
-- **Brightness/Contrast** - adjust for optimal thermal printing results
-- **Dithering algorithms** - Jarvis (smooth), Atkinson (classic Mac), Bayer (ordered), Floyd-Steinberg (diffusion)
-- **Render mode** - Raster (default) or Band (24-row chunks)
-
-Photos are automatically resized to the printer's 576-pixel width while maintaining aspect ratio.
-
-## Development
-
-```bash
-make build      # Build release binary
-make test       # Run all tests
-make format     # Format code
-make golden     # Regenerate golden test files
-make help       # Show all targets
-```
-
-### Graphics Modes
-
-Two modes for image/pattern printing:
-
-```rust
-// Raster mode (default) - arbitrary height
-Image::from_raster(576, 500, data).raster_mode()
-
-// Band mode - 24-row chunks, more efficient for streaming
-Image::from_raster(576, 480, data).band_mode()
-```
-
-### Hardware
-
-- **Printer:** Star Micronics TSP650II
-- **Paper:** 80mm (72mm printable area)
-- **Resolution:** 203 DPI (576 dots across)
-- **Interface:** Bluetooth RFCOMM at `/dev/rfcomm0`
+**Tabs:** Patterns, Photos, Receipts, Weave
 
 ---
 
-<details>
-<summary>Dithering Algorithms</summary>
+## Running at Home
 
-Estrella supports four dithering algorithms for converting grayscale images to binary (black/white) output. Each has different characteristics suited to different use cases.
+### Prerequisites
 
-### Bayer (Ordered)
+- **Printer:** Star Micronics TSP650II (or compatible StarPRNT printer)
+- **Connection:** Bluetooth, paired to create `/dev/rfcomm0`
+- **Build:** Nix (recommended) or Rust 1.75+
 
-Fast, deterministic ordered dithering using an 8x8 threshold matrix. Produces a regular halftone pattern. Best for text, graphics, and patterns.
-
-![Bayer Dithering](tests/golden/dither_bayer.png)
-
-### Floyd-Steinberg (Error Diffusion)
-
-Classic error diffusion algorithm that distributes quantization errors to neighboring pixels. Produces organic, photograph-like results with smooth gradients.
-
-![Floyd-Steinberg Dithering](tests/golden/dither_floyd_steinberg.png)
-
-### Atkinson
-
-Bill Atkinson's algorithm from the original Macintosh. Only diffuses 75% of the error, intentionally losing information to produce higher contrast output with more pure blacks and whites. Gives a distinctive "classic Mac" look.
-
-![Atkinson Dithering](tests/golden/dither_atkinson.png)
-
-### Jarvis (Jarvis-Judice-Ninke)
-
-Spreads error over a larger area (12 neighbors across 3 rows) compared to Floyd-Steinberg (4 neighbors). Produces the smoothest gradients with the least visible artifacts, but is slightly slower.
-
-![Jarvis Dithering](tests/golden/dither_jarvis.png)
-
-### Usage
+### Quick Start
 
 ```bash
-# CLI
-estrella print ripple --dither bayer
-estrella print ripple --dither floyd-steinberg
-estrella print ripple --dither atkinson
-estrella print ripple --dither jarvis
+# With Nix
+nix develop
+cargo run -- serve
+# Open http://localhost:8080
+
+# Without Nix
+cargo build --release
+./target/release/estrella serve --device /dev/rfcomm0
 ```
 
-```rust
-// Code
-use estrella::render::dither::{generate_raster, DitheringAlgorithm};
+### NixOS Module
 
-let data = generate_raster(576, 400, intensity_fn, DitheringAlgorithm::Atkinson);
+For a proper deployment on NixOS:
+
+```nix
+{
+  inputs.estrella.url = "github:eljojo/estrella";
+
+  # Add to your flake outputs:
+  nixpkgs.overlays = [ inputs.estrella.overlays.default ];
+
+  # Enable the service:
+  services.estrella = {
+    enable = true;
+    port = 8080;
+    devicePath = "/dev/rfcomm0";
+  };
+}
 ```
 
-</details>
+### Bluetooth Setup
+
+**Important:** The TSP650II ships in SSP (Secure Simple Pairing) mode which doesn't work with Linux. You need the **Star Settings** iOS/Android app to:
+1. Disable "Auto Connect" (SSP mode)
+2. Set a PIN code
+
+Without this step, pairing will silently fail. This was the hardest part to debug.
+
+**Pairing:**
+```bash
+bluetoothctl
+> power on
+> agent on
+> default-agent
+> scan on
+# Find your printer's MAC address (starts with 00:12:F3 for Star)
+> pair XX:XX:XX:XX:XX:XX
+> trust XX:XX:XX:XX:XX:XX
+> connect XX:XX:XX:XX:XX:XX
+```
+
+**Bind rfcomm device:**
+```bash
+sudo rfcomm bind 0 XX:XX:XX:XX:XX:XX 1
+# Creates /dev/rfcomm0
+```
+
+**Permissions:** Add your user to the `dialout` group for `/dev/rfcomm0` access:
+```bash
+sudo usermod -aG dialout $USER
+# Log out and back in
+```
+
+**Debug commands:**
+```bash
+bluetoothctl info XX:XX:XX:XX:XX:XX
+l2ping -c 1 XX:XX:XX:XX:XX:XX
+sdptool browse XX:XX:XX:XX:XX:XX
+```
+
+### CLI Reference
+
+```bash
+estrella print ripple              # Print a pattern
+estrella print ripple --png out.png  # Preview to PNG
+estrella print --list              # List patterns
+estrella serve                     # Start web server
+estrella weave ripple plasma --length 200mm  # Blend patterns
+estrella logo store logo.png       # Store logo in NV memory
+```
