@@ -112,6 +112,7 @@ pub async fn preview(Json(req): Json<WeaveRequest>) -> Result<impl IntoResponse,
 
     // Parse dithering algorithm
     let dither_algo = match req.dither.to_lowercase().as_str() {
+        "none" | "threshold" => dither::DitheringAlgorithm::None,
         "floyd-steinberg" | "floyd_steinberg" | "fs" => dither::DitheringAlgorithm::FloydSteinberg,
         "atkinson" => dither::DitheringAlgorithm::Atkinson,
         "jarvis" | "jjn" => dither::DitheringAlgorithm::Jarvis,
@@ -198,6 +199,7 @@ pub async fn print(
 
     // Parse dithering algorithm
     let dither_algo = match req.dither.to_lowercase().as_str() {
+        "none" | "threshold" => dither::DitheringAlgorithm::None,
         "floyd-steinberg" | "floyd_steinberg" | "fs" => dither::DitheringAlgorithm::FloydSteinberg,
         "atkinson" => dither::DitheringAlgorithm::Atkinson,
         "jarvis" | "jjn" => dither::DitheringAlgorithm::Jarvis,

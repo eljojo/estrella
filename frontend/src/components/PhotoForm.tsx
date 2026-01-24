@@ -4,8 +4,9 @@ import { uploadPhoto, buildPhotoPreviewUrl, printPhoto } from '../api'
 // Photo session state
 const sessionId = signal<string | null>(null)
 const filename = signal('')
+const isBinary = signal(false) // True if image is already 1-bit
 const rotation = signal<0 | 90 | 180 | 270>(0)
-const dithering = signal<'jarvis' | 'atkinson' | 'bayer' | 'floyd-steinberg'>('floyd-steinberg')
+const dithering = signal<'none' | 'jarvis' | 'atkinson' | 'bayer' | 'floyd-steinberg'>('floyd-steinberg')
 const brightness = signal(0)
 const contrast = signal(0)
 const renderMode = signal<'raster' | 'band'>('raster')
@@ -115,11 +116,15 @@ async function handleFileSelect(file: File) {
     const response = await uploadPhoto(arrayBuffer, file.name)
     sessionId.value = response.id
     filename.value = response.filename
+    isBinary.value = response.is_binary
+    // Auto-select "none" for binary images, otherwise use Floyd-Steinberg
+    dithering.value = response.is_binary ? 'none' : 'floyd-steinberg'
     grayscaleOnNextLoad = true
     triggerPreviewUpdate()
   } catch (err) {
     status.value = { type: 'error', message: `Upload failed: ${err instanceof Error ? err.message : err}` }
     sessionId.value = null
+    isBinary.value = false
     photoGrayscaleActive.value = false
   } finally {
     uploading.value = false
@@ -258,6 +263,8 @@ export function PhotoForm() {
   const handleClear = () => {
     sessionId.value = null
     filename.value = ''
+    isBinary.value = false
+    dithering.value = 'floyd-steinberg'
     rotation.value = 0
     brightness.value = 0
     contrast.value = 0
@@ -364,6 +371,7 @@ export function PhotoForm() {
               value={dithering.value}
               onChange={(e) => {
                 dithering.value = (e.target as HTMLSelectElement).value as
+                  | 'none'
                   | 'jarvis'
                   | 'atkinson'
                   | 'bayer'
@@ -371,6 +379,7 @@ export function PhotoForm() {
                 handleSettingChangeImmediate()
               }}
             >
+              {isBinary.value && <option value="none">None (1-bit image detected)</option>}
               <option value="jarvis">Jarvis (smooth)</option>
               <option value="atkinson">Atkinson (classic Mac)</option>
               <option value="bayer">Bayer (ordered)</option>

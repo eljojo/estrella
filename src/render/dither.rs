@@ -144,6 +144,8 @@
 /// Dithering algorithm selection.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DitheringAlgorithm {
+    /// No dithering - simple threshold at 50%. Use for already-dithered or 1-bit images.
+    None,
     /// Bayer 8x8 ordered dithering (fast, regular pattern)
     Bayer,
     /// Floyd-Steinberg error diffusion (slower, organic look)
@@ -333,6 +335,7 @@ where
     F: Fn(usize, usize, usize, usize) -> f32,
 {
     match algorithm {
+        DitheringAlgorithm::None => generate_raster_threshold(width, height, intensity_fn),
         DitheringAlgorithm::Bayer => generate_raster_bayer(width, height, intensity_fn),
         DitheringAlgorithm::FloydSteinberg => {
             generate_raster_floyd_steinberg(width, height, intensity_fn)
@@ -341,6 +344,44 @@ where
         DitheringAlgorithm::Jarvis => generate_raster_jarvis(width, height, intensity_fn),
     }
 }
+
+// ============================================================================
+// SIMPLE THRESHOLD (NO DITHERING)
+// ============================================================================
+
+/// Generate a raster using simple 50% threshold (no dithering).
+///
+/// This is useful for images that are already dithered or are pure 1-bit
+/// black and white graphics. Applying dithering to such images would add
+/// unwanted noise.
+///
+/// ## Algorithm
+///
+/// For each pixel:
+/// - If intensity >= 0.5: output black (1)
+/// - If intensity < 0.5: output white (0)
+fn generate_raster_threshold<F>(width: usize, height: usize, intensity_fn: F) -> Vec<u8>
+where
+    F: Fn(usize, usize, usize, usize) -> f32,
+{
+    let width_bytes = width.div_ceil(8);
+    let mut data = Vec::with_capacity(width_bytes * height);
+
+    for y in 0..height {
+        let mut row_pixels = Vec::with_capacity(width);
+        for x in 0..width {
+            let intensity = intensity_fn(x, y, width, height);
+            row_pixels.push(intensity >= 0.5);
+        }
+        data.extend(pack_row(&row_pixels));
+    }
+
+    data
+}
+
+// ============================================================================
+// BAYER 8x8 ORDERED DITHERING
+// ============================================================================
 
 /// Generate a dithered raster using Bayer ordered dithering.
 fn generate_raster_bayer<F>(width: usize, height: usize, intensity_fn: F) -> Vec<u8>

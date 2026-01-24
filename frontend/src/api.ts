@@ -198,6 +198,8 @@ export interface PhotoUploadResponse {
   filename: string
   width: number
   height: number
+  /** True if the image is already binary (1-bit black/white) */
+  is_binary: boolean
 }
 
 /// Upload an image and get a session ID.

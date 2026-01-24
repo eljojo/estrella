@@ -353,6 +353,7 @@ fn run() -> Result<(), EstrellaError> {
 
                     // Parse dithering algorithm
                     let dither_algo = match dither.to_lowercase().as_str() {
+                        "none" | "threshold" => dither::DitheringAlgorithm::None,
                         "bayer" => dither::DitheringAlgorithm::Bayer,
                         "floyd-steinberg" | "floyd_steinberg" | "fs" => {
                             dither::DitheringAlgorithm::FloydSteinberg
@@ -361,7 +362,7 @@ fn run() -> Result<(), EstrellaError> {
                         "jarvis" | "jjn" => dither::DitheringAlgorithm::Jarvis,
                         _ => {
                             return Err(EstrellaError::Pattern(format!(
-                                "Unknown dithering algorithm '{}'. Use 'bayer', 'floyd-steinberg', 'atkinson', or 'jarvis'",
+                                "Unknown dithering algorithm '{}'. Use 'none', 'bayer', 'floyd-steinberg', 'atkinson', or 'jarvis'",
                                 dither
                             )));
                         }
@@ -466,6 +467,7 @@ fn run() -> Result<(), EstrellaError> {
 
             // Parse dithering algorithm
             let dither_algo = match dither.to_lowercase().as_str() {
+                "none" | "threshold" => dither::DitheringAlgorithm::None,
                 "bayer" => dither::DitheringAlgorithm::Bayer,
                 "floyd-steinberg" | "floyd_steinberg" | "fs" => {
                     dither::DitheringAlgorithm::FloydSteinberg
@@ -474,7 +476,7 @@ fn run() -> Result<(), EstrellaError> {
                 "jarvis" | "jjn" => dither::DitheringAlgorithm::Jarvis,
                 _ => {
                     return Err(EstrellaError::Pattern(format!(
-                        "Unknown dithering algorithm '{}'. Use 'bayer', 'floyd-steinberg', 'atkinson', or 'jarvis'",
+                        "Unknown dithering algorithm '{}'. Use 'none', 'bayer', 'floyd-steinberg', 'atkinson', or 'jarvis'",
                         dither
                     )));
                 }
@@ -946,13 +948,14 @@ fn weave_patterns(
 
     // Parse dithering algorithm
     let dither_algo = match dither_name.to_lowercase().as_str() {
+        "none" | "threshold" => dither::DitheringAlgorithm::None,
         "bayer" => dither::DitheringAlgorithm::Bayer,
         "floyd-steinberg" | "floyd_steinberg" | "fs" => dither::DitheringAlgorithm::FloydSteinberg,
         "atkinson" => dither::DitheringAlgorithm::Atkinson,
         "jarvis" | "jjn" => dither::DitheringAlgorithm::Jarvis,
         _ => {
             return Err(EstrellaError::Pattern(format!(
-                "Unknown dithering algorithm '{}'. Use 'bayer', 'floyd-steinberg', 'atkinson', or 'jarvis'",
+                "Unknown dithering algorithm '{}'. Use 'none', 'bayer', 'floyd-steinberg', 'atkinson', or 'jarvis'",
                 dither_name
             )));
         }

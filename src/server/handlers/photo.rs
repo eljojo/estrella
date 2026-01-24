@@ -27,6 +27,8 @@ pub struct UploadResponse {
     pub filename: String,
     pub width: u32,
     pub height: u32,
+    /// True if the image is already binary (1-bit black/white)
+    pub is_binary: bool,
 }
 
 /// Query parameters for preview endpoint.
@@ -118,6 +120,10 @@ pub async fn upload(
     let width = img.width();
     let height = img.height();
 
+    // Check if the image is already binary (1-bit) BEFORE resizing
+    // (resize interpolation creates gray pixels that would skew the detection)
+    let is_binary = is_binary_image(&img);
+
     // Pre-resize to a reasonable size for preview generation
     // Use 1152px (2x printer width) as max dimension to handle any rotation
     // while keeping preview generation fast
@@ -145,6 +151,7 @@ pub async fn upload(
         filename,
         width,
         height,
+        is_binary,
     }))
 }
 
@@ -428,6 +435,7 @@ fn apply_brightness_contrast(img: &DynamicImage, brightness: i32, contrast: i32)
 /// Parse dithering algorithm from string.
 fn parse_dither(dither: &str) -> DitheringAlgorithm {
     match dither.to_lowercase().as_str() {
+        "none" | "threshold" => DitheringAlgorithm::None,
         "floyd-steinberg" | "floyd_steinberg" | "fs" => DitheringAlgorithm::FloydSteinberg,
         "atkinson" => DitheringAlgorithm::Atkinson,
         "jarvis" | "jjn" => DitheringAlgorithm::Jarvis,
@@ -445,6 +453,27 @@ async fn cleanup_expired_sessions(state: &AppState) {
         let elapsed = now.duration_since(session.last_accessed);
         elapsed.as_secs() < SESSION_EXPIRATION_SECS
     });
+}
+
+/// Check if an image is already binary (1-bit black/white).
+/// Returns true if 80%+ of pixels are near pure black or pure white.
+/// Uses a threshold of 20 to handle anti-aliasing and compression artifacts.
+fn is_binary_image(img: &DynamicImage) -> bool {
+    const THRESHOLD: u8 = 20;
+    const MIN_BINARY_RATIO: f32 = 0.80;
+
+    let gray = img.to_luma8();
+    let total = gray.pixels().count();
+    if total == 0 {
+        return false;
+    }
+
+    let binary_count = gray
+        .pixels()
+        .filter(|p| p.0[0] <= THRESHOLD || p.0[0] >= (255 - THRESHOLD))
+        .count();
+
+    (binary_count as f32 / total as f32) >= MIN_BINARY_RATIO
 }
 
 /// Check if the data looks like a HEIC/HEIF file by examining magic bytes.
