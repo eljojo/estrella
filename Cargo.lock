@@ -542,6 +542,7 @@ dependencies = [
  "pulldown-cmark",
  "qrcode",
  "rand",
+ "rayon",
  "serde",
  "serde_json",
  "spleen-font",

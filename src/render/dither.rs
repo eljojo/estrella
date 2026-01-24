@@ -332,7 +332,7 @@ pub fn generate_raster<F>(
     algorithm: DitheringAlgorithm,
 ) -> Vec<u8>
 where
-    F: Fn(usize, usize, usize, usize) -> f32,
+    F: Fn(usize, usize, usize, usize) -> f32 + Sync,
 {
     match algorithm {
         DitheringAlgorithm::None => generate_raster_threshold(width, height, intensity_fn),
@@ -384,23 +384,49 @@ where
 // ============================================================================
 
 /// Generate a dithered raster using Bayer ordered dithering.
+/// Uses parallel processing for large images (height > 100).
 fn generate_raster_bayer<F>(width: usize, height: usize, intensity_fn: F) -> Vec<u8>
 where
-    F: Fn(usize, usize, usize, usize) -> f32,
+    F: Fn(usize, usize, usize, usize) -> f32 + Sync,
 {
+    use rayon::prelude::*;
+
     let width_bytes = width.div_ceil(8);
-    let mut data = Vec::with_capacity(width_bytes * height);
 
-    for y in 0..height {
-        let mut row_pixels = Vec::with_capacity(width);
-        for x in 0..width {
-            let intensity = intensity_fn(x, y, width, height);
-            row_pixels.push(should_print(x, y, intensity));
+    // Use parallel processing for large images
+    if height > 100 {
+        // Process rows in parallel
+        let rows: Vec<Vec<u8>> = (0..height)
+            .into_par_iter()
+            .map(|y| {
+                let mut row_pixels = Vec::with_capacity(width);
+                for x in 0..width {
+                    let intensity = intensity_fn(x, y, width, height);
+                    row_pixels.push(should_print(x, y, intensity));
+                }
+                pack_row(&row_pixels)
+            })
+            .collect();
+
+        // Flatten into single vector
+        let mut data = Vec::with_capacity(width_bytes * height);
+        for row in rows {
+            data.extend(row);
         }
-        data.extend(pack_row(&row_pixels));
+        data
+    } else {
+        // Sequential for small images
+        let mut data = Vec::with_capacity(width_bytes * height);
+        for y in 0..height {
+            let mut row_pixels = Vec::with_capacity(width);
+            for x in 0..width {
+                let intensity = intensity_fn(x, y, width, height);
+                row_pixels.push(should_print(x, y, intensity));
+            }
+            data.extend(pack_row(&row_pixels));
+        }
+        data
     }
-
-    data
 }
 
 // ============================================================================
