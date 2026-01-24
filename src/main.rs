@@ -182,6 +182,16 @@ enum Commands {
         #[arg(long, default_value = "floyd-steinberg")]
         dither: String,
     },
+
+    /// Set up RFCOMM device for a Bluetooth MAC address (requires root)
+    SetupRfcomm {
+        /// Bluetooth MAC address (e.g., 00:11:22:33:44:55)
+        mac: String,
+
+        /// RFCOMM channel number (creates /dev/rfcommN)
+        #[arg(long, default_value = "0")]
+        channel: u8,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -574,6 +584,10 @@ fn run() -> Result<(), EstrellaError> {
                 &dither,
             )?;
         }
+
+        Commands::SetupRfcomm { mac, channel } => {
+            setup_rfcomm_command(&mac, channel)?;
+        }
     }
 
     Ok(())
@@ -583,6 +597,30 @@ fn run() -> Result<(), EstrellaError> {
 fn print_raw_to_device(device: &str, data: &[u8]) -> Result<(), EstrellaError> {
     let mut transport = BluetoothTransport::open(device)?;
     transport.write_all(data)?;
+    Ok(())
+}
+
+/// Set up RFCOMM device for a Bluetooth MAC address.
+fn setup_rfcomm_command(mac: &str, channel: u8) -> Result<(), EstrellaError> {
+    use estrella::transport::bluetooth::{find_rfcomm_for_mac, is_valid_mac, setup_rfcomm};
+
+    // Validate MAC format
+    if !is_valid_mac(mac) {
+        return Err(EstrellaError::InvalidCommand(format!(
+            "Invalid MAC address format: '{}'. Expected XX:XX:XX:XX:XX:XX",
+            mac
+        )));
+    }
+
+    // Check if already set up
+    if let Some(existing) = find_rfcomm_for_mac(mac)? {
+        println!("{}", existing);
+        return Ok(());
+    }
+
+    // Set up the RFCOMM device
+    let device_path = setup_rfcomm(mac, channel)?;
+    println!("{}", device_path);
     Ok(())
 }
 

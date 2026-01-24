@@ -25,10 +25,15 @@ in
       '';
     };
 
-    devicePath = mkOption {
+    deviceMac = mkOption {
       type = types.str;
-      default = "/dev/rfcomm0";
-      description = "Path to the thermal printer device";
+      description = "Bluetooth MAC address of the thermal printer";
+    };
+
+    rfcommChannel = mkOption {
+      type = types.int;
+      default = 0;
+      description = "RFCOMM channel number (creates /dev/rfcommN)";
     };
 
     package = mkOption {
@@ -46,21 +51,40 @@ in
     # Make estrella available system-wide
     environment.systemPackages = [ cfg.package ];
 
+    # RFCOMM setup service (runs as root to bind rfcomm)
+    systemd.services.estrella-rfcomm = {
+      description = "Estrella RFCOMM Setup";
+      documentation = [ "https://github.com/eljojo/estrella" ];
+      after = [ "bluetooth.target" ];
+      before = [ "estrella.service" ];
+      requiredBy = [ "estrella.service" ];
+
+      path = [ pkgs.bluez ];
+
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+        ExecStart = "${cfg.package}/bin/estrella setup-rfcomm ${cfg.deviceMac} --channel ${toString cfg.rfcommChannel}";
+      };
+    };
+
+    # Main HTTP daemon service (runs unprivileged)
     systemd.services.estrella = {
       description = "Estrella Thermal Printer HTTP Daemon";
       documentation = [ "https://github.com/eljojo/estrella" ];
-      after = [ "network.target" ];
+      after = [ "network.target" "estrella-rfcomm.service" ];
+      requires = [ "estrella-rfcomm.service" ];
       wantedBy = [ "multi-user.target" ];
 
       serviceConfig = {
         Type = "simple";
-        ExecStart = "${cfg.package}/bin/estrella serve --listen ${cfg.listenAddress}:${toString cfg.port} --device ${cfg.devicePath}";
+        ExecStart = "${cfg.package}/bin/estrella serve --listen ${cfg.listenAddress}:${toString cfg.port} --device /dev/rfcomm${toString cfg.rfcommChannel}";
         Restart = "always";
         RestartSec = "10s";
 
         # Security hardening
         DynamicUser = true;
-        SupplementaryGroups = [ "dialout" ];  # For /dev/rfcomm0 access
+        SupplementaryGroups = [ "dialout" ];  # For /dev/rfcomm access
 
         # Sandboxing (allow device access)
         PrivateTmp = true;

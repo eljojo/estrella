@@ -40,10 +40,11 @@
 //! Bluetooth buffer. The default chunk size is 4096 bytes with a small
 //! delay between chunks.
 
-use std::fs::{File, OpenOptions};
+use std::fs::{self, File, OpenOptions};
 use std::io::{self, Write};
 use std::os::unix::io::AsRawFd;
 use std::path::Path;
+use std::process::Command;
 use std::thread;
 use std::time::Duration;
 
@@ -245,6 +246,163 @@ fn configure_tty_raw(_fd: i32) -> Result<(), EstrellaError> {
 }
 
 // ============================================================================
+// RFCOMM SETUP HELPERS
+// ============================================================================
+
+/// Validate a Bluetooth MAC address format (XX:XX:XX:XX:XX:XX).
+pub fn is_valid_mac(mac: &str) -> bool {
+    let parts: Vec<&str> = mac.split(':').collect();
+    if parts.len() != 6 {
+        return false;
+    }
+    parts
+        .iter()
+        .all(|part| part.len() == 2 && part.chars().all(|c| c.is_ascii_hexdigit()))
+}
+
+/// Find an existing RFCOMM device bound to the given MAC address.
+///
+/// Checks `/proc/net/rfcomm` and falls back to `rfcomm -a` command.
+/// Returns the device path (e.g., "/dev/rfcomm0") if found.
+#[cfg(unix)]
+pub fn find_rfcomm_for_mac(mac: &str) -> Result<Option<String>, EstrellaError> {
+    let mac_upper = mac.to_uppercase();
+
+    // Try /proc/net/rfcomm first (format: "rfcomm0: XX:XX:XX:XX:XX:XX channel N ...")
+    if let Ok(contents) = fs::read_to_string("/proc/net/rfcomm") {
+        for line in contents.lines() {
+            if line.to_uppercase().contains(&mac_upper) {
+                if let Some(dev_name) = line.split(':').next() {
+                    let dev_name = dev_name.trim();
+                    let device_path = format!("/dev/{}", dev_name);
+                    if Path::new(&device_path).exists() {
+                        return Ok(Some(device_path));
+                    }
+                }
+            }
+        }
+    }
+
+    // Fallback: rfcomm -a command
+    let output = Command::new("rfcomm")
+        .arg("-a")
+        .output()
+        .map_err(|e| EstrellaError::Transport(format!("Failed to run 'rfcomm -a': {}", e)))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    for line in stdout.lines() {
+        if line.to_uppercase().contains(&mac_upper) {
+            if let Some(dev_name) = line.split(':').next() {
+                let dev_name = dev_name.trim();
+                let device_path = format!("/dev/{}", dev_name);
+                if Path::new(&device_path).exists() {
+                    return Ok(Some(device_path));
+                }
+            }
+        }
+    }
+
+    Ok(None)
+}
+
+#[cfg(not(unix))]
+pub fn find_rfcomm_for_mac(_mac: &str) -> Result<Option<String>, EstrellaError> {
+    Ok(None)
+}
+
+/// Set up an RFCOMM device for a Bluetooth MAC address.
+///
+/// Runs:
+/// 1. `bluetoothctl connect <MAC>` - connect to device
+/// 2. `l2ping -c 1 <MAC>` - verify connectivity
+/// 3. `rfcomm bind <channel> <MAC> 1` - create /dev/rfcommN
+///
+/// Returns the device path on success (e.g., "/dev/rfcomm0").
+///
+/// **Requires root privileges** for `rfcomm bind`.
+#[cfg(unix)]
+pub fn setup_rfcomm(mac: &str, channel: u8) -> Result<String, EstrellaError> {
+    let mac_upper = mac.to_uppercase();
+    let device_path = format!("/dev/rfcomm{}", channel);
+
+    // Step 1: Connect via bluetoothctl (may fail if already connected, that's ok)
+    eprintln!("Connecting to {}...", mac_upper);
+    let output = Command::new("bluetoothctl")
+        .arg("connect")
+        .arg(&mac_upper)
+        .output()
+        .map_err(|e| EstrellaError::Transport(format!("Failed to run bluetoothctl: {}", e)))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    if stdout.contains("Connection successful") || stdout.contains("already connected") {
+        eprintln!("Connected.");
+    } else {
+        eprintln!("bluetoothctl returned: {}", stdout.trim());
+        // Continue anyway - l2ping will verify
+    }
+
+    // Small delay for connection to stabilize
+    thread::sleep(Duration::from_millis(500));
+
+    // Step 2: Verify connectivity with l2ping
+    eprintln!("Verifying connectivity...");
+    let output = Command::new("l2ping")
+        .arg("-c")
+        .arg("1")
+        .arg(&mac_upper)
+        .output()
+        .map_err(|e| EstrellaError::Transport(format!("Failed to run l2ping: {}", e)))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(EstrellaError::Transport(format!(
+            "Device {} not reachable: {}",
+            mac_upper,
+            stderr.trim()
+        )));
+    }
+    eprintln!("Device reachable.");
+
+    // Step 3: Bind RFCOMM
+    eprintln!("Binding rfcomm{}...", channel);
+    let output = Command::new("rfcomm")
+        .arg("bind")
+        .arg(channel.to_string())
+        .arg(&mac_upper)
+        .arg("1") // RFCOMM channel 1 (standard for SPP)
+        .output()
+        .map_err(|e| EstrellaError::Transport(format!("Failed to run rfcomm bind: {}", e)))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(EstrellaError::Transport(format!(
+            "rfcomm bind failed: {}",
+            stderr.trim()
+        )));
+    }
+
+    // Wait for device to appear
+    thread::sleep(Duration::from_millis(500));
+
+    if !Path::new(&device_path).exists() {
+        return Err(EstrellaError::Transport(format!(
+            "Device {} was not created",
+            device_path
+        )));
+    }
+
+    eprintln!("Created {}", device_path);
+    Ok(device_path)
+}
+
+#[cfg(not(unix))]
+pub fn setup_rfcomm(_mac: &str, _channel: u8) -> Result<String, EstrellaError> {
+    Err(EstrellaError::Transport(
+        "RFCOMM setup not supported on this platform".to_string(),
+    ))
+}
+
+// ============================================================================
 // TESTS
 // ============================================================================
 
@@ -255,6 +413,24 @@ mod tests {
     #[test]
     fn test_default_device_path() {
         assert_eq!(DEFAULT_DEVICE, "/dev/rfcomm0");
+    }
+
+    #[test]
+    fn test_valid_mac_addresses() {
+        assert!(is_valid_mac("00:11:22:33:44:55"));
+        assert!(is_valid_mac("AA:BB:CC:DD:EE:FF"));
+        assert!(is_valid_mac("aa:bb:cc:dd:ee:ff"));
+        assert!(is_valid_mac("00:00:00:00:00:00"));
+    }
+
+    #[test]
+    fn test_invalid_mac_addresses() {
+        assert!(!is_valid_mac("00:11:22:33:44")); // too short
+        assert!(!is_valid_mac("00:11:22:33:44:55:66")); // too long
+        assert!(!is_valid_mac("00-11-22-33-44-55")); // wrong separator
+        assert!(!is_valid_mac("GG:HH:II:JJ:KK:LL")); // invalid hex
+        assert!(!is_valid_mac("")); // empty
+        assert!(!is_valid_mac("not-a-mac")); // garbage
     }
 
     // Note: Most transport tests require actual hardware.

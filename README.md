@@ -221,10 +221,15 @@ For a proper deployment on NixOS:
   services.estrella = {
     enable = true;
     port = 8080;
-    devicePath = "/dev/rfcomm0";
+    deviceMac = "00:11:22:33:44:55";  # Your printer's Bluetooth MAC
+    # rfcommChannel = 0;  # Optional, defaults to 0
   };
 }
 ```
+
+The module creates two systemd services:
+- `estrella-rfcomm.service` - Oneshot that sets up the Bluetooth RFCOMM device (runs as root)
+- `estrella.service` - The HTTP daemon (runs unprivileged with DynamicUser)
 
 ### Bluetooth Setup
 
@@ -247,7 +252,13 @@ bluetoothctl
 > connect XX:XX:XX:XX:XX:XX
 ```
 
-**Bind rfcomm device:**
+**Bind rfcomm device (automatic):**
+```bash
+sudo estrella setup-rfcomm XX:XX:XX:XX:XX:XX
+# Connects, verifies with l2ping, and creates /dev/rfcomm0
+```
+
+**Bind rfcomm device (manual):**
 ```bash
 sudo rfcomm bind 0 XX:XX:XX:XX:XX:XX 1
 # Creates /dev/rfcomm0
@@ -275,4 +286,5 @@ estrella print --list              # List patterns
 estrella serve                     # Start web server
 estrella weave ripple plasma --length 200mm  # Blend patterns
 estrella logo store logo.png       # Store logo in NV memory
+estrella setup-rfcomm XX:XX:XX:XX:XX:XX  # Set up Bluetooth RFCOMM (requires root)
 ```
