@@ -22,9 +22,10 @@ use axum::{
     Router,
 };
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use crate::error::EstrellaError;
-use state::AppState;
+use state::{AppState, SESSION_EXPIRATION_SECS};
 
 /// Start the HTTP server.
 ///
@@ -45,6 +46,9 @@ use state::AppState;
 /// ```
 pub async fn serve(config: ServerConfig) -> Result<(), EstrellaError> {
     let app_state = Arc::new(AppState::new(config.clone()));
+
+    // Spawn background cache cleanup task
+    tokio::spawn(cleanup_caches(app_state.clone()));
 
     let app = Router::new()
         // Frontend
@@ -113,4 +117,45 @@ pub async fn serve(config: ServerConfig) -> Result<(), EstrellaError> {
         .map_err(|e| EstrellaError::Transport(format!("Server error: {}", e)))?;
 
     Ok(())
+}
+
+/// Background task to clean up expired cache entries.
+async fn cleanup_caches(state: Arc<AppState>) {
+    let mut interval = tokio::time::interval(Duration::from_secs(60));
+    let expiration = Duration::from_secs(SESSION_EXPIRATION_SECS);
+
+    loop {
+        interval.tick().await;
+        let now = Instant::now();
+
+        // Clean up layer cache
+        {
+            let mut cache = state.layer_cache.write().await;
+            let before = cache.len();
+            cache.retain(|_, v| now.duration_since(v.last_accessed) < expiration);
+            let after = cache.len();
+            if before != after {
+                println!(
+                    "[cache] Cleaned up {} expired layer cache entries ({} remaining)",
+                    before - after,
+                    after
+                );
+            }
+        }
+
+        // Clean up photo sessions
+        {
+            let mut sessions = state.photo_sessions.write().await;
+            let before = sessions.len();
+            sessions.retain(|_, v| now.duration_since(v.last_accessed) < expiration);
+            let after = sessions.len();
+            if before != after {
+                println!(
+                    "[cache] Cleaned up {} expired photo sessions ({} remaining)",
+                    before - after,
+                    after
+                );
+            }
+        }
+    }
 }

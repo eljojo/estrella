@@ -302,6 +302,77 @@ impl Composer {
     }
 }
 
+/// Pre-render a single layer to an intensity buffer.
+///
+/// Returns a Vec<f32> with width × height intensity values (row-major order).
+/// This can be cached and reused for compositing when only position/blend/opacity changes.
+pub fn render_layer_intensity(
+    pattern: &dyn Pattern,
+    width: usize,
+    height: usize,
+) -> Vec<f32> {
+    let mut buffer = vec![0.0f32; width * height];
+    for y in 0..height {
+        for x in 0..width {
+            buffer[y * width + x] = pattern.intensity(x, y, width, height);
+        }
+    }
+    buffer
+}
+
+/// Cached layer with its spec for compositing.
+pub struct CachedLayerRef<'a> {
+    pub spec: &'a LayerSpec,
+    pub intensity: &'a [f32],
+}
+
+/// Render a composition using pre-cached layer intensity buffers.
+///
+/// This is the fast path when layer patterns haven't changed - only compositing is done.
+pub fn render_with_cached_layers(
+    canvas_width: usize,
+    canvas_height: usize,
+    background: f32,
+    layers: &[CachedLayerRef<'_>],
+    algorithm: DitheringAlgorithm,
+) -> Vec<u8> {
+    let background = background.clamp(0.0, 1.0);
+
+    generate_raster(canvas_width, canvas_height, |x, y, _w, _h| {
+        let mut result = background;
+
+        for layer in layers {
+            let spec = layer.spec;
+
+            // Check if pixel is within layer bounds
+            let layer_x = x as i32 - spec.x;
+            let layer_y = y as i32 - spec.y;
+
+            if layer_x < 0
+                || layer_y < 0
+                || layer_x >= spec.width as i32
+                || layer_y >= spec.height as i32
+            {
+                continue;
+            }
+
+            // Look up pre-computed intensity from cached buffer
+            let local_x = layer_x as usize;
+            let local_y = layer_y as usize;
+            let idx = local_y * spec.width + local_x;
+            let intensity = layer.intensity.get(idx).copied().unwrap_or(0.0);
+
+            // Apply blend mode
+            let blended = spec.blend_mode.apply(result, intensity);
+
+            // Apply opacity
+            result = lerp(result, blended, spec.opacity);
+        }
+
+        result.clamp(0.0, 1.0)
+    }, algorithm)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

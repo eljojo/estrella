@@ -532,6 +532,7 @@ dependencies = [
  "barcoders",
  "chrono",
  "clap",
+ "flate2",
  "image",
  "include_dir",
  "libc",

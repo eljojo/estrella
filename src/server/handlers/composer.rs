@@ -9,17 +9,25 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
+use std::collections::HashMap;
+use tokio::sync::RwLock;
+
 use crate::{
     art::{self, PATTERNS},
     render::{
         self,
-        composer::{BlendMode, Composer, ComposerSpec},
+        composer::{
+            render_layer_intensity, render_with_cached_layers, BlendMode, CachedLayerRef,
+            Composer, ComposerSpec, LayerSpec,
+        },
         dither::DitheringAlgorithm,
     },
     transport::BluetoothTransport,
 };
 
-use super::super::state::AppState;
+use super::super::state::{AppState, CachedLayer, LayerCacheKey};
+
+type LayerCache = Arc<RwLock<HashMap<LayerCacheKey, CachedLayer>>>;
 
 fn default_dither() -> String {
     "floyd-steinberg".to_string()
@@ -95,33 +103,102 @@ fn parse_dither(s: &str) -> DitheringAlgorithm {
     }
 }
 
-/// POST /api/composer/preview - Generate PNG preview of composition.
-pub async fn preview(
-    Json(req): Json<ComposerPreviewRequest>,
-) -> Result<impl IntoResponse, (StatusCode, String)> {
-    // Validate spec
-    if req.spec.width == 0 || req.spec.height == 0 {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            "Width and height must be positive".to_string(),
-        ));
+/// Get or render a layer's intensity buffer, using cache when available.
+fn get_or_render_layer(
+    layer_spec: &LayerSpec,
+    cache: &LayerCache,
+) -> Result<Vec<f32>, String> {
+    let cache_key = LayerCacheKey::new(
+        &layer_spec.pattern,
+        &layer_spec.params,
+        layer_spec.width,
+        layer_spec.height,
+    );
+
+    let mut cache_guard = cache.blocking_write();
+
+    if let Some(cached) = cache_guard.get_mut(&cache_key) {
+        cached.touch();
+        return Ok(cached.intensity());
     }
 
-    // Parse dithering algorithm
+    // Cache miss - render the layer
+    let mut pattern = art::by_name(&layer_spec.pattern)
+        .ok_or_else(|| format!("Unknown pattern: {}", layer_spec.pattern))?;
+
+    for (k, v) in &layer_spec.params {
+        pattern.set_param(k, v).map_err(|e| format!("Param error: {}", e))?;
+    }
+
+    let buffer = render_layer_intensity(pattern.as_ref(), layer_spec.width, layer_spec.height);
+
+    // Cache the result
+    let cached = CachedLayer::new(buffer.clone());
+    println!(
+        "[cache] Cached '{}' {}x{}: {} -> {} bytes ({:.1}%)",
+        layer_spec.pattern,
+        layer_spec.width,
+        layer_spec.height,
+        cached.uncompressed_size(),
+        cached.compressed_size(),
+        cached.compressed_size() as f32 / cached.uncompressed_size() as f32 * 100.0
+    );
+    cache_guard.insert(cache_key, cached);
+
+    Ok(buffer)
+}
+
+/// Render a composition to PNG bytes using cached layers.
+fn render_composition_to_png(
+    spec: &ComposerSpec,
+    layer_specs: &[LayerSpec],
+    cache: &LayerCache,
+    dither_algo: DitheringAlgorithm,
+) -> Result<Vec<u8>, String> {
+    // Get intensity buffers for all layers
+    let intensity_buffers: Vec<Vec<f32>> = layer_specs
+        .iter()
+        .map(|spec| get_or_render_layer(spec, cache))
+        .collect::<Result<_, _>>()?;
+
+    // Build references for compositing
+    let cached_refs: Vec<CachedLayerRef<'_>> = layer_specs
+        .iter()
+        .zip(intensity_buffers.iter())
+        .map(|(spec, intensity)| CachedLayerRef {
+            spec,
+            intensity: intensity.as_slice(),
+        })
+        .collect();
+
+    // Composite and dither
+    let raster_data = render_with_cached_layers(
+        spec.width,
+        spec.height,
+        spec.background,
+        &cached_refs,
+        dither_algo,
+    );
+
+    render::raster_to_png(spec.width, spec.height, &raster_data)
+}
+
+/// POST /api/composer/preview - Generate PNG preview of composition.
+pub async fn preview(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<ComposerPreviewRequest>,
+) -> Result<impl IntoResponse, (StatusCode, String)> {
+    if req.spec.width == 0 || req.spec.height == 0 {
+        return Err((StatusCode::BAD_REQUEST, "Width and height must be positive".into()));
+    }
+
     let dither_algo = parse_dither(&req.dither);
-    let width = req.spec.width;
-    let height = req.spec.height;
+    let spec = req.spec.clone();
+    let layer_specs = req.spec.layers;
+    let cache = state.layer_cache.clone();
 
-    // Run CPU-intensive rendering in blocking task to avoid starving the tokio runtime
     let png_bytes = tokio::task::spawn_blocking(move || {
-        // Create composer from spec
-        let composer = Composer::from_spec(&req.spec)?;
-
-        // Render the composition
-        let raster_data = composer.render(dither_algo);
-
-        // Convert to PNG
-        render::raster_to_png(width, height, &raster_data)
+        render_composition_to_png(&spec, &layer_specs, &cache, dither_algo)
     })
     .await
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Task error: {}", e)))?
