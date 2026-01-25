@@ -8,7 +8,7 @@
 //! satin, and basket weave. The pattern shows the over-under structure
 //! of warp and weft threads.
 
-use super::clamp01;
+use crate::shader::*;
 use rand::Rng;
 use std::fmt;
 
@@ -115,20 +115,6 @@ impl fmt::Display for Params {
     }
 }
 
-/// Hash function for texture noise.
-fn hash(mut x: u32) -> u32 {
-    x = x.wrapping_mul(0x45d9f3b);
-    x ^= x >> 16;
-    x = x.wrapping_mul(0x45d9f3b);
-    x ^= x >> 16;
-    x
-}
-
-fn hash_f32(x: u32, y: u32, seed: u32) -> f32 {
-    let h = hash(x.wrapping_mul(374761393).wrapping_add(y.wrapping_mul(668265263)).wrapping_add(seed));
-    (h as f32) / (u32::MAX as f32)
-}
-
 /// Determine if warp is on top at this cell.
 fn warp_on_top(cell_x: usize, cell_y: usize, weave_type: WeaveType, shift: usize) -> bool {
     match weave_type {
@@ -173,7 +159,7 @@ pub fn shade(x: usize, y: usize, _width: usize, _height: usize, params: &Params)
 
     let cell_size = params.thread_width + params.gap;
 
-    // Determine which cell we're in
+    // Determine which cell we're in (original formula for backward compatibility)
     let cell_x = (xf / cell_size).floor() as usize;
     let cell_y = (yf / cell_size).floor() as usize;
 
@@ -193,8 +179,8 @@ pub fn shade(x: usize, y: usize, _width: usize, _height: usize, params: &Params)
     // Determine which thread is on top
     let warp_top = warp_on_top(cell_x, cell_y, params.weave_type, params.shift);
 
-    // Thread texture
-    let texture_noise = hash_f32(
+    // Thread texture noise
+    let texture_noise = hash2_f32(
         (xf * 2.0) as u32,
         (yf * 2.0) as u32,
         params.seed,

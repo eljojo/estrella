@@ -8,7 +8,7 @@
 //! channels as they go. Creates branching river patterns, valleys, and
 //! canyon-like structures reminiscent of aerial landscape photography.
 
-use super::clamp01;
+use crate::shader::*;
 use rand::Rng;
 use std::fmt;
 
@@ -71,59 +71,6 @@ impl fmt::Display for Params {
         )
     }
 }
-
-/// Simple hash function.
-fn hash(mut x: u32) -> u32 {
-    x = x.wrapping_mul(0x45d9f3b);
-    x ^= x >> 16;
-    x = x.wrapping_mul(0x45d9f3b);
-    x ^= x >> 16;
-    x
-}
-
-/// Value noise.
-fn noise2d(x: f32, y: f32, seed: u32) -> f32 {
-    let xi = x.floor() as i32;
-    let yi = y.floor() as i32;
-    let xf = x - x.floor();
-    let yf = y - y.floor();
-
-    let u = xf * xf * (3.0 - 2.0 * xf);
-    let v = yf * yf * (3.0 - 2.0 * yf);
-
-    let h = |ix: i32, iy: i32| -> f32 {
-        let n = hash(seed.wrapping_add(ix as u32).wrapping_mul(374761393)
-            .wrapping_add(iy as u32).wrapping_mul(668265263));
-        (n as f32) / (u32::MAX as f32)
-    };
-
-    let n00 = h(xi, yi);
-    let n10 = h(xi + 1, yi);
-    let n01 = h(xi, yi + 1);
-    let n11 = h(xi + 1, yi + 1);
-
-    let nx0 = n00 * (1.0 - u) + n10 * u;
-    let nx1 = n01 * (1.0 - u) + n11 * u;
-    nx0 * (1.0 - v) + nx1 * v
-}
-
-/// Fractal noise.
-fn fbm(x: f32, y: f32, octaves: usize, seed: u32) -> f32 {
-    let mut value = 0.0;
-    let mut amplitude = 0.5;
-    let mut frequency = 1.0;
-    let mut max_value = 0.0;
-
-    for i in 0..octaves {
-        value += amplitude * noise2d(x * frequency, y * frequency, seed.wrapping_add(i as u32 * 1000));
-        max_value += amplitude;
-        amplitude *= 0.5;
-        frequency *= 2.0;
-    }
-
-    value / max_value
-}
-
 
 /// Erosion pattern.
 #[derive(Debug, Clone)]
@@ -188,15 +135,15 @@ pub fn shade(x: usize, y: usize, _width: usize, _height: usize, params: &Params)
     let light_x = 0.7f32;
     let light_y = -0.7f32;
     let hillshade = (grad_x * light_x + grad_y * light_y) * 5.0 + 0.5;
-    let hillshade = hillshade.clamp(0.0, 1.0);
+    let hillshade = clamp01(hillshade);
 
     // Combine layers
     let ridges = ridge1 * 0.6 + ridge2 * 0.4;
     let base = terrain * 0.3 + ridges * 0.3 + hillshade * 0.2 + contour * 0.2;
 
     // Apply contrast and enhance
-    let enhanced = (base * 2.0 - 0.3).clamp(0.0, 1.0);
-    clamp01(enhanced.powf(params.contrast))
+    let enhanced = clamp01(base * 2.0 - 0.3);
+    gamma(clamp01(enhanced), params.contrast)
 }
 
 impl super::Pattern for Erosion {

@@ -8,7 +8,7 @@
 //! The pattern mimics ice crystals, snowflakes, frost on windows, or mineral
 //! dendrites with configurable symmetry and branching characteristics.
 
-use super::clamp01;
+use crate::shader::*;
 use rand::Rng;
 use std::fmt;
 
@@ -71,36 +71,6 @@ impl fmt::Display for Params {
     }
 }
 
-/// Simple hash for deterministic randomness.
-fn hash(mut x: u32) -> u32 {
-    x = x.wrapping_mul(0x45d9f3b);
-    x ^= x >> 16;
-    x = x.wrapping_mul(0x45d9f3b);
-    x ^= x >> 16;
-    x
-}
-
-fn hash_float(x: u32) -> f32 {
-    (hash(x) as f32) / (u32::MAX as f32)
-}
-
-/// Distance from point to line segment.
-fn point_to_segment_dist(px: f32, py: f32, x1: f32, y1: f32, x2: f32, y2: f32) -> f32 {
-    let dx = x2 - x1;
-    let dy = y2 - y1;
-    let len_sq = dx * dx + dy * dy;
-
-    if len_sq < 0.0001 {
-        return ((px - x1).powi(2) + (py - y1).powi(2)).sqrt();
-    }
-
-    let t = ((px - x1) * dx + (py - y1) * dy) / len_sq;
-    let t = t.clamp(0.0, 1.0);
-
-    let proj_x = x1 + t * dx;
-    let proj_y = y1 + t * dy;
-    ((px - proj_x).powi(2) + (py - proj_y).powi(2)).sqrt()
-}
 
 /// Recursively check distance to crystal branches.
 fn crystal_distance(
@@ -121,10 +91,10 @@ fn crystal_distance(
     let ey = cy + angle.sin() * length;
 
     // Distance to this branch segment
-    let mut min_dist = point_to_segment_dist(px, py, cx, cy, ex, ey);
+    let mut min_dist = dist_to_segment(px, py, cx, cy, ex, ey);
 
     // Early exit if we're far away
-    let branch_dist = ((px - cx).powi(2) + (py - cy).powi(2)).sqrt();
+    let branch_dist = dist(px, py, cx, cy);
     if branch_dist > length * 3.0 {
         return min_dist;
     }
@@ -136,12 +106,12 @@ fn crystal_distance(
     for i in 0..num_branches {
         *rng_state = hash(*rng_state);
         let angle_offset = (i as f32 - (num_branches - 1) as f32 / 2.0) * params.spread;
-        let variation = (hash_float(*rng_state) - 0.5) * 0.2;
+        let variation = (hash_f32(*rng_state, 0) - 0.5) * 0.2;
         let branch_angle = angle + angle_offset + variation;
 
         // Branch from a point along this segment
         *rng_state = hash(*rng_state);
-        let t = 0.3 + hash_float(*rng_state) * 0.5;
+        let t = 0.3 + hash_f32(*rng_state, 0) * 0.5;
         let bx = cx + angle.cos() * length * t;
         let by = cy + angle.sin() * length * t;
 

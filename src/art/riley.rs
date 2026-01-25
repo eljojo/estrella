@@ -8,7 +8,7 @@
 //! frequencies combine to create the characteristic optical illusion of
 //! movement and depth found in Riley's work.
 
-use super::clamp01;
+use crate::shader::*;
 use rand::Rng;
 use std::fmt;
 
@@ -91,19 +91,11 @@ pub fn shade(x: usize, y: usize, _width: usize, _height: usize, params: &Params)
     // Displaced y position
     let displaced_y = yf + displacement;
 
-    // Distance to nearest line
-    let line_pos = displaced_y / params.line_spacing;
-    let dist_to_line = (line_pos.fract() - 0.5).abs() * params.line_spacing;
+    // Distance from cell center (line at center of each cell)
+    let dist_to_line = dist_from_cell_center(displaced_y, params.line_spacing);
 
     // Anti-aliased line
-    let half_thickness = params.thickness / 2.0;
-    if dist_to_line < half_thickness {
-        1.0
-    } else if dist_to_line < half_thickness + 1.0 {
-        clamp01(1.0 - (dist_to_line - half_thickness))
-    } else {
-        0.0
-    }
+    aa_edge(dist_to_line, params.thickness / 2.0, 1.0)
 }
 
 /// Riley op-art pattern.

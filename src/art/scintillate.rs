@@ -9,7 +9,7 @@
 //! appear to contain ghostly dark dots that "scintillate" or flicker.
 //! This exploits lateral inhibition in the human visual system.
 
-use super::clamp01;
+use crate::shader::*;
 use rand::Rng;
 use std::fmt;
 
@@ -81,9 +81,9 @@ pub fn shade(x: usize, y: usize, _width: usize, _height: usize, params: &Params)
     let gx = xf / params.cell_size;
     let gy = yf / params.cell_size;
 
-    // Distance to nearest grid line (centered in cell)
-    let dx = (gx.fract() - 0.5).abs() * params.cell_size;
-    let dy = (gy.fract() - 0.5).abs() * params.cell_size;
+    // Distance from cell center
+    let dx = dist_from_cell_center(xf, params.cell_size);
+    let dy = dist_from_cell_center(yf, params.cell_size);
 
     let half_line = params.line_thickness / 2.0;
 
@@ -94,7 +94,7 @@ pub fn shade(x: usize, y: usize, _width: usize, _height: usize, params: &Params)
     // Distance to nearest intersection
     let nearest_ix = (gx + 0.5).floor() * params.cell_size;
     let nearest_iy = (gy + 0.5).floor() * params.cell_size;
-    let dist_to_intersection = ((xf - nearest_ix).powi(2) + (yf - nearest_iy).powi(2)).sqrt();
+    let dist_to_intersection = dist(xf, yf, nearest_ix, nearest_iy);
 
     // White dot at intersection
     if dist_to_intersection < params.dot_radius {
@@ -104,7 +104,7 @@ pub fn shade(x: usize, y: usize, _width: usize, _height: usize, params: &Params)
         } else {
             // Anti-alias dot edge
             let t = edge_dist;
-            return clamp01(params.dot_intensity * t + params.line_intensity * (1.0 - t));
+            return clamp01(lerp(params.line_intensity, params.dot_intensity, t));
         }
     }
 

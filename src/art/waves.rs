@@ -11,7 +11,7 @@
 //! v = 0.45 * horiz + 0.30 * vert + 0.25 * radial
 //! ```
 
-use super::clamp01;
+use crate::shader::{clamp01, dist, gamma, normalize};
 use rand::Rng;
 use std::fmt;
 
@@ -84,10 +84,10 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
     let wf = width as f32;
     let hf = height as f32;
 
-    // Normalized coordinates in [-1, 1]
-    let nx = 2.0 * xf / wf - 1.0;
-    let ny = 2.0 * yf / hf - 1.0;
-    let r = (nx * nx + ny * ny).sqrt();
+    // Normalized coordinates in [-1, 1] using shader primitive
+    let nx = normalize(xf, wf);
+    let ny = normalize(yf, hf);
+    let r = dist(nx, ny, 0.0, 0.0);
 
     // Horizontal waves with vertical modulation
     let horiz = (xf / params.horiz_freq + 0.7 * (yf / 37.0).sin()).sin();
@@ -108,7 +108,7 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
         + params.vert_weight * vert_norm
         + params.radial_weight * radial_norm;
 
-    clamp01(v).powf(params.gamma)
+    gamma(clamp01(v), params.gamma)
 }
 
 /// Waves pattern.

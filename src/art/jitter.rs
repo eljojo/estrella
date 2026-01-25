@@ -20,7 +20,7 @@
 //! v = clamp01(base * band_mod + edge_darkening) ^ gamma
 //! ```
 
-use super::clamp01;
+use crate::shader::*;
 use rand::Rng;
 use std::fmt;
 
@@ -104,19 +104,16 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
     let wf = width as f32;
     let hf = height as f32;
 
-    // Compute base ripple pattern
-    let cx = wf / 2.0;
-    let cy = hf / 2.0;
-    let dx = xf - cx;
-    let dy = yf - cy;
-    let r = (dx * dx + dy * dy).sqrt();
+    // Compute base ripple pattern using shader primitives
+    let (dx, dy) = center_coords(xf, yf, wf, hf);
+    let r = dist(dx, dy, 0.0, 0.0);
 
-    let ripple = 0.5 + 0.5 * (r / params.scale - yf / params.drift).cos();
-    let wobble = 0.5 + 0.5 * (xf / 37.0 + 0.7 * (yf / 53.0).cos()).sin();
-    let v = (1.0 - params.wobble_mix) * ripple + params.wobble_mix * wobble;
+    let ripple = wave_cos(r, 1.0 / params.scale, -yf / params.drift);
+    let wobble = wave_sin(xf, 1.0 / 37.0, 0.7 * (yf / 53.0).cos());
+    let v = lerp(ripple, wobble, params.wobble_mix);
 
-    // Create banding
-    let band_num = y / params.band_height;
+    // Create banding using shader primitives
+    let band_num = band_index(y, params.band_height);
     let band_y = y % params.band_height;
 
     // Intensity varies slightly per band (simulates jitter/cooldown)
@@ -132,7 +129,7 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
     };
 
     let modified = (v * band_mod) + edge_darkening;
-    clamp01(modified).powf(params.gamma)
+    gamma(modified, params.gamma)
 }
 
 /// Jitter/banding pattern.

@@ -11,7 +11,7 @@
 //! v = (1 - contours) ^ 2.2  // invert so lines are dark
 //! ```
 
-use super::clamp01;
+use crate::shader::*;
 use rand::Rng;
 use std::fmt;
 
@@ -75,8 +75,8 @@ pub fn shade(x: usize, y: usize, _width: usize, _height: usize, params: &Params)
     let t_wrapped = t - t.floor(); // fmod to [0, 1)
     let contours = (t_wrapped - 0.5).abs() * 2.0; // 0 at midline
 
-    // Invert so contour lines are dark
-    clamp01(1.0 - contours).powf(params.gamma)
+    // Invert so contour lines are dark, then apply gamma
+    gamma(invert(contours), params.gamma)
 }
 
 /// Topography pattern.

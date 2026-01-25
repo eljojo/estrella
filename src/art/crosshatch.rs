@@ -8,9 +8,8 @@
 //! engraving and pen & ink illustration. Multiple layers of parallel
 //! lines at different angles create varying tonal densities.
 
-use super::clamp01;
+use crate::shader::*;
 use rand::Rng;
-use std::f32::consts::PI;
 use std::fmt;
 
 /// Parameters for cross-hatch pattern.
@@ -75,48 +74,8 @@ impl fmt::Display for Params {
     }
 }
 
-/// Hash for noise.
-fn hash(mut x: u32) -> u32 {
-    x = x.wrapping_mul(0x45d9f3b);
-    x ^= x >> 16;
-    x = x.wrapping_mul(0x45d9f3b);
-    x ^= x >> 16;
-    x
-}
-
-fn noise2d(x: f32, y: f32, seed: u32) -> f32 {
-    let xi = x.floor() as i32;
-    let yi = y.floor() as i32;
-    let xf = x - x.floor();
-    let yf = y - y.floor();
-
-    let u = xf * xf * (3.0 - 2.0 * xf);
-    let v = yf * yf * (3.0 - 2.0 * yf);
-
-    let h = |ix: i32, iy: i32| -> f32 {
-        let n = hash(
-            seed.wrapping_add((ix as u32).wrapping_mul(374761393))
-                .wrapping_add((iy as u32).wrapping_mul(668265263)),
-        );
-        (n as f32) / (u32::MAX as f32)
-    };
-
-    let n00 = h(xi, yi);
-    let n10 = h(xi + 1, yi);
-    let n01 = h(xi, yi + 1);
-    let n11 = h(xi + 1, yi + 1);
-
-    let nx0 = n00 * (1.0 - u) + n10 * u;
-    let nx1 = n01 * (1.0 - u) + n11 * u;
-    nx0 * (1.0 - v) + nx1 * v
-}
-
 /// Render a single hatch layer.
 fn hatch_layer(x: f32, y: f32, angle_deg: f32, spacing: f32, thickness: f32, wobble: f32, seed: u32) -> f32 {
-    let angle = angle_deg * PI / 180.0;
-    let cos_a = angle.cos();
-    let sin_a = angle.sin();
-
     // Add wobble
     let wobble_offset = if wobble > 0.0 {
         let n = noise2d(x * 0.05, y * 0.05, seed);
@@ -125,22 +84,15 @@ fn hatch_layer(x: f32, y: f32, angle_deg: f32, spacing: f32, thickness: f32, wob
         0.0
     };
 
-    // Rotate coordinates
-    let rotated = x * cos_a + y * sin_a + wobble_offset;
+    // Project onto rotated axis (line perpendicular distance)
+    let angle = angle_deg * std::f32::consts::PI / 180.0;
+    let rotated = x * angle.cos() + y * angle.sin() + wobble_offset;
 
-    // Distance to nearest line
-    let line_pos = rotated / spacing;
-    let dist = (line_pos.fract() - 0.5).abs() * spacing;
+    // Distance from cell center
+    let d = dist_from_cell_center(rotated, spacing);
 
     // Anti-aliased line
-    let half_thick = thickness / 2.0;
-    if dist < half_thick {
-        1.0
-    } else if dist < half_thick + 0.5 {
-        1.0 - (dist - half_thick) * 2.0
-    } else {
-        0.0
-    }
+    aa_edge(d, thickness / 2.0, 0.5)
 }
 
 pub fn shade(x: usize, y: usize, _width: usize, _height: usize, params: &Params) -> f32 {

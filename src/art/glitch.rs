@@ -12,7 +12,7 @@
 //! v = max(0.55 * base + 0.45 * wobble, scan)
 //! ```
 
-use super::clamp01;
+use crate::shader::*;
 use rand::Rng;
 use std::fmt;
 
@@ -93,14 +93,13 @@ pub fn shade(x: usize, y: usize, _width: usize, _height: usize, params: &Params)
     let col = (x / params.column_width) as f32;
 
     // Base intensity varies by column
-    let base = (col * params.column_freq).sin() * 0.5 + 0.5;
+    let base = wave_sin(col, params.column_freq, 0.0);
 
     // Wobble adds horizontal variation
-    let wobble = 0.5 + 0.5 * ((xf + yf * params.wobble_vert) / params.wobble_freq).sin();
+    let wobble = wave_sin(xf + yf * params.wobble_vert, 1.0 / params.wobble_freq, 0.0);
 
     // Scanlines: dark lines at regular intervals
-    let scan_pos = y % params.scanline_period;
-    let scan = if scan_pos < params.scanline_thickness {
+    let scan = if scanline(y, params.scanline_period, params.scanline_thickness) {
         1.0
     } else {
         0.0
@@ -108,7 +107,7 @@ pub fn shade(x: usize, y: usize, _width: usize, _height: usize, params: &Params)
 
     // Blend base and wobble, then overlay scanlines
     let blended = params.base_weight * base + params.wobble_weight * wobble;
-    clamp01(blended.max(scan)).powf(params.gamma)
+    gamma(clamp01(blended.max(scan)), params.gamma)
 }
 
 /// Glitch pattern.

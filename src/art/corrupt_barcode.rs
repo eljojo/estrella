@@ -8,7 +8,7 @@
 //! Vertical bars stretch, tear, and glitch horizontally with noise
 //! interference and data corruption artifacts.
 
-use super::clamp01;
+use crate::shader::*;
 use rand::Rng;
 use std::fmt;
 
@@ -66,20 +66,6 @@ impl fmt::Display for Params {
     }
 }
 
-/// Simple hash for pseudo-random values.
-fn hash(x: u32) -> u32 {
-    let mut h = x;
-    h = h.wrapping_mul(0x45d9f3b);
-    h ^= h >> 16;
-    h = h.wrapping_mul(0x45d9f3b);
-    h ^= h >> 16;
-    h
-}
-
-fn hash_f32(x: u32, seed: u32) -> f32 {
-    (hash(x.wrapping_add(seed)) as f32) / (u32::MAX as f32)
-}
-
 /// Generate a pseudo-random barcode pattern.
 fn barcode_value(bar_index: usize, seed: u32) -> bool {
     // Generate seemingly random but deterministic bar pattern
@@ -95,7 +81,7 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
     let hf = height as f32;
 
     // Calculate horizontal tear/displacement based on y position
-    let tear_noise = (yf * params.tear_freq).sin() * 0.5 + 0.5;
+    let tear_noise = wave_sin(yf, params.tear_freq, 0.0);
     let tear_amount = tear_noise * params.corruption * 30.0;
 
     // Add additional tear based on y zones
@@ -107,7 +93,7 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
 
     let displaced_x = xf + tear_amount + zone_tear;
 
-    // Calculate stretch zones (vertical bands that stretch/compress)
+    // Calculate stretch zones
     let stretch_zone = (xf / wf * params.stretch_zones as f32).floor() as usize;
     let stretch_factor = 0.5 + hash_f32(stretch_zone as u32, params.seed.wrapping_add(100)) * 1.5;
 
@@ -118,26 +104,23 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
     let is_bar = barcode_value(bar_index, params.seed);
     let base = if is_bar { 1.0 } else { 0.0 };
 
-    // Add vertical corruption zones (data decay)
+    // Add vertical corruption zones
     let decay_zone = (yf / hf * 8.0).floor() as u32;
     let decay = hash_f32(decay_zone.wrapping_add(bar_index as u32), params.seed.wrapping_add(200));
     let corrupted = if decay < params.corruption * 0.3 {
-        1.0 - base // Invert some areas
+        invert(base) // Invert some areas
     } else {
         base
     };
 
     // Add noise interference
-    let noise_val = hash_f32(
-        (x as u32).wrapping_mul(373).wrapping_add((y as u32).wrapping_mul(677)),
-        params.seed.wrapping_add(300),
-    );
-    let with_noise = corrupted * (1.0 - params.noise) + noise_val * params.noise;
+    let noise_val = hash2_f32(x as u32, y as u32, params.seed.wrapping_add(300));
+    let with_noise = lerp(corrupted, noise_val, params.noise);
 
     // Add scanline glitches
-    let scanline = if y % 24 < 1 { 0.3 } else { 0.0 };
+    let scan_artifact = if scanline(y, 24, 1) { 0.3 } else { 0.0 };
 
-    clamp01(with_noise + scanline)
+    clamp01(with_noise + scan_artifact)
 }
 
 /// Corrupt barcode pattern.

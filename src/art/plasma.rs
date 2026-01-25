@@ -9,7 +9,7 @@
 //! normalized = (plasma + 4) / 8
 //! ```
 
-use super::clamp01;
+use crate::shader::{clamp01, dist, gamma};
 use rand::Rng;
 use std::fmt;
 
@@ -85,17 +85,17 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
     let cx = wf * params.center_x;
     let cy = hf * params.center_y;
 
-    // Multiple overlapping sine waves
+    // Multiple overlapping sine waves using shader distance primitive
     let plasma = (xf / params.freq1).sin()
         + ((xf + yf) / params.freq2).sin()
         + (yf / params.freq3).cos()
-        + ((xf - cx).hypot(yf - cy) / params.freq4).sin();
+        + (dist(xf, yf, cx, cy) / params.freq4).sin();
 
     // Normalize from roughly [-4, 4] to [0, 1]
     let normalized = (plasma + 4.0) / 8.0;
 
-    // Apply gamma for contrast
-    clamp01(normalized).powf(params.gamma)
+    // Apply gamma for contrast using shader primitive
+    gamma(clamp01(normalized), params.gamma)
 }
 
 /// Plasma pattern.

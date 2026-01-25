@@ -29,12 +29,18 @@ pub use art::mycelium::Mycelium;
 pub use art::overburn::Overburn;
 pub use art::plasma::Plasma;
 pub use art::riley::Riley;
+pub use art::riley_check::RileyCheck;
+pub use art::riley_curve::RileyCurve;
 pub use art::rings::Rings;
 pub use art::ripple::Ripple;
 pub use art::scintillate::Scintillate;
 pub use art::topography::Topography;
+pub use art::tunnel::Tunnel;
 pub use art::vasarely::Vasarely;
+pub use art::vasarely_bubbles::VasarelyBubbles;
+pub use art::vasarely_hex::VasarelyHex;
 pub use art::waves::Waves;
+pub use art::zebra::Zebra;
 // Glitch / Digital
 pub use art::corrupt_barcode::CorruptBarcode;
 pub use art::databend::Databend;
@@ -84,7 +90,7 @@ mod tests {
         assert!(patterns.contains(&"corrupt_barcode"));
         assert!(patterns.contains(&"voronoi"));
         assert!(patterns.contains(&"weave"));
-        assert_eq!(patterns.len(), 31);
+        assert_eq!(patterns.len(), 37);
     }
 
     #[test]

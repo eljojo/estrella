@@ -8,7 +8,7 @@
 //! where portions of scanlines are displaced, creating a broken,
 //! glitched aesthetic reminiscent of corrupted video feeds.
 
-use super::clamp01;
+use crate::shader::*;
 use rand::Rng;
 use std::fmt;
 
@@ -70,18 +70,6 @@ impl fmt::Display for Params {
     }
 }
 
-fn hash(mut x: u32) -> u32 {
-    x = x.wrapping_mul(0x45d9f3b);
-    x ^= x >> 16;
-    x = x.wrapping_mul(0x45d9f3b);
-    x ^= x >> 16;
-    x
-}
-
-fn hash_f32(x: u32, seed: u32) -> f32 {
-    (hash(x.wrapping_add(seed)) as f32) / (u32::MAX as f32)
-}
-
 /// Determine if a scanline is in a tear zone and get displacement.
 fn get_tear_displacement(y: usize, height: usize, params: &Params) -> f32 {
     let zone_height = height / params.tear_zones.max(1);
@@ -109,11 +97,11 @@ fn get_tear_displacement(y: usize, height: usize, params: &Params) -> f32 {
 /// Create base pattern (gradient bands).
 fn base_pattern(x: f32, y: f32, params: &Params) -> f32 {
     // Diagonal gradient bands
-    let band1 = ((x + y) * params.pattern_freq).sin() * 0.5 + 0.5;
+    let band1 = wave_sin(x + y, params.pattern_freq, 0.0);
     // Horizontal bands
-    let band2 = (y * params.pattern_freq * 2.0).sin() * 0.5 + 0.5;
+    let band2 = wave_sin(y, params.pattern_freq * 2.0, 0.0);
     // Vertical variation
-    let band3 = (x * params.pattern_freq * 0.5).sin() * 0.5 + 0.5;
+    let band3 = wave_sin(x, params.pattern_freq * 0.5, 0.0);
 
     band1 * 0.5 + band2 * 0.3 + band3 * 0.2
 }
@@ -148,13 +136,10 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
     };
 
     // Add static noise
-    let noise = hash_f32(
-        (x as u32).wrapping_mul(997).wrapping_add((y as u32).wrapping_mul(991)),
-        params.seed.wrapping_add(200),
-    ) * params.static_noise;
+    let noise = hash2_f32(x as u32, y as u32, params.seed.wrapping_add(200)) * params.static_noise;
 
     // Add horizontal sync artifacts (faint lines)
-    let hsync = if y % 2 == 0 { 0.02 } else { 0.0 };
+    let hsync = if scanline(y, 2, 1) { 0.02 } else { 0.0 };
 
     // Color fringing at tear edges (simulate RGB offset)
     let fringe = if displacement.abs() > 1.0 {

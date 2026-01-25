@@ -8,6 +8,7 @@
 //! seed point. The result looks like shattered glass, cellular structures,
 //! or cracked earth depending on the rendering mode.
 
+use crate::shader::*;
 use rand::Rng;
 use std::fmt;
 
@@ -101,18 +102,6 @@ impl fmt::Display for Params {
     }
 }
 
-/// Hash function for pseudo-random values.
-fn hash(mut x: u32) -> u32 {
-    x = x.wrapping_mul(0x45d9f3b);
-    x ^= x >> 16;
-    x = x.wrapping_mul(0x45d9f3b);
-    x ^= x >> 16;
-    x
-}
-
-fn hash_f32(x: u32, seed: u32) -> f32 {
-    (hash(x.wrapping_add(seed)) as f32) / (u32::MAX as f32)
-}
 
 /// Generate seed points.
 fn generate_points(num: usize, width: usize, height: usize, seed: u32) -> Vec<(f32, f32)> {
@@ -123,19 +112,6 @@ fn generate_points(num: usize, width: usize, height: usize, seed: u32) -> Vec<(f
         points.push((px, py));
     }
     points
-}
-
-/// Distance function with configurable metric.
-fn distance(x1: f32, y1: f32, x2: f32, y2: f32, power: f32) -> f32 {
-    let dx = (x1 - x2).abs();
-    let dy = (y1 - y2).abs();
-    if power == 2.0 {
-        (dx * dx + dy * dy).sqrt()
-    } else if power == 1.0 {
-        dx + dy
-    } else {
-        (dx.powf(power) + dy.powf(power)).powf(1.0 / power)
-    }
 }
 
 /// Find the two nearest points and return distances.
@@ -150,7 +126,14 @@ fn find_nearest_two(
     let mut min_idx = 0;
 
     for (i, &(px, py)) in points.iter().enumerate() {
-        let d = distance(x, y, px, py, metric_power);
+        // Use shader's dist_minkowski for configurable metric (handles p=1, p=2, and other powers)
+        let d = if metric_power == 2.0 {
+            dist(x, y, px, py)
+        } else if metric_power == 1.0 {
+            dist_manhattan(x, y, px, py)
+        } else {
+            dist_minkowski(x, y, px, py, metric_power)
+        };
         if d < min_dist {
             second_dist = min_dist;
             min_dist = d;

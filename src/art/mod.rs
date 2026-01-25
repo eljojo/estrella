@@ -32,17 +32,23 @@ pub mod overburn;
 pub mod plasma;
 pub mod reaction_diffusion;
 pub mod riley;
+pub mod riley_check;
+pub mod riley_curve;
 pub mod rings;
 pub mod ripple;
 pub mod scanline_tear;
 pub mod scintillate;
 pub mod stipple;
 pub mod topography;
+pub mod tunnel;
 pub mod vasarely;
+pub mod vasarely_bubbles;
+pub mod vasarely_hex;
 pub mod voronoi;
 pub mod waves;
 pub mod weave;
 pub mod woodgrain;
+pub mod zebra;
 
 /// All available patterns, in display order.
 pub const PATTERNS: &[&str] = &[
@@ -55,8 +61,14 @@ pub const PATTERNS: &[&str] = &[
     "glitch",
     // Op art
     "riley",
+    "riley_check",
+    "riley_curve",
     "vasarely",
+    "vasarely_hex",
+    "vasarely_bubbles",
     "scintillate",
+    "tunnel",
+    "zebra",
     // Generative/organic
     "flowfield",
     "erosion",
@@ -238,8 +250,14 @@ pub fn by_name_golden(name: &str) -> Option<Box<dyn Pattern>> {
         "topography" => Some(Box::new(topography::Topography::golden())),
         "glitch" => Some(Box::new(glitch::Glitch::golden())),
         "riley" => Some(Box::new(riley::Riley::golden())),
+        "riley_check" => Some(Box::new(riley_check::RileyCheck::golden())),
+        "riley_curve" => Some(Box::new(riley_curve::RileyCurve::golden())),
         "vasarely" => Some(Box::new(vasarely::Vasarely::golden())),
+        "vasarely_hex" => Some(Box::new(vasarely_hex::VasarelyHex::golden())),
+        "vasarely_bubbles" => Some(Box::new(vasarely_bubbles::VasarelyBubbles::golden())),
         "scintillate" => Some(Box::new(scintillate::Scintillate::golden())),
+        "tunnel" => Some(Box::new(tunnel::Tunnel::golden())),
+        "zebra" => Some(Box::new(zebra::Zebra::golden())),
         "flowfield" => Some(Box::new(flowfield::Flowfield::golden())),
         "erosion" => Some(Box::new(erosion::Erosion::golden())),
         "crystal" => Some(Box::new(crystal::Crystal::golden())),
@@ -281,8 +299,14 @@ pub fn by_name_random(name: &str) -> Option<Box<dyn Pattern>> {
         "topography" => Some(Box::new(topography::Topography::random())),
         "glitch" => Some(Box::new(glitch::Glitch::random())),
         "riley" => Some(Box::new(riley::Riley::random())),
+        "riley_check" => Some(Box::new(riley_check::RileyCheck::random())),
+        "riley_curve" => Some(Box::new(riley_curve::RileyCurve::random())),
         "vasarely" => Some(Box::new(vasarely::Vasarely::random())),
+        "vasarely_hex" => Some(Box::new(vasarely_hex::VasarelyHex::random())),
+        "vasarely_bubbles" => Some(Box::new(vasarely_bubbles::VasarelyBubbles::random())),
         "scintillate" => Some(Box::new(scintillate::Scintillate::random())),
+        "tunnel" => Some(Box::new(tunnel::Tunnel::random())),
+        "zebra" => Some(Box::new(zebra::Zebra::random())),
         "flowfield" => Some(Box::new(flowfield::Flowfield::random())),
         "erosion" => Some(Box::new(erosion::Erosion::random())),
         "crystal" => Some(Box::new(crystal::Crystal::random())),

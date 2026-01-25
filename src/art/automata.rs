@@ -9,6 +9,7 @@
 //! Famous rules like Rule 30 (chaotic) and Rule 110 (Turing complete)
 //! create fascinating emergent patterns.
 
+use crate::shader::*;
 use rand::Rng;
 use std::fmt;
 
@@ -100,14 +101,6 @@ impl fmt::Display for Params {
     }
 }
 
-/// Simple hash for seeded randomness.
-fn hash(mut x: u32) -> u32 {
-    x = x.wrapping_mul(0x45d9f3b);
-    x ^= x >> 16;
-    x = x.wrapping_mul(0x45d9f3b);
-    x ^= x >> 16;
-    x
-}
 
 /// Compute cellular automaton.
 struct CellularAutomaton {

@@ -11,7 +11,8 @@
 //! - Blush marks on cheeks
 //! - Shine highlights
 
-use super::{clamp01, ParamSpec};
+use super::ParamSpec;
+use crate::shader::*;
 use rand::Rng;
 use std::f32::consts::PI;
 use std::fmt;
@@ -200,9 +201,9 @@ fn star_radius(angle: f32, r_outer: f32, r_inner: f32, points: u32, roundness: f
 /// Negative = inside, positive = outside.
 fn star_sdf(x: f32, y: f32, r_outer: f32, r_inner: f32, points: u32, roundness: f32) -> f32 {
     let angle = y.atan2(x);
-    let dist = (x * x + y * y).sqrt();
+    let r = dist(x, y, 0.0, 0.0);
     let target_r = star_radius(angle, r_outer, r_inner, points, roundness);
-    dist - target_r
+    r - target_r
 }
 
 /// Check if point is inside an ellipse.
@@ -364,11 +365,11 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
 
     // Apply anti-aliasing near outline edge
     if star_d > -outline_w * 0.5 {
-        let edge_blend = (-star_d / (outline_w * 0.5)).clamp(0.0, 1.0);
-        intensity = intensity * (1.0 - edge_blend) + 1.0 * edge_blend;
+        let edge_blend = clamp01(-star_d / (outline_w * 0.5));
+        intensity = lerp(intensity, 1.0, edge_blend);
     }
 
-    clamp01(intensity).powf(params.gamma)
+    gamma(intensity, params.gamma)
 }
 
 /// Estrella pattern - cute cartoon star.

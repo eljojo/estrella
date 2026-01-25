@@ -8,7 +8,7 @@
 //! patterns that look like raw memory dumps, glitched images, or corrupted
 //! file data with blocks, streaks, and digital noise.
 
-use super::clamp01;
+use crate::shader::*;
 use rand::Rng;
 use std::fmt;
 
@@ -66,32 +66,13 @@ impl fmt::Display for Params {
     }
 }
 
-/// Hash function for pseudo-random values.
-fn hash(mut x: u32) -> u32 {
-    x = x.wrapping_mul(0x45d9f3b);
-    x ^= x >> 16;
-    x = x.wrapping_mul(0x45d9f3b);
-    x ^= x >> 16;
-    x
-}
-
-fn hash_f32(x: u32, seed: u32) -> f32 {
-    (hash(x.wrapping_add(seed)) as f32) / (u32::MAX as f32)
-}
-
 /// Simulate reading a "byte" from corrupted data.
 fn read_byte(block_x: usize, block_y: usize, seed: u32, bit_depth: usize) -> f32 {
-    let addr = (block_y as u32).wrapping_mul(1000).wrapping_add(block_x as u32);
-    let raw = hash(addr.wrapping_add(seed));
-    let levels = (1 << bit_depth) as f32;
-    let quantized = ((raw as f32 / u32::MAX as f32) * levels).floor() / levels;
-    quantized
+    let raw = hash2_f32(block_x as u32, block_y as u32, seed);
+    stairs(raw, 1 << bit_depth)
 }
 
-pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -> f32 {
-    let _wf = width as f32;
-    let _hf = height as f32;
-
+pub fn shade(x: usize, y: usize, _width: usize, _height: usize, params: &Params) -> f32 {
     // Calculate block coordinates
     let block_x = x / params.block_size;
     let block_y = y / params.block_size;
@@ -106,10 +87,7 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
     };
 
     // Check for block corruption
-    let block_hash = hash_f32(
-        (effective_block_x as u32).wrapping_mul(31).wrapping_add(block_y as u32),
-        params.seed,
-    );
+    let block_hash = hash2_f32(effective_block_x as u32, block_y as u32, params.seed);
     let is_corrupted = block_hash < params.corruption_rate;
 
     if is_corrupted {
@@ -133,10 +111,7 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
                 // Noise burst
                 let local_x = x % params.block_size;
                 let local_y = y % params.block_size;
-                hash_f32(
-                    (local_x as u32).wrapping_mul(17).wrapping_add(local_y as u32),
-                    params.seed.wrapping_add(block_x as u32),
-                )
+                hash2_f32(local_x as u32, local_y as u32, params.seed.wrapping_add(block_x as u32))
             }
             _ => {
                 // Solid block (stuck bit)
@@ -155,8 +130,9 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
         let local_x = x % params.block_size;
         let local_y = y % params.block_size;
         let sub_block = (local_y / 2) * (params.block_size / 2) + (local_x / 2);
-        let variation = hash_f32(
-            (sub_block as u32).wrapping_add((effective_block_x as u32).wrapping_mul(block_y as u32)),
+        let variation = hash2_f32(
+            sub_block as u32,
+            effective_block_x as u32 * block_y as u32,
             params.seed.wrapping_add(200),
         ) * 0.1;
 

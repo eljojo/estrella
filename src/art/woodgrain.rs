@@ -8,7 +8,7 @@
 //! growth rings, and occasional knots. The pattern mimics the natural
 //! variations found in different wood types.
 
-use super::clamp01;
+use crate::shader::*;
 use rand::Rng;
 use std::fmt;
 
@@ -74,64 +74,6 @@ impl fmt::Display for Params {
     }
 }
 
-/// Hash function.
-fn hash(mut x: u32) -> u32 {
-    x = x.wrapping_mul(0x45d9f3b);
-    x ^= x >> 16;
-    x = x.wrapping_mul(0x45d9f3b);
-    x ^= x >> 16;
-    x
-}
-
-fn hash_f32(x: u32, seed: u32) -> f32 {
-    (hash(x.wrapping_add(seed)) as f32) / (u32::MAX as f32)
-}
-
-/// Value noise.
-fn noise2d(x: f32, y: f32, seed: u32) -> f32 {
-    let xi = x.floor() as i32;
-    let yi = y.floor() as i32;
-    let xf = x - x.floor();
-    let yf = y - y.floor();
-
-    let u = xf * xf * (3.0 - 2.0 * xf);
-    let v = yf * yf * (3.0 - 2.0 * yf);
-
-    let h = |ix: i32, iy: i32| -> f32 {
-        let n = hash(
-            seed.wrapping_add((ix as u32).wrapping_mul(374761393))
-                .wrapping_add((iy as u32).wrapping_mul(668265263)),
-        );
-        (n as f32) / (u32::MAX as f32)
-    };
-
-    let n00 = h(xi, yi);
-    let n10 = h(xi + 1, yi);
-    let n01 = h(xi, yi + 1);
-    let n11 = h(xi + 1, yi + 1);
-
-    let nx0 = n00 * (1.0 - u) + n10 * u;
-    let nx1 = n01 * (1.0 - u) + n11 * u;
-    nx0 * (1.0 - v) + nx1 * v
-}
-
-/// Fractal noise.
-fn fbm(x: f32, y: f32, octaves: usize, seed: u32) -> f32 {
-    let mut value = 0.0;
-    let mut amplitude = 0.5;
-    let mut frequency = 1.0;
-    let mut max_value = 0.0;
-
-    for i in 0..octaves {
-        value += amplitude * noise2d(x * frequency, y * frequency, seed.wrapping_add(i as u32 * 1000));
-        max_value += amplitude;
-        amplitude *= 0.5;
-        frequency *= 2.0;
-    }
-
-    value / max_value
-}
-
 /// Generate knot positions.
 fn get_knots(num: usize, width: usize, height: usize, seed: u32) -> Vec<(f32, f32)> {
     let mut knots = Vec::with_capacity(num);
@@ -163,7 +105,7 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
     for (kx, ky) in &knots {
         let dx = xf - kx;
         let dy = yf - ky;
-        let dist = (dx * dx + dy * dy).sqrt();
+        let dist = dist(xf, yf, *kx, *ky);
 
         if dist < params.knot_size * 2.0 {
             // Near a knot, rings curve around it
@@ -178,9 +120,7 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
     ring_dist += noise * params.noise_amount * params.ring_spacing;
 
     // Create rings
-    let ring_pos = ring_dist / params.ring_spacing;
-    let ring_fract = ring_pos.fract();
-    let dist_to_ring = (ring_fract - 0.5).abs() * params.ring_spacing;
+    let dist_to_ring = dist_from_cell_center(ring_dist, params.ring_spacing);
 
     // Ring intensity
     let half_thick = params.ring_thickness / 2.0;
@@ -197,7 +137,7 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
     for (kx, ky) in &knots {
         let dx = xf - kx;
         let dy = yf - ky;
-        let dist = (dx * dx + dy * dy).sqrt();
+        let dist = dist(xf, yf, *kx, *ky);
 
         if dist < params.knot_size {
             // Inside knot: concentric rings

@@ -8,7 +8,7 @@
 //! or Van Gogh's Starry Night. Uses layered noise to create directional flow
 //! that's rendered as varying line density.
 
-use super::clamp01;
+use crate::shader::*;
 use rand::Rng;
 use std::fmt;
 
@@ -71,61 +71,6 @@ impl fmt::Display for Params {
     }
 }
 
-/// Simple hash function for deterministic randomness.
-fn hash(mut x: u32) -> u32 {
-    x = x.wrapping_mul(0x45d9f3b);
-    x ^= x >> 16;
-    x = x.wrapping_mul(0x45d9f3b);
-    x ^= x >> 16;
-    x
-}
-
-/// Value noise at a point.
-fn noise2d(x: f32, y: f32, seed: u32) -> f32 {
-    let xi = x.floor() as i32;
-    let yi = y.floor() as i32;
-    let xf = x - x.floor();
-    let yf = y - y.floor();
-
-    // Smoothstep interpolation
-    let u = xf * xf * (3.0 - 2.0 * xf);
-    let v = yf * yf * (3.0 - 2.0 * yf);
-
-    // Hash corners
-    let h = |ix: i32, iy: i32| -> f32 {
-        let n = hash(seed.wrapping_add((ix as u32).wrapping_mul(374761393))
-            .wrapping_add((iy as u32).wrapping_mul(668265263)));
-        (n as f32) / (u32::MAX as f32)
-    };
-
-    let n00 = h(xi, yi);
-    let n10 = h(xi + 1, yi);
-    let n01 = h(xi, yi + 1);
-    let n11 = h(xi + 1, yi + 1);
-
-    // Bilinear interpolation
-    let nx0 = n00 * (1.0 - u) + n10 * u;
-    let nx1 = n01 * (1.0 - u) + n11 * u;
-    nx0 * (1.0 - v) + nx1 * v
-}
-
-/// Fractal Brownian Motion noise.
-fn fbm(x: f32, y: f32, octaves: usize, seed: u32) -> f32 {
-    let mut value = 0.0;
-    let mut amplitude = 0.5;
-    let mut frequency = 1.0;
-    let mut max_value = 0.0;
-
-    for i in 0..octaves {
-        value += amplitude * noise2d(x * frequency, y * frequency, seed.wrapping_add(i as u32 * 1000));
-        max_value += amplitude;
-        amplitude *= 0.5;
-        frequency *= 2.0;
-    }
-
-    value / max_value
-}
-
 /// Compute flow field intensity at a pixel.
 ///
 /// Returns intensity in [0.0, 1.0].
@@ -167,7 +112,7 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
     let edge_y = (yf / hf).min(1.0 - yf / hf) * 10.0;
     let edge_fade = edge_x.min(edge_y).min(1.0);
 
-    clamp01(final_value * edge_fade).powf(params.gamma)
+    gamma(clamp01(final_value * edge_fade), params.gamma)
 }
 
 /// Flow field pattern.

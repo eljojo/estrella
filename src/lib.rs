@@ -78,6 +78,7 @@ pub mod protocol;
 pub mod receipt;
 pub mod render;
 pub mod server;
+pub mod shader;
 pub mod transport;
 
 // Re-exports for convenience

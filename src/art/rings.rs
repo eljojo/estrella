@@ -11,7 +11,7 @@
 //! v = 0.65 * rings + 0.35 * diag
 //! ```
 
-use super::clamp01;
+use crate::shader::{center_coords, clamp01, dist, gamma, wave_cos, wave_sin};
 use rand::Rng;
 use std::fmt;
 
@@ -80,21 +80,23 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
     let wf = width as f32;
     let hf = height as f32;
 
-    // Normalized coordinates in [-1, 1]
-    let nx = (xf - wf * 0.5) / (wf * 0.5);
-    let ny = (yf - hf * 0.5) / (hf * 0.5);
-    let r = (nx * nx + ny * ny).sqrt();
+    // Center-relative coordinates using shader primitive
+    let (cx, cy) = center_coords(xf, yf, wf, hf);
+    // Normalized to [-1, 1] by dividing by half-dimensions
+    let nx = cx / (wf * 0.5);
+    let ny = cy / (hf * 0.5);
+    let r = dist(nx, ny, 0.0, 0.0);
 
     // Rings emanating from center
-    let rings = 0.5 + 0.5 * (r * params.ring_freq - yf / params.drift).cos();
+    let rings = wave_cos(r, params.ring_freq, -yf / params.drift);
 
     // Diagonal wave pattern
-    let diag = 0.5 + 0.5 * ((xf - 2.0 * yf) / params.diag_freq).sin();
+    let diag = wave_sin(xf - 2.0 * yf, 1.0 / params.diag_freq, 0.0);
 
     // Blend
     let blended = params.ring_weight * rings + params.diag_weight * diag;
 
-    clamp01(blended).powf(params.gamma)
+    gamma(clamp01(blended), params.gamma)
 }
 
 /// Rings pattern.

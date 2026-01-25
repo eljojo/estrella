@@ -11,7 +11,7 @@
 //! v = ripple * (1 - wobble_mix) + wobble * wobble_mix
 //! ```
 
-use super::clamp01;
+use crate::shader::{clamp01, dist, gamma, lerp, wave_cos, wave_sin};
 use rand::Rng;
 use std::fmt;
 
@@ -105,21 +105,19 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
     let cx = wf * params.center_x;
     let cy = hf * params.center_y;
 
-    // Distance from center
-    let dx = xf - cx;
-    let dy = yf - cy;
-    let r = (dx * dx + dy * dy).sqrt();
+    // Distance from center using shader primitive
+    let r = dist(xf, yf, cx, cy);
 
     // Ripple: concentric circles with vertical drift
-    let ripple = 0.5 + 0.5 * (r / params.scale - yf / params.drift).cos();
+    let ripple = wave_cos(r, 1.0 / params.scale, -yf / params.drift);
 
     // Wobble: interference pattern
-    let wobble = 0.5 + 0.5 * (xf / 37.0 + 0.7 * (yf / 53.0).cos()).sin();
+    let wobble = wave_sin(xf, 1.0 / 37.0, 0.7 * (yf / 53.0).cos());
 
     // Blend ripple and wobble
-    let v = ripple * (1.0 - params.wobble_mix) + wobble * params.wobble_mix;
+    let v = lerp(ripple, wobble, params.wobble_mix);
 
-    clamp01(v).powf(params.gamma)
+    gamma(clamp01(v), params.gamma)
 }
 
 /// Ripple pattern.

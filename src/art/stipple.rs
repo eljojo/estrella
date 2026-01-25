@@ -8,6 +8,7 @@
 //! different tonal values, similar to traditional pen & ink illustration
 //! and pointillism techniques.
 
+use crate::shader::*;
 use rand::Rng;
 use std::fmt;
 
@@ -69,84 +70,24 @@ impl fmt::Display for Params {
     }
 }
 
-/// Hash function.
-fn hash(mut x: u32) -> u32 {
-    x = x.wrapping_mul(0x45d9f3b);
-    x ^= x >> 16;
-    x = x.wrapping_mul(0x45d9f3b);
-    x ^= x >> 16;
-    x
-}
-
-fn hash_f32(x: u32, seed: u32) -> f32 {
-    (hash(x.wrapping_add(seed)) as f32) / (u32::MAX as f32)
-}
-
-/// Value noise for tonal variation.
-fn noise2d(x: f32, y: f32, seed: u32) -> f32 {
-    let xi = x.floor() as i32;
-    let yi = y.floor() as i32;
-    let xf = x - x.floor();
-    let yf = y - y.floor();
-
-    let u = xf * xf * (3.0 - 2.0 * xf);
-    let v = yf * yf * (3.0 - 2.0 * yf);
-
-    let h = |ix: i32, iy: i32| -> f32 {
-        let n = hash(
-            seed.wrapping_add((ix as u32).wrapping_mul(374761393))
-                .wrapping_add((iy as u32).wrapping_mul(668265263)),
-        );
-        (n as f32) / (u32::MAX as f32)
-    };
-
-    let n00 = h(xi, yi);
-    let n10 = h(xi + 1, yi);
-    let n01 = h(xi, yi + 1);
-    let n11 = h(xi + 1, yi + 1);
-
-    let nx0 = n00 * (1.0 - u) + n10 * u;
-    let nx1 = n01 * (1.0 - u) + n11 * u;
-    nx0 * (1.0 - v) + nx1 * v
-}
-
-/// Fractal noise.
-fn fbm(x: f32, y: f32, octaves: usize, seed: u32) -> f32 {
-    let mut value = 0.0;
-    let mut amplitude = 0.5;
-    let mut frequency = 1.0;
-    let mut max_value = 0.0;
-
-    for i in 0..octaves {
-        value += amplitude * noise2d(x * frequency, y * frequency, seed.wrapping_add(i as u32 * 1000));
-        max_value += amplitude;
-        amplitude *= 0.5;
-        frequency *= 2.0;
-    }
-
-    value / max_value
-}
-
 pub fn shade(x: usize, y: usize, _width: usize, _height: usize, params: &Params) -> f32 {
     let xf = x as f32;
     let yf = y as f32;
 
     // Get grid cell
-    let cell_x = (xf / params.spacing).floor() as i32;
-    let cell_y = (yf / params.spacing).floor() as i32;
+    let (cell_x, cell_y) = grid_cell(xf, yf, params.spacing);
 
     // Check nearby cells for dots
-    let mut min_dist = f32::MAX;
+    let mut min_dist_val = f32::MAX;
 
     for dy in -1..=1 {
-        for dx in -1..=1 {
-            let cx = cell_x + dx;
+        for ddx in -1..=1 {
+            let cx = cell_x + ddx;
             let cy = cell_y + dy;
 
             // Dot center with jitter
-            let cell_hash = (cx as u32).wrapping_mul(374761393).wrapping_add((cy as u32).wrapping_mul(668265263));
-            let jitter_x = (hash_f32(cell_hash, params.seed) - 0.5) * params.jitter * params.spacing;
-            let jitter_y = (hash_f32(cell_hash, params.seed.wrapping_add(1000)) - 0.5) * params.jitter * params.spacing;
+            let jitter_x = (hash2_f32(cx as u32, cy as u32, params.seed) - 0.5) * params.jitter * params.spacing;
+            let jitter_y = (hash2_f32(cx as u32, cy as u32, params.seed.wrapping_add(1000)) - 0.5) * params.jitter * params.spacing;
 
             let dot_x = (cx as f32 + 0.5) * params.spacing + jitter_x;
             let dot_y = (cy as f32 + 0.5) * params.spacing + jitter_y;
@@ -160,32 +101,24 @@ pub fn shade(x: usize, y: usize, _width: usize, _height: usize, params: &Params)
             );
 
             // Apply contrast
-            let adjusted_tone = ((tone - 0.5) * params.contrast + 0.5).clamp(0.0, 1.0);
+            let adjusted_tone = contrast(tone, 0.5, params.contrast);
 
             // Dot radius based on tone (darker = larger dot)
             let radius = params.min_radius + adjusted_tone * (params.max_radius - params.min_radius);
 
             // Distance to dot center
-            let dx_pos = xf - dot_x;
-            let dy_pos = yf - dot_y;
-            let dist = (dx_pos * dx_pos + dy_pos * dy_pos).sqrt();
+            let d = dist(xf, yf, dot_x, dot_y);
 
             // Normalized distance (0 at center, 1 at edge)
-            let norm_dist = dist / radius;
-            if norm_dist < min_dist {
-                min_dist = norm_dist;
+            let norm_dist = d / radius;
+            if norm_dist < min_dist_val {
+                min_dist_val = norm_dist;
             }
         }
     }
 
     // Anti-aliased dot
-    if min_dist < 1.0 {
-        1.0
-    } else if min_dist < 1.5 {
-        1.0 - (min_dist - 1.0) * 2.0
-    } else {
-        0.0
-    }
+    aa_edge(min_dist_val, 1.0, 0.5)
 }
 
 /// Stipple dot pattern.

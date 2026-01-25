@@ -18,7 +18,7 @@
 //! v = clamp01(blurred) ^ gamma
 //! ```
 
-use super::clamp01;
+use crate::shader::*;
 use rand::Rng;
 use std::fmt;
 
@@ -91,24 +91,21 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
     let wf = width as f32;
     let hf = height as f32;
 
-    // Compute base ripple pattern
-    let cx = wf / 2.0;
-    let cy = hf / 2.0;
-    let dx = xf - cx;
-    let dy = yf - cy;
-    let r = (dx * dx + dy * dy).sqrt();
+    // Compute base ripple pattern using shader primitives
+    let (dx, dy) = center_coords(xf, yf, wf, hf);
+    let r = dist(dx, dy, 0.0, 0.0);
 
-    let ripple = 0.5 + 0.5 * (r / params.scale - yf / params.drift).cos();
-    let wobble = 0.5 + 0.5 * (xf / 37.0 + 0.7 * (yf / 53.0).cos()).sin();
-    let v = (1.0 - params.wobble_mix) * ripple + params.wobble_mix * wobble;
+    let ripple = wave_cos(r, 1.0 / params.scale, -yf / params.drift);
+    let wobble = wave_sin(xf, 1.0 / 37.0, 0.7 * (yf / 53.0).cos());
+    let v = lerp(ripple, wobble, params.wobble_mix);
 
     // Simulate overburn by darkening
     let darkened = v * params.darken_mult + params.darken_offset;
 
     // Add slight blur by blending back with original (bloom effect)
-    let blurred = darkened * (1.0 - params.blur_amount) + v * params.blur_amount;
+    let blurred = lerp(darkened, v, params.blur_amount);
 
-    clamp01(blurred).powf(params.gamma)
+    gamma(blurred, params.gamma)
 }
 
 /// Overburn effect pattern.

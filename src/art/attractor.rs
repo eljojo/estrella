@@ -8,7 +8,7 @@
 //! The chaotic but deterministic trajectories create intricate, flowing
 //! patterns that reveal the underlying mathematical structure.
 
-use super::clamp01;
+use crate::shader::*;
 use rand::Rng;
 use std::fmt;
 

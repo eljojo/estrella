@@ -8,7 +8,7 @@
 //! optical illusion of a sphere emerging from the surface. The distortion
 //! follows a spherical mapping function.
 
-use super::clamp01;
+use crate::shader::*;
 use rand::Rng;
 use std::fmt;
 
@@ -90,8 +90,8 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
     let min_dim = wf.min(hf);
     let sphere_r = min_dim * params.sphere_radius;
 
-    let dist = (dx * dx + dy * dy).sqrt();
-    let normalized_dist = dist / sphere_r;
+    let sphere_dist = dist(xf, yf, cx, cy);
+    let normalized_dist = sphere_dist / sphere_r;
 
     // Calculate distorted coordinates
     let (grid_x, grid_y, in_sphere) = if normalized_dist < 1.0 {
@@ -108,28 +108,18 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
         (xf, yf, false)
     };
 
-    // Grid pattern
-    let gx = grid_x / params.cell_size;
-    let gy = grid_y / params.cell_size;
-
-    // Distance to nearest grid line
-    let dx_grid = (gx.fract() - 0.5).abs() * params.cell_size;
-    let dy_grid = (gy.fract() - 0.5).abs() * params.cell_size;
+    // Distance from cell center
+    let dx_grid = dist_from_cell_center(grid_x, params.cell_size);
+    let dy_grid = dist_from_cell_center(grid_y, params.cell_size);
     let dist_to_line = dx_grid.min(dy_grid);
 
-    // Line rendering
+    // Line rendering with anti-aliasing
     let half_thick = params.line_thickness / 2.0;
-    let line_intensity = if dist_to_line < half_thick {
-        1.0
-    } else if dist_to_line < half_thick + 1.0 {
-        clamp01(1.0 - (dist_to_line - half_thick))
-    } else {
-        0.0
-    };
+    let line_intensity = aa_edge(dist_to_line, half_thick, 1.0);
 
     // Optionally invert colors inside sphere
     if in_sphere && params.invert_sphere {
-        1.0 - line_intensity
+        invert(line_intensity)
     } else {
         line_intensity
     }

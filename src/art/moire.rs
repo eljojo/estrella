@@ -8,10 +8,26 @@
 //! at different angles. The slight angular offset creates the characteristic
 //! shimmering, wave-like optical illusion.
 
-use super::clamp01;
+use crate::shader::*;
 use rand::Rng;
 use std::f32::consts::PI;
 use std::fmt;
+
+/// Generate a line grid at a given angle.
+fn line_grid(x: f32, y: f32, spacing: f32, angle_deg: f32, thickness: f32) -> f32 {
+    let angle = angle_deg * PI / 180.0;
+    let cos_a = angle.cos();
+    let sin_a = angle.sin();
+
+    // Rotate coordinates
+    let rotated = x * cos_a + y * sin_a;
+
+    // Distance from cell center (line at center of each cell)
+    let dist = dist_from_cell_center(rotated, spacing);
+
+    // Anti-aliased line
+    aa_edge(dist, thickness / 2.0, 1.0)
+}
 
 /// Parameters for moiré pattern.
 #[derive(Debug, Clone)]
@@ -68,30 +84,6 @@ impl fmt::Display for Params {
             "spacing=({:.1},{:.1}) angle={:.1}° thick={:.1} layers={}",
             self.spacing1, self.spacing2, self.angle_offset, self.thickness, self.layers
         )
-    }
-}
-
-/// Generate a line grid at a given angle.
-fn line_grid(x: f32, y: f32, spacing: f32, angle_deg: f32, thickness: f32) -> f32 {
-    let angle = angle_deg * PI / 180.0;
-    let cos_a = angle.cos();
-    let sin_a = angle.sin();
-
-    // Rotate coordinates
-    let rotated = x * cos_a + y * sin_a;
-
-    // Distance to nearest line
-    let line_pos = rotated / spacing;
-    let dist = (line_pos.fract() - 0.5).abs() * spacing;
-
-    // Anti-aliased line
-    let half_thick = thickness / 2.0;
-    if dist < half_thick {
-        1.0
-    } else if dist < half_thick + 1.0 {
-        1.0 - (dist - half_thick)
-    } else {
-        0.0
     }
 }
 
