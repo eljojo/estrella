@@ -56,7 +56,7 @@
           pname = "estrella-frontend";
           version = "0.1.0";
           src = ./frontend;
-          npmDepsHash = "sha256-ElaO6LI7B0cGLbpSfMrIGxA8xIyUvPS79LPdjS3H6hs="; # Update after npm install
+          npmDepsHash = "sha256-DakZWPBlcfvcxJv0u3DFasjpG+V0M7CA+Cn+Iw0+tGo="; # Update after npm install
           buildPhase = "npm run build";
           installPhase = "cp -r dist $out";
         };
