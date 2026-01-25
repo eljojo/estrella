@@ -8,6 +8,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     flake-utils.url = "github:numtide/flake-utils";
+    playwright = {
+      url = "github:pietdevries94/playwright-web-flake";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.flake-utils.follows = "flake-utils";
+    };
   };
 
   outputs =
@@ -16,12 +21,18 @@
       nixpkgs,
       rust-overlay,
       flake-utils,
+      playwright,
       ...
     }:
     (flake-utils.lib.eachDefaultSystem (
       system:
       let
-        overlays = [ (import rust-overlay) ];
+        overlays = [
+          (import rust-overlay)
+          (final: prev: {
+            inherit (playwright.packages.${system}) playwright-test playwright-driver;
+          })
+        ];
         pkgs = import nixpkgs {
           inherit system overlays;
         };
@@ -78,11 +89,13 @@
               openssl
               libheif
               rustToolchain
-              # nodejs_24
-              # nodePackages.npm
+              nodejs
+              playwright-test
             ];
           shellHook = ''
             export CARGO_TARGET_DIR="$PWD/.cargo/target"
+            export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+            export PLAYWRIGHT_BROWSERS_PATH="${pkgs.playwright-driver.browsers}"
           '';
           LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath buildInputs;
         };

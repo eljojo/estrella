@@ -6,13 +6,17 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:headed": "playwright test --headed"
   },
   "dependencies": {
     "preact": "^10.19.3",
     "@preact/signals": "^1.2.2"
   },
   "devDependencies": {
+    "@playwright/test": "^1.40.0",
     "@preact/preset-vite": "^2.8.2",
     "typescript": "^5.3.3",
     "vite": "^5.0.12"

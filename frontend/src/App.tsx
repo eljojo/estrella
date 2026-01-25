@@ -22,15 +22,27 @@ import {
   printDetails as weavePrintDetails,
   weaveHasBlend,
 } from './components/WeaveForm'
+import {
+  ComposerForm,
+  composerPreviewUrl,
+  composerCustomized,
+  cut as composerCut,
+  composerCanPrint,
+  loading as composerLoading,
+  triggerComposerPrint,
+  background as composerBackground,
+  dithering as composerDithering,
+} from './components/ComposerForm'
 import { PhotoForm, photoPreviewUrl, photoGrayscaleActive, handlePhotoDrop } from './components/PhotoForm'
 import { PrintOptions } from './components/PrintOptions'
 
-export const activeTab = signal<'receipt' | 'patterns' | 'weave' | 'photos'>('receipt')
+export const activeTab = signal<'receipt' | 'patterns' | 'weave' | 'composer' | 'photos'>('receipt')
 
 const previewUrls = {
   receipt: () => receiptPreviewUrl.value,
   patterns: () => patternPreviewUrl.value,
   weave: () => weavePreviewUrl.value,
+  composer: () => composerPreviewUrl.value,
   photos: () => photoPreviewUrl.value,
 }
 
@@ -38,6 +50,7 @@ const placeholderTexts = {
   receipt: 'Start typing to see preview...',
   patterns: 'Select a pattern to see preview...',
   weave: 'Add at least 2 patterns to see preview...',
+  composer: 'Add layers to see preview...',
   photos: 'Upload an image to see preview...',
 }
 
@@ -45,6 +58,7 @@ const grayscaleStates = {
   receipt: () => receiptCustomized.value,
   patterns: () => patternCustomized.value,
   weave: () => weaveHasBlend.value,
+  composer: () => composerCustomized.value,
   photos: () => photoGrayscaleActive.value,
 }
 
@@ -62,9 +76,14 @@ export function App() {
     if (!root) return
 
     const handleDragEnter = (e: DragEvent) => {
-      const types = e.dataTransfer?.types
-      if (types && Array.from(types).includes('Files')) {
-        activeTab.value = 'photos'
+      // Only switch to photos for external file drags (not internal element drags)
+      // Check that this is an external drag by verifying items exist and are files
+      const items = e.dataTransfer?.items
+      if (items && items.length > 0) {
+        const hasFiles = Array.from(items).some(item => item.kind === 'file')
+        if (hasFiles) {
+          activeTab.value = 'photos'
+        }
       }
     }
 
@@ -106,6 +125,8 @@ export function App() {
             <PatternForm />
           ) : activeTab.value === 'weave' ? (
             <WeaveForm />
+          ) : activeTab.value === 'composer' ? (
+            <ComposerForm />
           ) : (
             <PhotoForm />
           )}
@@ -143,6 +164,47 @@ export function App() {
               printDetails={weavePrintDetails}
               detailsLabel="Print details (title and parameters)"
             />
+          )}
+          {activeTab.value === 'composer' && (
+            <>
+              <PrintOptions cut={composerCut} />
+              <div class="form-group">
+                <label>Background</label>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value={composerBackground.value}
+                  onInput={(e) => (composerBackground.value = parseFloat((e.target as HTMLInputElement).value))}
+                />
+                <span class="hint">
+                  {composerBackground.value === 0 ? 'White' : composerBackground.value === 1 ? 'Black' : `${(composerBackground.value * 100).toFixed(0)}% gray`}
+                </span>
+              </div>
+              <div class="form-group">
+                <label>Dithering</label>
+                <select
+                  value={composerDithering.value}
+                  onChange={(e) =>
+                    (composerDithering.value = (e.target as HTMLSelectElement).value as 'bayer' | 'floyd-steinberg' | 'atkinson' | 'jarvis')
+                  }
+                >
+                  <option value="jarvis">Jarvis (smooth)</option>
+                  <option value="atkinson">Atkinson (classic Mac)</option>
+                  <option value="bayer">Bayer (ordered)</option>
+                  <option value="floyd-steinberg">Floyd-Steinberg (diffusion)</option>
+                </select>
+              </div>
+              <button
+                type="button"
+                class="print-button"
+                onClick={() => triggerComposerPrint()}
+                disabled={!composerCanPrint.value || composerLoading.value}
+              >
+                {composerLoading.value ? 'Printing...' : 'Print'}
+              </button>
+            </>
           )}
         </div>
       </div>

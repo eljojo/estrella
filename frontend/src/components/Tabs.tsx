@@ -22,6 +22,12 @@ export function Tabs() {
         Weave
       </button>
       <button
+        class={`tab ${activeTab.value === 'composer' ? 'active' : ''}`}
+        onClick={() => (activeTab.value = 'composer')}
+      >
+        Composer
+      </button>
+      <button
         class={`tab ${activeTab.value === 'photos' ? 'active' : ''}`}
         onClick={() => (activeTab.value = 'photos')}
       >

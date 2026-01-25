@@ -266,3 +266,75 @@ export async function printPhoto(
   })
   return response.json()
 }
+
+// ===== Composer API =====
+
+/// Blend modes available for composer layers.
+export type BlendMode = 'normal' | 'multiply' | 'screen' | 'overlay' | 'add' | 'difference' | 'min' | 'max'
+
+/// A layer in a composition.
+export interface ComposerLayer {
+  pattern: string
+  params: Record<string, string>
+  x: number
+  y: number
+  width: number
+  height: number
+  blend_mode: BlendMode
+  opacity: number
+}
+
+/// Full composition specification.
+export interface ComposerSpec {
+  width: number
+  height: number
+  background: number
+  layers: ComposerLayer[]
+}
+
+/// Fetch available blend modes.
+export async function fetchBlendModes(): Promise<string[]> {
+  const response = await fetch('/api/composer/blend-modes')
+  if (!response.ok) throw new Error('Failed to fetch blend modes')
+  const modes: { name: string }[] = await response.json()
+  return modes.map((m) => m.name)
+}
+
+/// Fetch pattern params for composer.
+export async function fetchComposerPatternParams(name: string): Promise<PatternInfo> {
+  const response = await fetch(`/api/composer/pattern/${name}/params`)
+  if (!response.ok) throw new Error('Failed to fetch pattern params')
+  return response.json()
+}
+
+/// Fetch composer preview as a blob URL.
+export async function fetchComposerPreview(spec: ComposerSpec, dither: string): Promise<string> {
+  const response = await fetch('/api/composer/preview', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ spec, dither }),
+  })
+
+  if (!response.ok) {
+    const text = await response.text()
+    throw new Error(text || 'Failed to fetch composer preview')
+  }
+
+  const blob = await response.blob()
+  return URL.createObjectURL(blob)
+}
+
+/// Print a composition.
+export async function printComposer(
+  spec: ComposerSpec,
+  dither: string,
+  mode: string,
+  cut: boolean
+): Promise<PrintResult> {
+  const response = await fetch('/api/composer/print', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ spec, dither, mode, cut }),
+  })
+  return response.json()
+}

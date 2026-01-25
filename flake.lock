@@ -34,10 +34,34 @@
         "type": "github"
       }
     },
+    "playwright": {
+      "inputs": {
+        "flake-utils": [
+          "flake-utils"
+        ],
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1769301472,
+        "narHash": "sha256-fiKhxirKov9lGJYr0yUIHA0d0v/Fa8qaNmhO5gMnaes=",
+        "owner": "pietdevries94",
+        "repo": "playwright-web-flake",
+        "rev": "fd645cb4e9f168903b745ec4440c8a2d62ba9933",
+        "type": "github"
+      },
+      "original": {
+        "owner": "pietdevries94",
+        "repo": "playwright-web-flake",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "flake-utils": "flake-utils",
         "nixpkgs": "nixpkgs",
+        "playwright": "playwright",
         "rust-overlay": "rust-overlay"
       }
     },

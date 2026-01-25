@@ -135,8 +135,6 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
     // Add knot centers
     let mut knot_value = 0.0;
     for (kx, ky) in &knots {
-        let dx = xf - kx;
-        let dy = yf - ky;
         let dist = dist(xf, yf, *kx, *ky);
 
         if dist < params.knot_size {

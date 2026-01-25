@@ -23,6 +23,7 @@
 //! // raster_data is ready to send via graphics::raster() command
 //! ```
 
+pub mod composer;
 pub mod dither;
 pub mod patterns;
 pub mod weave;

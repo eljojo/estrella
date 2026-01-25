@@ -71,6 +71,18 @@ pub async fn serve(config: ServerConfig) -> Result<(), EstrellaError> {
         // Weave API
         .route("/api/weave/preview", post(handlers::weave::preview))
         .route("/api/weave/print", post(handlers::weave::print))
+        // Composer API
+        .route("/api/composer/patterns", get(handlers::composer::patterns))
+        .route(
+            "/api/composer/blend-modes",
+            get(handlers::composer::blend_modes),
+        )
+        .route(
+            "/api/composer/pattern/:name/params",
+            get(handlers::composer::pattern_params),
+        )
+        .route("/api/composer/preview", post(handlers::composer::preview))
+        .route("/api/composer/print", post(handlers::composer::print))
         // Photo API (50MB limit for uploads)
         .route(
             "/api/photo/upload",

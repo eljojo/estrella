@@ -11,6 +11,7 @@
 use crate::shader::*;
 use rand::Rng;
 use std::fmt;
+use std::sync::Mutex;
 
 /// Attractor type.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -159,8 +160,10 @@ impl DensityMap {
 }
 
 /// Precomputed attractor density map.
-pub struct AttractorCache {
+struct AttractorCache {
     density: DensityMap,
+    width: usize,
+    height: usize,
     params_hash: u64,
 }
 
@@ -181,7 +184,11 @@ impl AttractorCache {
         }
 
         let params_hash = Self::hash_params(params);
-        Self { density, params_hash }
+        Self { density, width, height, params_hash }
+    }
+
+    fn is_valid_for(&self, width: usize, height: usize, params_hash: u64) -> bool {
+        self.width == width && self.height == height && self.params_hash == params_hash
     }
 
     fn hash_params(params: &Params) -> u64 {
@@ -281,44 +288,28 @@ impl AttractorCache {
     }
 }
 
-// Thread-local cache for attractor computation.
-thread_local! {
-    static CACHE: std::cell::RefCell<Option<(usize, usize, AttractorCache)>> = const { std::cell::RefCell::new(None) };
-}
-
-pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -> f32 {
-    CACHE.with(|cache| {
-        let mut cache = cache.borrow_mut();
-        let params_hash = AttractorCache::hash_params(params);
-
-        // Recompute if dimensions or params changed
-        let need_recompute = match &*cache {
-            Some((w, h, c)) => *w != width || *h != height || c.params_hash != params_hash,
-            None => true,
-        };
-
-        if need_recompute {
-            *cache = Some((width, height, AttractorCache::compute(width, height, params)));
-        }
-
-        let (_, _, attractor_cache) = cache.as_ref().unwrap();
-        let density = attractor_cache.density.get_normalized(x, y);
-
-        // Apply brightness with log scale for better contrast
-        let log_density = if density > 0.0 {
-            (1.0 + density * 100.0).ln() / (101.0_f32).ln()
-        } else {
-            0.0
-        };
-
-        clamp01(log_density * params.brightness)
-    })
-}
-
-/// Strange attractor pattern.
-#[derive(Debug, Clone)]
+/// Strange attractor pattern with per-instance caching.
 pub struct Attractor {
     params: Params,
+    /// Per-instance cache to avoid thrashing when multiple attractors render at different sizes
+    cache: Mutex<Option<AttractorCache>>,
+}
+
+impl std::fmt::Debug for Attractor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Attractor")
+            .field("params", &self.params)
+            .finish()
+    }
+}
+
+impl Clone for Attractor {
+    fn clone(&self) -> Self {
+        Self {
+            params: self.params.clone(),
+            cache: Mutex::new(None), // Don't clone cache, let it recompute
+        }
+    }
 }
 
 impl Default for Attractor {
@@ -329,11 +320,37 @@ impl Default for Attractor {
 
 impl Attractor {
     pub fn golden() -> Self {
-        Self { params: Params::default() }
+        Self {
+            params: Params::default(),
+            cache: Mutex::new(None),
+        }
     }
 
     pub fn random() -> Self {
-        Self { params: Params::random() }
+        Self {
+            params: Params::random(),
+            cache: Mutex::new(None),
+        }
+    }
+
+    /// Get cached density or compute it
+    fn get_density(&self, x: usize, y: usize, width: usize, height: usize) -> f32 {
+        let params_hash = AttractorCache::hash_params(&self.params);
+
+        let mut cache = self.cache.lock().unwrap();
+
+        // Check if cache is valid
+        let need_recompute = match &*cache {
+            Some(c) => !c.is_valid_for(width, height, params_hash),
+            None => true,
+        };
+
+        if need_recompute {
+            *cache = Some(AttractorCache::compute(width, height, &self.params));
+        }
+
+        let attractor_cache = cache.as_ref().unwrap();
+        attractor_cache.density.get_normalized(x, y)
     }
 }
 
@@ -343,7 +360,16 @@ impl super::Pattern for Attractor {
     }
 
     fn intensity(&self, x: usize, y: usize, width: usize, height: usize) -> f32 {
-        shade(x, y, width, height, &self.params)
+        let density = self.get_density(x, y, width, height);
+
+        // Apply brightness with log scale for better contrast
+        let log_density = if density > 0.0 {
+            (1.0 + density * 100.0).ln() / (101.0_f32).ln()
+        } else {
+            0.0
+        };
+
+        clamp01(log_density * self.params.brightness)
     }
 
     fn params_description(&self) -> String {
@@ -422,15 +448,38 @@ impl super::Pattern for Attractor {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::art::Pattern;
 
     #[test]
-    fn test_shade_range() {
-        let params = Params::default();
+    fn test_intensity_range() {
+        let attractor = Attractor::golden();
         for y in (0..500).step_by(50) {
             for x in (0..576).step_by(50) {
-                let v = shade(x, y, 576, 500, &params);
+                let v = attractor.intensity(x, y, 576, 500);
                 assert!(v >= 0.0 && v <= 1.0, "value {} out of range at ({}, {})", v, x, y);
             }
         }
+    }
+
+    #[test]
+    fn test_multiple_instances_different_sizes() {
+        // This tests the fix for cache thrashing - two attractors at different sizes
+        let a1 = Attractor::golden();
+        let a2 = Attractor::golden();
+
+        // Render first pixel of each at different sizes
+        let v1 = a1.intensity(0, 0, 300, 300);
+        let v2 = a2.intensity(0, 0, 576, 500);
+
+        // Both should return valid values
+        assert!(v1 >= 0.0 && v1 <= 1.0);
+        assert!(v2 >= 0.0 && v2 <= 1.0);
+
+        // Render again - should use cached values, not thrash
+        let v1b = a1.intensity(1, 1, 300, 300);
+        let v2b = a2.intensity(1, 1, 576, 500);
+
+        assert!(v1b >= 0.0 && v1b <= 1.0);
+        assert!(v2b >= 0.0 && v2b <= 1.0);
     }
 }
