@@ -46,15 +46,21 @@ format:
 format-check:
 	nix develop --command cargo fmt --check
 
-# Run all tests
+# Run all tests (backend + frontend build check)
 .PHONY: test
 test:
 	nix develop --command cargo test
+	cd frontend && npm install --silent && npm run build
 
 # Run tests with output
 .PHONY: test-verbose
 test-verbose:
 	nix develop --command cargo test -- --nocapture
+
+# Run frontend e2e tests (requires server running on port 3000)
+.PHONY: test-e2e
+test-e2e:
+	cd frontend && npm install --silent && npm run test
 
 # Run clippy lints
 .PHONY: lint
@@ -119,8 +125,9 @@ help:
 	@echo "  serve         Build and run HTTP server"
 	@echo "  format        Format code with rustfmt"
 	@echo "  format-check  Check formatting without changes"
-	@echo "  test          Run all tests"
-	@echo "  test-verbose  Run tests with output"
+	@echo "  test          Run all tests (backend + frontend build)"
+	@echo "  test-verbose  Run backend tests with output"
+	@echo "  test-e2e      Run frontend e2e tests (needs server on :3000)"
 	@echo "  lint          Run clippy lints"
 	@echo "  golden        Regenerate golden test files"
 	@echo "  clean         Clean build artifacts"
