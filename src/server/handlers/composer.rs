@@ -6,13 +6,13 @@ use axum::{
     response::IntoResponse,
     Json,
 };
-use image::{GrayImage, Luma};
 use serde::{Deserialize, Serialize};
-use std::{io::Cursor, sync::Arc};
+use std::sync::Arc;
 
 use crate::{
     art::{self, PATTERNS},
     render::{
+        self,
         composer::{BlendMode, Composer, ComposerSpec},
         dither::DitheringAlgorithm,
     },
@@ -95,28 +95,6 @@ fn parse_dither(s: &str) -> DitheringAlgorithm {
     }
 }
 
-/// Convert raster data to PNG bytes.
-fn raster_to_png(width: usize, height: usize, raster_data: &[u8]) -> Result<Vec<u8>, String> {
-    let width_bytes = width.div_ceil(8);
-
-    let mut img = GrayImage::new(width as u32, height as u32);
-    for y in 0..height {
-        for x in 0..width {
-            let byte_idx = y * width_bytes + x / 8;
-            let bit_idx = 7 - (x % 8);
-            let is_black = (raster_data[byte_idx] >> bit_idx) & 1 == 1;
-            let color = if is_black { 0u8 } else { 255u8 };
-            img.put_pixel(x as u32, y as u32, Luma([color]));
-        }
-    }
-
-    let mut png_bytes = Vec::new();
-    img.write_to(&mut Cursor::new(&mut png_bytes), image::ImageFormat::Png)
-        .map_err(|e| format!("PNG encoding failed: {}", e))?;
-
-    Ok(png_bytes)
-}
-
 /// POST /api/composer/preview - Generate PNG preview of composition.
 pub async fn preview(
     Json(req): Json<ComposerPreviewRequest>,
@@ -143,7 +121,7 @@ pub async fn preview(
         let raster_data = composer.render(dither_algo);
 
         // Convert to PNG
-        raster_to_png(width, height, &raster_data)
+        render::raster_to_png(width, height, &raster_data)
     })
     .await
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Task error: {}", e)))?

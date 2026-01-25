@@ -204,6 +204,7 @@ button:disabled {
     width: 576px;
     max-width: 100%;
     margin: 0 auto;
+    position: relative;
 }
 
 .receipt-options {
@@ -794,4 +795,55 @@ button:disabled {
     .layer-blend-grid {
         grid-template-columns: 1fr;
     }
+}
+
+/* Layer Canvas Overlay */
+.layer-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: all;
+    transition: opacity 0.3s ease-out;
+}
+
+.layer-overlay.hidden {
+    opacity: 0;
+    transition: opacity 0.4s ease-in-out;
+}
+
+.layer-overlay.visible {
+    opacity: 1;
+    transition: opacity 0.15s ease-out;
+}
+
+.layer-box {
+    fill: rgba(102, 126, 234, 0.1);
+    stroke: rgba(102, 126, 234, 0.5);
+    stroke-width: 2;
+    cursor: move;
+    transition: fill 0.15s ease;
+}
+
+.layer-box.hovered {
+    fill: rgba(102, 126, 234, 0.2);
+}
+
+.layer-box.selected {
+    stroke: #667eea;
+    stroke-width: 3;
+    fill: rgba(102, 126, 234, 0.15);
+}
+
+.resize-handle {
+    fill: white;
+    stroke: #667eea;
+    stroke-width: 2;
+    cursor: nwse-resize;
+    transition: fill 0.15s ease;
+}
+
+.resize-handle:hover {
+    fill: #667eea;
 }

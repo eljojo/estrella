@@ -4,6 +4,12 @@ export function Tabs() {
   return (
     <div class="tabs">
       <button
+        class={`tab ${activeTab.value === 'photos' ? 'active' : ''}`}
+        onClick={() => (activeTab.value = 'photos')}
+      >
+        Photos
+      </button>
+      <button
         class={`tab ${activeTab.value === 'receipt' ? 'active' : ''}`}
         onClick={() => (activeTab.value = 'receipt')}
       >
@@ -26,12 +32,6 @@ export function Tabs() {
         onClick={() => (activeTab.value = 'composer')}
       >
         Composer
-      </button>
-      <button
-        class={`tab ${activeTab.value === 'photos' ? 'active' : ''}`}
-        onClick={() => (activeTab.value = 'photos')}
-      >
-        Photos
       </button>
     </div>
   )

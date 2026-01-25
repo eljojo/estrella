@@ -32,11 +32,17 @@ import {
   triggerComposerPrint,
   background as composerBackground,
   dithering as composerDithering,
+  composerLayers,
+  composerSelectedIndex,
+  composerCanvasHeight,
+  updateComposerLayer,
+  setComposerSelectedIndex,
 } from './components/ComposerForm'
+import { LayerCanvas } from './components/LayerCanvas'
 import { PhotoForm, photoPreviewUrl, photoGrayscaleActive, handlePhotoDrop } from './components/PhotoForm'
 import { PrintOptions } from './components/PrintOptions'
 
-export const activeTab = signal<'receipt' | 'patterns' | 'weave' | 'composer' | 'photos'>('receipt')
+export const activeTab = signal<'receipt' | 'patterns' | 'weave' | 'composer' | 'photos'>('photos')
 
 const previewUrls = {
   receipt: () => receiptPreviewUrl.value,
@@ -136,7 +142,19 @@ export function App() {
           <div class="preview-container">
             <div class="preview-stage">
               {previewUrl ? (
-                <img src={previewUrl} alt="Preview" class="preview-image" />
+                <>
+                  <img src={previewUrl} alt="Preview" class="preview-image" />
+                  {activeTab.value === 'composer' && composerLayers.value.length > 0 && (
+                    <LayerCanvas
+                      layers={composerLayers.value}
+                      selectedIndex={composerSelectedIndex.value}
+                      canvasWidth={576}
+                      canvasHeight={composerCanvasHeight.value}
+                      onSelect={setComposerSelectedIndex}
+                      onUpdate={updateComposerLayer}
+                    />
+                  )}
+                </>
               ) : (
                 <div class="preview-placeholder">
                   <div class="preview-placeholder-text">{placeholderText}</div>

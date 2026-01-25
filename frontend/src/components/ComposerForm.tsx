@@ -21,6 +21,11 @@ export const background = signal(0)
 export const dithering = signal<'bayer' | 'floyd-steinberg' | 'atkinson' | 'jarvis'>('floyd-steinberg')
 const renderMode = signal<'raster' | 'band'>('raster')
 
+// Exports for layer canvas interaction
+export const composerLayers = signal<ComposerLayer[]>([])
+export const composerSelectedIndex = signal<number | null>(null)
+export const composerCanvasHeight = signal(60 * DOTS_PER_MM)
+
 // Patterns list (fetched once)
 const patterns = signal<string[]>([])
 
@@ -47,6 +52,28 @@ export function setComposerPrintHandler(handler: () => Promise<void>) {
 export async function triggerComposerPrint() {
   if (printHandler) {
     await printHandler()
+  }
+}
+
+// Layer update function for external use (LayerCanvas)
+let layerUpdateHandler: ((index: number, updates: Partial<ComposerLayer>) => void) | null = null
+export function setComposerLayerUpdateHandler(handler: (index: number, updates: Partial<ComposerLayer>) => void) {
+  layerUpdateHandler = handler
+}
+export function updateComposerLayer(index: number, updates: Partial<ComposerLayer>) {
+  if (layerUpdateHandler) {
+    layerUpdateHandler(index, updates)
+  }
+}
+
+// Selection function for external use (LayerCanvas)
+let selectionHandler: ((index: number | null) => void) | null = null
+export function setComposerSelectionHandler(handler: (index: number | null) => void) {
+  selectionHandler = handler
+}
+export function setComposerSelectedIndex(index: number | null) {
+  if (selectionHandler) {
+    selectionHandler(index)
   }
 }
 
@@ -194,6 +221,37 @@ export function ComposerForm() {
   const [layers, setLayers] = useState<ComposerLayer[]>([])
   const [selectedLayerIndex, setSelectedLayerIndex] = useState<number | null>(null)
 
+  // Sync internal state to exported signals for LayerCanvas
+  useEffect(() => {
+    composerLayers.value = layers
+  }, [layers])
+
+  useEffect(() => {
+    composerSelectedIndex.value = selectedLayerIndex
+  }, [selectedLayerIndex])
+
+  useEffect(() => {
+    composerCanvasHeight.value = canvasHeightMm.value * DOTS_PER_MM
+  }, [])
+
+  // Register handlers for external updates (from LayerCanvas)
+  useEffect(() => {
+    setComposerLayerUpdateHandler((index, updates) => {
+      setLayers(prev => {
+        const newLayers = [...prev]
+        newLayers[index] = { ...newLayers[index], ...updates }
+        return newLayers
+      })
+    })
+    setComposerSelectionHandler((index) => {
+      setSelectedLayerIndex(index)
+    })
+    return () => {
+      setComposerLayerUpdateHandler(() => {})
+      setComposerSelectionHandler(() => {})
+    }
+  }, [])
+
   // Fetch patterns on mount
   useEffect(() => {
     if (!patternsFetched) {
@@ -255,7 +313,8 @@ export function ComposerForm() {
   // Also refresh when canvas settings change
   useEffect(() => {
     const dispose = effect(() => {
-      void canvasHeightMm.value
+      const heightPx = canvasHeightMm.value * DOTS_PER_MM
+      composerCanvasHeight.value = heightPx
       void background.value
       void dithering.value
       // Trigger a re-render by updating a dummy state

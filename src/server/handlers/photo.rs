@@ -6,15 +6,18 @@ use axum::{
     response::IntoResponse,
     Json,
 };
-use image::{imageops::FilterType, DynamicImage, GrayImage, Luma, RgbImage};
+use image::{imageops::FilterType, DynamicImage, RgbImage};
 use libheif_rs::{ColorSpace, HeifContext, LibHeif, RgbChroma};
 use serde::{Deserialize, Serialize};
-use std::{io::Cursor, sync::Arc, time::Instant};
+use std::{sync::Arc, time::Instant};
 use uuid::Uuid;
 
 use crate::{
     printer::PrinterConfig,
-    render::dither::{self, DitheringAlgorithm},
+    render::{
+        self,
+        dither::{self, DitheringAlgorithm},
+    },
     transport::BluetoothTransport,
 };
 
@@ -249,27 +252,6 @@ fn generate_dithered_raster(
     (width, height, raster_data)
 }
 
-/// Convert dithered raster to PNG bytes.
-fn raster_to_png(width: usize, height: usize, raster_data: &[u8]) -> Result<Vec<u8>, String> {
-    let width_bytes = width.div_ceil(8);
-    let mut img = GrayImage::new(width as u32, height as u32);
-
-    for y in 0..height {
-        for x in 0..width {
-            let byte_idx = y * width_bytes + x / 8;
-            let bit_idx = 7 - (x % 8);
-            let is_black = (raster_data[byte_idx] >> bit_idx) & 1 == 1;
-            img.put_pixel(x as u32, y as u32, Luma([if is_black { 0 } else { 255 }]));
-        }
-    }
-
-    let mut png_bytes = Vec::new();
-    img.write_to(&mut Cursor::new(&mut png_bytes), image::ImageFormat::Png)
-        .map_err(|e| format!("Failed to encode PNG: {}", e))?;
-
-    Ok(png_bytes)
-}
-
 /// Generate a dithered preview PNG (runs on blocking thread pool).
 fn generate_preview_png(
     source_image: DynamicImage,
@@ -281,7 +263,7 @@ fn generate_preview_png(
     // Use Triangle filter for speed in preview
     let processed = prepare_for_print(source_image, rotation, brightness, contrast, FilterType::Triangle);
     let (width, height, raster_data) = generate_dithered_raster(&processed, dither_algo);
-    raster_to_png(width, height, &raster_data)
+    render::raster_to_png(width, height, &raster_data)
 }
 
 /// Generate raster data for printing (runs on blocking thread pool).
