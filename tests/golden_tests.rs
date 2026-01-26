@@ -39,20 +39,22 @@ const PLATFORM_DEPENDENT_PATTERNS: &[&str] = &[
 // HELPER FUNCTIONS
 // ============================================================================
 
-/// Generate printer commands using raster mode via component system
+/// Generate printer commands using raster mode via component system.
+/// Uses build_raw() for pure StarPRNT protocol bytes (no drain markers).
 fn generate_raster_commands(name: &str, height: usize) -> Vec<u8> {
     Receipt::new()
         .child(PatternComponent::new(name, height).with_title().raster_mode())
         .cut()
-        .build()
+        .build_raw()
 }
 
-/// Generate printer commands using band mode via component system
+/// Generate printer commands using band mode via component system.
+/// Uses build_raw() for pure StarPRNT protocol bytes (no drain markers).
 fn generate_band_commands(name: &str, height: usize) -> Vec<u8> {
     Receipt::new()
         .child(PatternComponent::new(name, height).with_title().band_mode())
         .cut()
-        .build()
+        .build_raw()
 }
 
 /// Generate preview PNG for a program

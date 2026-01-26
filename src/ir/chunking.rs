@@ -41,9 +41,10 @@
 
 use super::ops::{Op, Program};
 
-/// Default threshold before inserting a drain point (64KB).
-/// Conservative to avoid hitting typical ~100KB printer buffer limit.
-pub const DEFAULT_DRAIN_THRESHOLD_BYTES: usize = 64 * 1024;
+/// Default threshold before inserting a drain point (16KB).
+/// Very conservative - ensures we pause frequently for large graphics.
+/// 16KB ≈ 220 rows of full-width graphics ≈ 28mm.
+pub const DEFAULT_DRAIN_THRESHOLD_BYTES: usize = 16 * 1024;
 
 /// For backwards compatibility - converts mm to approximate bytes.
 /// ~80mm of full-width graphics ≈ 640 rows × 72 bytes ≈ 46KB

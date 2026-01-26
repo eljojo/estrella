@@ -49,16 +49,17 @@ pub fn current_datetime() -> String {
 /// - Upside-down text
 /// - Font selection
 pub fn demo_receipt() -> Vec<u8> {
-    demo_receipt_with_datetime(&current_datetime())
+    demo_receipt_builder(&current_datetime()).build()
 }
 
 /// Generate a simple demo receipt with a fixed date (for golden tests).
+/// Uses build_raw() for pure StarPRNT protocol bytes without drain markers.
 pub fn demo_receipt_golden() -> Vec<u8> {
-    demo_receipt_with_datetime(GOLDEN_TEST_DATETIME)
+    demo_receipt_builder(GOLDEN_TEST_DATETIME).build_raw()
 }
 
-/// Generate a simple demo receipt with a specific datetime string.
-fn demo_receipt_with_datetime(datetime: &str) -> Vec<u8> {
+/// Build a simple demo receipt with a specific datetime string.
+fn demo_receipt_builder(datetime: &str) -> Receipt {
     Receipt::new()
         // Header
         .child(
@@ -126,7 +127,6 @@ fn demo_receipt_with_datetime(datetime: &str) -> Vec<u8> {
         .child(Text::new("COME BACK SOON").center().bold())
         .child(Spacer::mm(6.0))
         .cut()
-        .build()
 }
 
 /// Generate a full demo receipt with barcodes, using the current date/time.
@@ -139,16 +139,17 @@ fn demo_receipt_with_datetime(datetime: &str) -> Vec<u8> {
 /// - QR code
 /// - PDF417 barcode
 pub fn full_receipt() -> Vec<u8> {
-    full_receipt_with_datetime(&current_datetime())
+    full_receipt_builder(&current_datetime()).build()
 }
 
 /// Generate a full demo receipt with a fixed date (for golden tests).
+/// Uses build_raw() for pure StarPRNT protocol bytes without drain markers.
 pub fn full_receipt_golden() -> Vec<u8> {
-    full_receipt_with_datetime(GOLDEN_TEST_DATETIME)
+    full_receipt_builder(GOLDEN_TEST_DATETIME).build_raw()
 }
 
-/// Generate a full demo receipt with a specific datetime string.
-fn full_receipt_with_datetime(datetime: &str) -> Vec<u8> {
+/// Build a full demo receipt with a specific datetime string.
+fn full_receipt_builder(datetime: &str) -> Receipt {
     Receipt::new()
         // Set codepage
         .child(Raw::op(Op::SetCodepage(1)))
@@ -245,7 +246,6 @@ fn full_receipt_with_datetime(datetime: &str) -> Vec<u8> {
         .child(Text::new("COME BACK SOON").center().bold())
         .child(Spacer::mm(10.0))
         .cut()
-        .build()
 }
 
 /// Generate a demo receipt using Markdown syntax.
@@ -259,12 +259,13 @@ fn full_receipt_with_datetime(datetime: &str) -> Vec<u8> {
 /// - Horizontal rules
 /// - Paragraphs and spacing
 pub fn markdown_demo() -> Vec<u8> {
-    markdown_demo_with_date(&current_date()).build()
+    markdown_demo_builder(&current_date()).build()
 }
 
 /// Generate a markdown demo receipt with a fixed date (for golden tests).
+/// Uses build_raw() for pure StarPRNT protocol bytes without drain markers.
 pub fn markdown_demo_golden() -> Vec<u8> {
-    markdown_demo_with_date(GOLDEN_TEST_DATE).build()
+    markdown_demo_builder(GOLDEN_TEST_DATE).build_raw()
 }
 
 // ============================================================================
@@ -295,7 +296,7 @@ pub fn program_by_name(name: &str) -> Option<crate::ir::Program> {
         "receipt-full" | "receipt_full" => {
             Some(full_receipt_component_with_datetime(&current_datetime()).compile())
         }
-        "markdown" => Some(markdown_demo_with_date(&current_date()).compile()),
+        "markdown" => Some(markdown_demo_builder(&current_date()).compile()),
         _ => None,
     }
 }
@@ -309,7 +310,7 @@ pub fn program_by_name_golden(name: &str) -> Option<crate::ir::Program> {
         "receipt-full" | "receipt_full" => {
             Some(full_receipt_component_with_datetime(GOLDEN_TEST_DATETIME).compile())
         }
-        "markdown" => Some(markdown_demo_with_date(GOLDEN_TEST_DATE).compile()),
+        "markdown" => Some(markdown_demo_builder(GOLDEN_TEST_DATE).compile()),
         _ => None,
     }
 }
@@ -486,7 +487,7 @@ fn full_receipt_component_with_datetime(datetime: &str) -> Receipt {
 }
 
 /// Get the markdown demo component with a specific date.
-fn markdown_demo_with_date(date: &str) -> Receipt {
+fn markdown_demo_builder(date: &str) -> Receipt {
     let content = format!(
         r#"# Markdown *Kitchen* Sink
 
