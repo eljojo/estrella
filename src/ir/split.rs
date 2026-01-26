@@ -37,10 +37,11 @@
 use super::ops::{Op, Program};
 
 /// Default chunk size in bytes for splitting large raster images.
-/// 45KB is conservative - printer buffer is ~50-60KB based on empirical testing.
-/// Formula: chunk_rows = chunk_bytes / width_bytes
-/// For 576-dot width: 45,000 / 72 = 625 rows ≈ 78mm
-pub const DEFAULT_CHUNK_BYTES: usize = 45_000;
+/// 86,400 = 72 bytes/row × 24 rows/band × 50 bands = 1200 rows ≈ 150mm.
+/// Chosen so that chunk_rows is always a multiple of 24 (band alignment),
+/// and fits comfortably in the printer's ~100KB internal buffer even
+/// accounting for BT transmission outpacing print speed.
+pub const DEFAULT_CHUNK_BYTES: usize = 86_400;
 
 /// Band alignment - band mode must split at 24-row boundaries.
 const BAND_HEIGHT: usize = 24;
@@ -69,9 +70,7 @@ impl Program {
     /// let programs = program.split_for_long_print();
     /// ```
     pub fn split_for_long_print(self) -> Vec<Program> {
-        // Job splitting disabled - tcdrain pacing in transport handles flow control.
-        // TODO: re-enable if needed: self.split_for_long_print_with_max_bytes(DEFAULT_CHUNK_BYTES)
-        vec![self]
+        self.split_for_long_print_with_max_bytes(DEFAULT_CHUNK_BYTES)
     }
 
     /// Split with a custom maximum bytes per chunk.
@@ -258,14 +257,13 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "split disabled - tcdrain pacing handles flow control"]
     fn test_large_raster_splits() {
         let mut program = Program::new();
         program.push(Op::Init);
         program.push(Op::Raster {
             width: 576,
-            height: 1800, // Should split into 3 programs with 600-row chunks
-            data: vec![0; 576 / 8 * 1800],
+            height: 3000, // 3000 rows / 1200-row chunks = 3 programs
+            data: vec![0; 576 / 8 * 3000],
         });
         program.push(Op::Feed { units: 24 });
         program.push(Op::Cut { partial: false });
@@ -275,14 +273,13 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "split disabled - tcdrain pacing handles flow control"]
     fn test_trailing_ops_on_last_chunk_only() {
         let mut program = Program::new();
         program.push(Op::Init);
         program.push(Op::Raster {
             width: 576,
-            height: 1200, // Should split into 2 programs with 600-row chunks
-            data: vec![0; 576 / 8 * 1200],
+            height: 2400, // 2400 rows / 1200-row chunks = 2 programs
+            data: vec![0; 576 / 8 * 2400],
         });
         program.push(Op::Feed { units: 24 });
         program.push(Op::Cut { partial: false });
@@ -309,8 +306,8 @@ mod tests {
         program.push(Op::Init);
         program.push(Op::Raster {
             width: 576,
-            height: 1200, // Should split into 2 programs with 600-row chunks
-            data: vec![0; 576 / 8 * 1200],
+            height: 2400, // 2400 rows / 1200-row chunks = 2 programs
+            data: vec![0; 576 / 8 * 2400],
         });
         program.push(Op::Cut { partial: false });
 
@@ -326,14 +323,13 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "split disabled - tcdrain pacing handles flow control"]
     fn test_no_feed_between_chunks() {
         let mut program = Program::new();
         program.push(Op::Init);
         program.push(Op::Raster {
             width: 576,
-            height: 1800, // Should split into 3 programs with 600-row chunks
-            data: vec![0; 576 / 8 * 1800],
+            height: 3000, // 3000 rows / 1200-row chunks = 3 programs
+            data: vec![0; 576 / 8 * 3000],
         });
         program.push(Op::Feed { units: 24 });
         program.push(Op::Cut { partial: false });
@@ -349,7 +345,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "split disabled - tcdrain pacing handles flow control"]
     fn test_band_mode_splits_aligned() {
         // Band mode should split at 24-row boundaries
         let width_bytes: u8 = 72;
