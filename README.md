@@ -294,99 +294,47 @@ estrella setup-rfcomm XX:XX:XX:XX:XX:XX  # Set up Bluetooth RFCOMM (requires roo
 
 ### The Problem
 
-Thermal printers have limited internal buffers (~100-200KB). When sending large amounts of data, the buffer can overflow causing:
-- Print failures or garbled output
-- Communication errors
-- Incomplete prints
-
-**Key insight:** The issue is **data volume**, not print length. Text is tiny (~50 bytes per line) while images are massive:
-- Raster: 72 bytes/row × 256 rows = ~18KB per chunk
-- Band: 72 bytes/row × 24 rows = ~1.7KB per band
-
-You can print 500mm of text without issues, but 100mm of images will fail.
+Thermal printers have limited internal buffers (~100-200KB). Large images can overflow the buffer causing print failures.
 
 ### The Solution
 
-Estrella implements automatic **long print chunking** that tracks bytes sent and inserts pauses after large graphics operations. This happens transparently.
+Estrella automatically splits large images into multiple independent print jobs (~1000 rows each). Each job completes fully before the next begins, preventing buffer overflow.
 
 ### How It Works
 
-The system operates at two levels:
-
-**1. IR Layer (`insert_drain_points()`)**
-
-After optimization, the IR pass tracks cumulative bytes and inserts `Op::DrainBuffer` markers when approaching the 64KB threshold:
-
 ```
-Components → IR → Optimizer → insert_drain_points() → Codegen → Bytes
-```
-
-Only "heavy" operations trigger drain consideration:
-- Raster graphics (~18KB per 256-row chunk)
-- Band graphics (~1.7KB per band)
-- QR codes and PDF417 barcodes
-
-Text, feeds, and styling commands are "light" and never trigger drains.
-
-**2. Transport Layer**
-
-Codegen converts `Op::DrainBuffer` to a 9-byte marker sequence:
-
-```
-ESC NUL "DRAIN" NUL ESC  (0x1B 0x00 D R A I N 0x00 0x1B)
+Large Image (e.g., 2000 rows)
+    ↓
+split_for_long_print()
+    ↓
+Job 1: Init + Raster(rows 0-999)
+    ↓ [1 second pause]
+Job 2: Init + Raster(rows 1000-1999) + Feed + Cut
+    ↓
+Printer outputs seamless image
 ```
 
-The transport layer:
-1. Scans outgoing data for drain markers
-2. Sends all data before the marker
-3. Flushes and waits **1 second**
-4. Continues with remaining data
-
-The marker is designed to be:
-- Unlikely to appear in normal print data
-- Safe if accidentally sent to printer (ESC NUL is a no-op)
+- Each job is a complete, independent StarPRNT program
+- NO feed between jobs (image appears continuous)
+- Feed/Cut only on the final job
+- 1 second pause between jobs lets printer catch up
 
 ### Usage
 
-Long print mode is **fully automatic**. The `to_bytes()` method automatically inserts drain points - no code changes needed:
+Long print mode is **automatic** when using the web UI or CLI.
 
+For programmatic use:
 ```rust
-let bytes = receipt.compile().to_bytes();  // Drain points included automatically
-```
-
-The system will:
-- Print normally for text-only or small graphics
-- Automatically insert pauses for large graphics (>64KB)
-
-For custom thresholds or raw bytes without drain points:
-
-```rust
-use estrella::ir::Program;
-
-// Custom threshold (bytes)
-let program = receipt.compile()
-    .insert_drain_points_with_threshold_bytes(32 * 1024);
-let bytes = program.to_bytes_raw();  // Don't double-insert
-
-// Raw bytes without any drain points (for testing)
-let bytes = program.to_bytes_raw();
+let programs = program.split_for_long_print();
+transport.send_programs(&programs)?;
 ```
 
 ### Technical Details
 
 | Parameter | Value |
 |-----------|-------|
-| Default threshold | 64KB |
-| Drain pause duration | 1 second |
-| Marker sequence | `1B 00 44 52 41 49 4E 00 1B` |
-| Raster chunk size | 256 rows (~18KB) |
-| Band size | 24 rows (~1.7KB) |
-
-### Files
-
-- `src/ir/chunking.rs` - Drain point insertion pass
-- `src/ir/ops.rs` - `Op::DrainBuffer` variant
-- `src/ir/codegen.rs` - Marker sequence generation
-- `src/transport/bluetooth.rs` - Marker detection and pause handling
+| Chunk size | 1000 rows (~125mm, ~72KB) |
+| Pause between jobs | 1 second |
+| Band mode alignment | 24-row boundaries |
 
 </details>

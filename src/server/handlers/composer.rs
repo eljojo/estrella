@@ -262,15 +262,14 @@ pub async fn print(
         program.push(Op::Cut { partial: false });
     }
 
-    let print_data = program.to_bytes();
-
-    // Print to device
+    // Split for long print and send to printer
     let device_path = state.config.device_path.clone();
     let layer_count = req.spec.layers.len();
 
     let print_result = tokio::task::spawn_blocking(move || {
+        let programs = program.split_for_long_print();
         let mut transport = BluetoothTransport::open(&device_path)?;
-        transport.write_all(&print_data)?;
+        transport.send_programs(&programs)?;
         Ok::<_, crate::EstrellaError>(())
     })
     .await;

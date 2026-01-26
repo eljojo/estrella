@@ -42,13 +42,10 @@
 //! ```
 
 pub mod analyze;
-mod chunking;
 pub mod codegen;
 mod ops;
 mod optimize;
-
-pub use chunking::{DEFAULT_DRAIN_THRESHOLD_BYTES, DEFAULT_DRAIN_THRESHOLD_MM};
-pub use codegen::DRAIN_MARKER;
+pub mod split;
 
 // Re-export the ops types (codegen and optimize add methods to Program via impl)
 pub use ops::*;

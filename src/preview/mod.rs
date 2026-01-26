@@ -298,10 +298,6 @@ impl PreviewRenderer {
             Op::NvStore { .. } | Op::NvDelete { .. } => {
                 // These don't produce visible output in preview
             }
-
-            Op::DrainBuffer => {
-                // Transport-level marker, no visual effect in preview
-            }
         }
 
         Ok(())

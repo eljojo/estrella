@@ -6,12 +6,9 @@
 //! ## Long Print Support
 //!
 //! For prints longer than ~100mm, the printer's internal buffer can overflow.
-//! This transport automatically handles "drain markers" inserted by the IR
-//! chunking pass. When a drain marker is encountered, the transport pauses
-//! for 1 second to let the printer catch up.
-//!
-//! The drain marker is a 9-byte sequence: `ESC NUL "DRAIN" NUL ESC`
-//! It's stripped from the output and replaced with a pause.
+//! Use `send_programs()` to send multiple independent print jobs with pauses
+//! between them, allowing the printer to process each job completely before
+//! receiving the next.
 //!
 //! ## Bluetooth Setup (Linux)
 //!
@@ -69,12 +66,9 @@ const CHUNK_SIZE: usize = 4096;
 /// Delay between chunks (milliseconds)
 const CHUNK_DELAY_MS: u64 = 2;
 
-/// Delay when drain marker is encountered (milliseconds)
-/// This gives the printer time to process buffered data.
-const DRAIN_DELAY_MS: u64 = 1000;
-
-/// Import drain marker from IR module
-use crate::ir::DRAIN_MARKER;
+/// Delay between independent print jobs (milliseconds)
+/// This gives the printer time to process each job completely.
+const JOB_DELAY_MS: u64 = 1000;
 
 /// # Bluetooth Printer Transport
 ///
@@ -163,33 +157,8 @@ impl BluetoothTransport {
     ///
     /// Small writes are sent directly. Large writes are automatically
     /// chunked to avoid buffer overflow.
-    ///
-    /// ## Drain Markers
-    ///
-    /// If the data contains drain markers (from `insert_drain_points()`),
-    /// the transport will:
-    /// 1. Send all data before the marker
-    /// 2. Flush and wait 1 second
-    /// 3. Continue with remaining data
-    ///
-    /// This prevents buffer overflow during long prints.
     pub fn write_all(&mut self, data: &[u8]) -> Result<(), EstrellaError> {
-        // Split data on drain markers and process each segment
-        let segments = split_on_drain_markers(data);
-
-        for (i, segment) in segments.iter().enumerate() {
-            // Write segment with chunking
-            self.write_segment(segment)?;
-
-            // If not the last segment, this means we hit a drain marker
-            // Flush and wait for printer to catch up
-            if i < segments.len() - 1 {
-                self.file
-                    .flush()
-                    .map_err(|e| EstrellaError::Transport(format!("Flush failed: {}", e)))?;
-                thread::sleep(Duration::from_millis(DRAIN_DELAY_MS));
-            }
-        }
+        self.write_segment(data)?;
 
         self.file
             .flush()
@@ -198,7 +167,41 @@ impl BluetoothTransport {
         Ok(())
     }
 
-    /// Write a segment of data with chunking (no drain marker handling).
+    /// Send multiple independent print programs with pauses between them.
+    ///
+    /// Each program is sent completely, then the transport pauses for 1 second
+    /// to let the printer process it before sending the next. This prevents
+    /// buffer overflow during long prints with large graphics.
+    ///
+    /// ## Example
+    ///
+    /// ```ignore
+    /// use estrella::transport::bluetooth::BluetoothTransport;
+    /// use estrella::ir::Program;
+    ///
+    /// let programs: Vec<Program> = program.split_for_long_print();
+    /// let mut transport = BluetoothTransport::open("/dev/rfcomm0")?;
+    /// transport.send_programs(&programs)?;
+    /// ```
+    pub fn send_programs(&mut self, programs: &[crate::ir::Program]) -> Result<(), EstrellaError> {
+        for (i, program) in programs.iter().enumerate() {
+            let bytes = program.to_bytes();
+            self.write_segment(&bytes)?;
+
+            self.file
+                .flush()
+                .map_err(|e| EstrellaError::Transport(format!("Flush failed: {}", e)))?;
+
+            // Pause between jobs (but not after the last one)
+            if i < programs.len() - 1 {
+                thread::sleep(Duration::from_millis(JOB_DELAY_MS));
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Write a segment of data with chunking.
     fn write_segment(&mut self, data: &[u8]) -> Result<(), EstrellaError> {
         if data.is_empty() {
             return Ok(());
@@ -224,44 +227,6 @@ impl BluetoothTransport {
 
         Ok(())
     }
-}
-
-/// Split data on drain markers, returning segments without the markers.
-///
-/// Example: `[A, A, DRAIN, B, B, DRAIN, C]` → `[[A, A], [B, B], [C]]`
-fn split_on_drain_markers(data: &[u8]) -> Vec<&[u8]> {
-    let mut segments = Vec::new();
-    let mut start = 0;
-
-    while start < data.len() {
-        // Search for drain marker starting at current position
-        if let Some(pos) = find_drain_marker(&data[start..]) {
-            // Add segment before marker (may be empty)
-            segments.push(&data[start..start + pos]);
-            // Skip past the marker
-            start = start + pos + DRAIN_MARKER.len();
-        } else {
-            // No more markers, add remaining data
-            segments.push(&data[start..]);
-            break;
-        }
-    }
-
-    // If data ended with a marker, we might have no trailing segment
-    if segments.is_empty() {
-        segments.push(&[] as &[u8]);
-    }
-
-    segments
-}
-
-/// Find the position of a drain marker in the data.
-fn find_drain_marker(data: &[u8]) -> Option<usize> {
-    if data.len() < DRAIN_MARKER.len() {
-        return None;
-    }
-    data.windows(DRAIN_MARKER.len())
-        .position(|window| window == DRAIN_MARKER)
 }
 
 /// Configure a file descriptor for raw TTY mode.
@@ -522,129 +487,6 @@ mod tests {
         assert!(!is_valid_mac("GG:HH:II:JJ:KK:LL")); // invalid hex
         assert!(!is_valid_mac("")); // empty
         assert!(!is_valid_mac("not-a-mac")); // garbage
-    }
-
-    // ========== Drain Marker Tests ==========
-
-    #[test]
-    fn test_find_drain_marker_present() {
-        let mut data = vec![0x01, 0x02, 0x03];
-        data.extend(DRAIN_MARKER);
-        data.extend(&[0x04, 0x05]);
-
-        let pos = find_drain_marker(&data);
-        assert_eq!(pos, Some(3));
-    }
-
-    #[test]
-    fn test_find_drain_marker_absent() {
-        let data = vec![0x01, 0x02, 0x03, 0x04, 0x05];
-        let pos = find_drain_marker(&data);
-        assert_eq!(pos, None);
-    }
-
-    #[test]
-    fn test_find_drain_marker_at_start() {
-        let mut data = DRAIN_MARKER.to_vec();
-        data.extend(&[0x01, 0x02]);
-
-        let pos = find_drain_marker(&data);
-        assert_eq!(pos, Some(0));
-    }
-
-    #[test]
-    fn test_find_drain_marker_at_end() {
-        let mut data = vec![0x01, 0x02];
-        data.extend(DRAIN_MARKER);
-
-        let pos = find_drain_marker(&data);
-        assert_eq!(pos, Some(2));
-    }
-
-    #[test]
-    fn test_split_no_markers() {
-        let data = vec![0x01, 0x02, 0x03, 0x04, 0x05];
-        let segments = split_on_drain_markers(&data);
-
-        assert_eq!(segments.len(), 1);
-        assert_eq!(segments[0], &[0x01, 0x02, 0x03, 0x04, 0x05]);
-    }
-
-    #[test]
-    fn test_split_one_marker() {
-        let mut data = vec![0x01, 0x02];
-        data.extend(DRAIN_MARKER);
-        data.extend(&[0x03, 0x04]);
-
-        let segments = split_on_drain_markers(&data);
-
-        assert_eq!(segments.len(), 2);
-        assert_eq!(segments[0], &[0x01, 0x02]);
-        assert_eq!(segments[1], &[0x03, 0x04]);
-    }
-
-    #[test]
-    fn test_split_multiple_markers() {
-        let mut data = vec![0x01];
-        data.extend(DRAIN_MARKER);
-        data.extend(&[0x02, 0x03]);
-        data.extend(DRAIN_MARKER);
-        data.extend(&[0x04]);
-
-        let segments = split_on_drain_markers(&data);
-
-        assert_eq!(segments.len(), 3);
-        assert_eq!(segments[0], &[0x01]);
-        assert_eq!(segments[1], &[0x02, 0x03]);
-        assert_eq!(segments[2], &[0x04]);
-    }
-
-    #[test]
-    fn test_split_marker_at_start() {
-        let mut data = DRAIN_MARKER.to_vec();
-        data.extend(&[0x01, 0x02]);
-
-        let segments = split_on_drain_markers(&data);
-
-        assert_eq!(segments.len(), 2);
-        assert_eq!(segments[0], &[] as &[u8]); // Empty segment before marker
-        assert_eq!(segments[1], &[0x01, 0x02]);
-    }
-
-    #[test]
-    fn test_split_marker_at_end() {
-        let mut data = vec![0x01, 0x02];
-        data.extend(DRAIN_MARKER);
-
-        let segments = split_on_drain_markers(&data);
-
-        // Should have the segment before marker, then nothing after
-        assert_eq!(segments.len(), 1);
-        assert_eq!(segments[0], &[0x01, 0x02]);
-    }
-
-    #[test]
-    fn test_split_consecutive_markers() {
-        let mut data = vec![0x01];
-        data.extend(DRAIN_MARKER);
-        data.extend(DRAIN_MARKER); // Two markers in a row
-        data.extend(&[0x02]);
-
-        let segments = split_on_drain_markers(&data);
-
-        assert_eq!(segments.len(), 3);
-        assert_eq!(segments[0], &[0x01]);
-        assert_eq!(segments[1], &[] as &[u8]); // Empty between markers
-        assert_eq!(segments[2], &[0x02]);
-    }
-
-    #[test]
-    fn test_split_empty_data() {
-        let data: Vec<u8> = vec![];
-        let segments = split_on_drain_markers(&data);
-
-        assert_eq!(segments.len(), 1);
-        assert!(segments[0].is_empty());
     }
 
     // Note: Most transport tests require actual hardware.

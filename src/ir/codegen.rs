@@ -6,53 +6,16 @@ use super::ops::{BarcodeKind, Op, Program};
 use crate::printer::PrinterConfig;
 use crate::protocol::{barcode, commands, graphics, nv_graphics, text};
 
-/// Magic marker sequence for drain buffer points.
-///
-/// This is a sequence that the transport layer recognizes and uses to
-/// pause and let the printer catch up. It's designed to:
-/// 1. Be unlikely to appear in normal print data
-/// 2. Be safe if accidentally sent to printer (no-ops)
-///
-/// Sequence: ESC NUL "DRAIN" NUL ESC (9 bytes)
-/// The ESC bytes make it look like a command, NULs are ignored by printer.
-pub const DRAIN_MARKER: &[u8] = &[0x1B, 0x00, b'D', b'R', b'A', b'I', b'N', 0x00, 0x1B];
-
-/// Threshold for inserting drain markers within graphics (14KB).
-/// This is used directly in codegen to insert drains between raster/band chunks.
-/// 14KB ≈ 194 rows of full-width graphics ≈ 24mm.
-const DRAIN_THRESHOLD: usize = 14 * 1024;
-
 impl Program {
     /// Compile the IR program to StarPRNT bytes.
     ///
-    /// Automatically inserts drain points for long prints to prevent
-    /// printer buffer overflow. Uses the default printer config (TSP650II).
+    /// Uses the default printer config (TSP650II).
     pub fn to_bytes(&self) -> Vec<u8> {
         self.to_bytes_with_config(&PrinterConfig::TSP650II)
     }
 
     /// Compile the IR program to StarPRNT bytes with a specific printer config.
-    ///
-    /// Automatically inserts drain points for long prints.
-    pub fn to_bytes_with_config(&self, config: &PrinterConfig) -> Vec<u8> {
-        self.to_bytes_internal(config, true)
-    }
-
-    /// Compile to bytes WITHOUT automatic drain point insertion.
-    ///
-    /// Use this only if you need raw bytes without pauses (e.g., for testing
-    /// or when you've already called `insert_drain_points()` manually).
-    pub fn to_bytes_raw(&self) -> Vec<u8> {
-        self.to_bytes_raw_with_config(&PrinterConfig::TSP650II)
-    }
-
-    /// Compile to bytes without drain points, with a specific printer config.
-    pub fn to_bytes_raw_with_config(&self, config: &PrinterConfig) -> Vec<u8> {
-        self.to_bytes_internal(config, false)
-    }
-
-    /// Internal method that handles both drain and no-drain modes.
-    fn to_bytes_internal(&self, _config: &PrinterConfig, include_drains: bool) -> Vec<u8> {
+    pub fn to_bytes_with_config(&self, _config: &PrinterConfig) -> Vec<u8> {
         let mut out = Vec::new();
 
         for op in &self.ops {
@@ -161,39 +124,21 @@ impl Program {
                     height,
                     data,
                 } => {
-                    // Chunk large raster images to avoid printer buffer overflow
-                    // 128 rows × 72 bytes = 9KB per chunk, fits under 14KB drain threshold
+                    // Chunk raster images for compatibility
+                    // 256 rows per chunk is the StarPRNT standard
                     let width_bytes = width.div_ceil(8) as usize;
-                    let chunk_rows = 128usize;
+                    let chunk_rows = 256usize;
                     let total_height = *height as usize;
 
                     let mut row_offset = 0;
-                    let mut bytes_since_drain = 0usize;
                     while row_offset < total_height {
                         let chunk_height = (total_height - row_offset).min(chunk_rows);
                         let byte_start = row_offset * width_bytes;
                         let byte_end = (row_offset + chunk_height) * width_bytes;
                         let chunk_data = &data[byte_start..byte_end];
 
-                        let chunk_bytes = 11 + chunk_data.len(); // header + data
-
-                        // Insert drain marker if we've sent too much (only when drains enabled)
-                        if include_drains
-                            && bytes_since_drain > 0
-                            && bytes_since_drain + chunk_bytes > DRAIN_THRESHOLD
-                        {
-                            out.extend(DRAIN_MARKER);
-                            bytes_since_drain = 0;
-                        }
-
                         out.extend(graphics::raster(*width, chunk_height as u16, chunk_data));
-                        bytes_since_drain += chunk_bytes;
                         row_offset += chunk_height;
-                    }
-
-                    // Drain after raster if we sent significant data (only when drains enabled)
-                    if include_drains && bytes_since_drain > DRAIN_THRESHOLD / 2 {
-                        out.extend(DRAIN_MARKER);
                     }
                 }
                 Op::Band { width_bytes, data } => {
@@ -201,19 +146,7 @@ impl Program {
                     // Matches Python sick.py behavior
                     let band_size = *width_bytes as usize * 24;
 
-                    let mut bytes_since_drain = 0usize;
                     for chunk in data.chunks(band_size) {
-                        let chunk_bytes = 4 + band_size + 3; // header + data + feed
-
-                        // Insert drain marker if we've sent too much (only when drains enabled)
-                        if include_drains
-                            && bytes_since_drain > 0
-                            && bytes_since_drain + chunk_bytes > DRAIN_THRESHOLD
-                        {
-                            out.extend(DRAIN_MARKER);
-                            bytes_since_drain = 0;
-                        }
-
                         if chunk.len() == band_size {
                             out.extend(graphics::band(*width_bytes, chunk));
                         } else {
@@ -224,12 +157,6 @@ impl Program {
                         }
                         // Feed 3mm after each band (12 units = 3mm)
                         out.extend(commands::feed_units(12));
-                        bytes_since_drain += chunk_bytes;
-                    }
-
-                    // Drain after bands if we sent significant data (only when drains enabled)
-                    if include_drains && bytes_since_drain > DRAIN_THRESHOLD / 2 {
-                        out.extend(DRAIN_MARKER);
                     }
                 }
 
@@ -296,11 +223,6 @@ impl Program {
                     if let Some(cmd) = nv_graphics::erase(key) {
                         out.extend(cmd);
                     }
-                }
-
-                // ===== Long Print Support =====
-                Op::DrainBuffer => {
-                    out.extend(DRAIN_MARKER);
                 }
             }
         }

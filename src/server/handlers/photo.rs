@@ -347,11 +347,10 @@ pub async fn print(
             program.push(Op::Cut { partial: false });
         }
 
-        let print_data = program.to_bytes();
-
-        // Send to printer
+        // Split for long print and send to printer
+        let programs = program.split_for_long_print();
         let mut transport = BluetoothTransport::open(&device_path)?;
-        transport.write_all(&print_data)?;
+        transport.send_programs(&programs)?;
         Ok::<_, crate::EstrellaError>(())
     })
     .await;

@@ -214,13 +214,6 @@ pub enum Op {
 
     /// Delete image from NV memory.
     NvDelete { key: String },
-
-    // ========== Long Print Support ==========
-    /// Signal transport to pause and let printer catch up.
-    ///
-    /// Inserted automatically by `insert_drain_points()` for long prints.
-    /// Codegen emits a special marker sequence that transport recognizes.
-    DrainBuffer,
 }
 
 /// A compiled IR program.

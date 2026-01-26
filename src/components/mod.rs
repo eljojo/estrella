@@ -78,12 +78,12 @@ pub trait ComponentExt: Component {
         self.compile().optimize().to_bytes_with_config(config)
     }
 
-    /// Compile, optimize, and generate raw bytes (without drain markers).
+    /// Compile, optimize, and generate raw bytes.
     ///
-    /// Use this for testing or when you need pure StarPRNT protocol bytes
-    /// without transport-level pausing markers.
+    /// This is the same as build() - both produce pure StarPRNT protocol bytes.
+    /// Kept for API compatibility.
     fn build_raw(&self) -> Vec<u8> {
-        self.compile().optimize().to_bytes_raw()
+        self.build()
     }
 }
 
