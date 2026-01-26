@@ -6,6 +6,17 @@ use super::ops::{BarcodeKind, Op, Program};
 use crate::printer::PrinterConfig;
 use crate::protocol::{barcode, commands, graphics, nv_graphics, text};
 
+/// Magic marker sequence for drain buffer points.
+///
+/// This is a sequence that the transport layer recognizes and uses to
+/// pause and let the printer catch up. It's designed to:
+/// 1. Be unlikely to appear in normal print data
+/// 2. Be safe if accidentally sent to printer (no-ops)
+///
+/// Sequence: ESC NUL "DRAIN" NUL ESC (9 bytes)
+/// The ESC bytes make it look like a command, NULs are ignored by printer.
+pub const DRAIN_MARKER: &[u8] = &[0x1B, 0x00, b'D', b'R', b'A', b'I', b'N', 0x00, 0x1B];
+
 impl Program {
     /// Compile the IR program to StarPRNT bytes.
     ///
@@ -223,6 +234,11 @@ impl Program {
                     if let Some(cmd) = nv_graphics::erase(key) {
                         out.extend(cmd);
                     }
+                }
+
+                // ===== Long Print Support =====
+                Op::DrainBuffer => {
+                    out.extend(DRAIN_MARKER);
                 }
             }
         }

@@ -288,3 +288,103 @@ estrella weave ripple plasma --length 200mm  # Blend patterns
 estrella logo store logo.png       # Store logo in NV memory
 estrella setup-rfcomm XX:XX:XX:XX:XX:XX  # Set up Bluetooth RFCOMM (requires root)
 ```
+
+<details>
+<summary>Long Print Mode (Buffer Overflow Prevention)</summary>
+
+### The Problem
+
+Thermal printers have limited internal buffers (~100-200KB). When sending large amounts of data, the buffer can overflow causing:
+- Print failures or garbled output
+- Communication errors
+- Incomplete prints
+
+**Key insight:** The issue is **data volume**, not print length. Text is tiny (~50 bytes per line) while images are massive:
+- Raster: 72 bytes/row × 256 rows = ~18KB per chunk
+- Band: 72 bytes/row × 24 rows = ~1.7KB per band
+
+You can print 500mm of text without issues, but 100mm of images will fail.
+
+### The Solution
+
+Estrella implements automatic **long print chunking** that tracks bytes sent and inserts pauses after large graphics operations. This happens transparently.
+
+### How It Works
+
+The system operates at two levels:
+
+**1. IR Layer (`insert_drain_points()`)**
+
+After optimization, the IR pass tracks cumulative bytes and inserts `Op::DrainBuffer` markers when approaching the 64KB threshold:
+
+```
+Components → IR → Optimizer → insert_drain_points() → Codegen → Bytes
+```
+
+Only "heavy" operations trigger drain consideration:
+- Raster graphics (~18KB per 256-row chunk)
+- Band graphics (~1.7KB per band)
+- QR codes and PDF417 barcodes
+
+Text, feeds, and styling commands are "light" and never trigger drains.
+
+**2. Transport Layer**
+
+Codegen converts `Op::DrainBuffer` to a 9-byte marker sequence:
+
+```
+ESC NUL "DRAIN" NUL ESC  (0x1B 0x00 D R A I N 0x00 0x1B)
+```
+
+The transport layer:
+1. Scans outgoing data for drain markers
+2. Sends all data before the marker
+3. Flushes and waits **1 second**
+4. Continues with remaining data
+
+The marker is designed to be:
+- Unlikely to appear in normal print data
+- Safe if accidentally sent to printer (ESC NUL is a no-op)
+
+### Usage
+
+Long print mode is **automatic** - no code changes needed. The system will:
+- Print normally for text-only or small graphics
+- Automatically insert pauses for large graphics
+
+For custom thresholds (advanced):
+
+```rust
+use estrella::ir::Program;
+
+// By bytes (recommended)
+let program = receipt.compile()
+    .optimize()
+    .insert_drain_points_with_threshold_bytes(32 * 1024);  // 32KB
+
+// By mm (converts to bytes assuming full-width graphics)
+let program = receipt.compile()
+    .optimize()
+    .insert_drain_points_with_threshold(50.0);  // ~29KB
+
+let bytes = program.to_bytes();
+```
+
+### Technical Details
+
+| Parameter | Value |
+|-----------|-------|
+| Default threshold | 64KB |
+| Drain pause duration | 1 second |
+| Marker sequence | `1B 00 44 52 41 49 4E 00 1B` |
+| Raster chunk size | 256 rows (~18KB) |
+| Band size | 24 rows (~1.7KB) |
+
+### Files
+
+- `src/ir/chunking.rs` - Drain point insertion pass
+- `src/ir/ops.rs` - `Op::DrainBuffer` variant
+- `src/ir/codegen.rs` - Marker sequence generation
+- `src/transport/bluetooth.rs` - Marker detection and pause handling
+
+</details>
