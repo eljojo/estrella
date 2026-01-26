@@ -207,15 +207,46 @@ impl BluetoothTransport {
 
             // Pause between jobs (but not after the last one)
             if i < programs.len() - 1 {
+                // tcdrain() blocks until all data has been physically transmitted
+                // over the Bluetooth link. Without this, sleep() is meaningless
+                // because the OS buffer still holds all the data.
+                println!("[send_programs] Waiting for tcdrain (data to leave OS buffer)...");
+                self.tcdrain()?;
                 println!(
-                    "[send_programs] Pausing {}ms before next job...",
+                    "[send_programs] Drained. Pausing {}ms for printer to process...",
                     JOB_DELAY_MS
                 );
                 thread::sleep(Duration::from_millis(JOB_DELAY_MS));
             }
         }
 
+        // Final drain to ensure last job is fully transmitted
+        self.tcdrain()?;
         println!("[send_programs] All jobs sent successfully");
+        Ok(())
+    }
+
+    /// Block until all written data has been physically transmitted.
+    ///
+    /// This calls `tcdrain()` on the underlying file descriptor, which
+    /// blocks until the OS output buffer has been fully sent over the
+    /// Bluetooth RFCOMM link. Without this, `flush()` only pushes data
+    /// from userspace to the kernel buffer, and the printer may not have
+    /// received it yet.
+    #[cfg(unix)]
+    fn tcdrain(&self) -> Result<(), EstrellaError> {
+        let result = unsafe { libc::tcdrain(self.file.as_raw_fd()) };
+        if result != 0 {
+            return Err(EstrellaError::Transport(format!(
+                "tcdrain failed: {}",
+                io::Error::last_os_error()
+            )));
+        }
+        Ok(())
+    }
+
+    #[cfg(not(unix))]
+    fn tcdrain(&self) -> Result<(), EstrellaError> {
         Ok(())
     }
 
