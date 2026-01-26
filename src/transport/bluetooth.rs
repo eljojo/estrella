@@ -41,11 +41,12 @@
 //! - **No echo**: Disable ECHO, ECHONL
 //! - **Non-canonical mode**: Disable ICANON (no line buffering)
 //!
-//! ## Chunked Writes
+//! ## Paced Writes
 //!
-//! Large data blocks are written in chunks to avoid overwhelming the
-//! Bluetooth buffer. The default chunk size is 4096 bytes with a small
-//! delay between chunks.
+//! Large data blocks are written in 4096-byte chunks. After each chunk,
+//! `tcdrain()` blocks until the data has been physically transmitted over
+//! Bluetooth. This naturally paces writes to the actual Bluetooth throughput,
+//! preventing the printer's internal buffer from overflowing.
 
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, Write};
@@ -63,12 +64,10 @@ pub const DEFAULT_DEVICE: &str = "/dev/rfcomm0";
 /// Default chunk size for writes (bytes)
 const CHUNK_SIZE: usize = 4096;
 
-/// Delay between chunks (milliseconds)
-const CHUNK_DELAY_MS: u64 = 2;
-
-/// Delay between independent print jobs (milliseconds)
-/// This gives the printer time to process each job completely.
-const JOB_DELAY_MS: u64 = 1000;
+/// Delay between independent print jobs (milliseconds).
+/// After tcdrain confirms data left the OS buffer, this extra pause gives the
+/// printer time to finish processing the current job before receiving the next Init.
+const JOB_DELAY_MS: u64 = 2000;
 
 /// # Bluetooth Printer Transport
 ///
@@ -92,7 +91,6 @@ const JOB_DELAY_MS: u64 = 1000;
 pub struct BluetoothTransport {
     file: File,
     chunk_size: usize,
-    chunk_delay: Duration,
 }
 
 impl BluetoothTransport {
@@ -128,7 +126,6 @@ impl BluetoothTransport {
         Ok(Self {
             file,
             chunk_size: CHUNK_SIZE,
-            chunk_delay: Duration::from_millis(CHUNK_DELAY_MS),
         })
     }
 
@@ -143,14 +140,6 @@ impl BluetoothTransport {
     /// Default is 4096 bytes.
     pub fn set_chunk_size(&mut self, size: usize) {
         self.chunk_size = size;
-    }
-
-    /// Set the delay between chunks.
-    ///
-    /// Longer delays give the printer more time to process data.
-    /// Default is 2ms.
-    pub fn set_chunk_delay(&mut self, delay: Duration) {
-        self.chunk_delay = delay;
     }
 
     /// Write data to the printer.
@@ -250,7 +239,13 @@ impl BluetoothTransport {
         Ok(())
     }
 
-    /// Write a segment of data with chunking.
+    /// Write a segment of data with chunking and pacing.
+    ///
+    /// Data is written in 4KB chunks. After each chunk, `tcdrain()` blocks
+    /// until the data has been physically transmitted over Bluetooth. This
+    /// naturally paces writes to the actual link throughput (~700 KB/s for
+    /// BT SPP), preventing the printer's ~100KB internal buffer from
+    /// overflowing.
     fn write_segment(&mut self, data: &[u8]) -> Result<(), EstrellaError> {
         if data.is_empty() {
             return Ok(());
@@ -262,15 +257,16 @@ impl BluetoothTransport {
                 .write_all(data)
                 .map_err(|e| EstrellaError::Transport(format!("Write failed: {}", e)))?;
         } else {
-            // Large write - chunk it
+            // Large write - chunk it with tcdrain pacing
             for chunk in data.chunks(self.chunk_size) {
                 self.file
                     .write_all(chunk)
                     .map_err(|e| EstrellaError::Transport(format!("Write failed: {}", e)))?;
 
-                if !self.chunk_delay.is_zero() {
-                    thread::sleep(self.chunk_delay);
-                }
+                // Block until this chunk has been physically transmitted.
+                // This prevents the OS from buffering all chunks at once,
+                // which would overwhelm the printer's internal buffer.
+                self.tcdrain()?;
             }
         }
 
