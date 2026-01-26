@@ -184,8 +184,21 @@ impl BluetoothTransport {
     /// transport.send_programs(&programs)?;
     /// ```
     pub fn send_programs(&mut self, programs: &[crate::ir::Program]) -> Result<(), EstrellaError> {
+        let total = programs.len();
+        println!(
+            "[send_programs] Sending {} program(s) to printer",
+            total
+        );
+
         for (i, program) in programs.iter().enumerate() {
             let bytes = program.to_bytes();
+            println!(
+                "[send_programs] Job {}/{}: {} bytes",
+                i + 1,
+                total,
+                bytes.len()
+            );
+
             self.write_segment(&bytes)?;
 
             self.file
@@ -194,10 +207,15 @@ impl BluetoothTransport {
 
             // Pause between jobs (but not after the last one)
             if i < programs.len() - 1 {
+                println!(
+                    "[send_programs] Pausing {}ms before next job...",
+                    JOB_DELAY_MS
+                );
                 thread::sleep(Duration::from_millis(JOB_DELAY_MS));
             }
         }
 
+        println!("[send_programs] All jobs sent successfully");
         Ok(())
     }
 

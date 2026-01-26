@@ -36,9 +36,11 @@
 
 use super::ops::{Op, Program};
 
-/// Default chunk size in rows for splitting large raster images.
-/// ~1000 rows = ~125mm = ~72KB of data.
-pub const DEFAULT_CHUNK_ROWS: usize = 1000;
+/// Default chunk size in bytes for splitting large raster images.
+/// 45KB is conservative - printer buffer is ~50-60KB based on empirical testing.
+/// Formula: chunk_rows = chunk_bytes / width_bytes
+/// For 576-dot width: 45,000 / 72 = 625 rows ≈ 78mm
+pub const DEFAULT_CHUNK_BYTES: usize = 45_000;
 
 /// Band alignment - band mode must split at 24-row boundaries.
 const BAND_HEIGHT: usize = 24;
@@ -51,7 +53,11 @@ impl Program {
     /// This allows the printer to process each job completely before receiving
     /// the next, preventing buffer overflow.
     ///
-    /// Small images (< chunk_rows) are not split and return a single program.
+    /// The chunk size is calculated from `DEFAULT_CHUNK_BYTES` (45KB) divided
+    /// by the image's width in bytes. This ensures consistent buffer usage
+    /// regardless of image width.
+    ///
+    /// Small images that fit in a single chunk are not split.
     ///
     /// ## Example
     ///
@@ -63,7 +69,17 @@ impl Program {
     /// let programs = program.split_for_long_print();
     /// ```
     pub fn split_for_long_print(self) -> Vec<Program> {
-        self.split_for_long_print_with_chunk_size(DEFAULT_CHUNK_ROWS)
+        self.split_for_long_print_with_max_bytes(DEFAULT_CHUNK_BYTES)
+    }
+
+    /// Split with a custom maximum bytes per chunk.
+    ///
+    /// The chunk size in rows is calculated as: `max_bytes / width_bytes`
+    pub fn split_for_long_print_with_max_bytes(self, max_bytes: usize) -> Vec<Program> {
+        // Find the graphics operation to determine width
+        let width_bytes = self.find_graphics_width_bytes().unwrap_or(72); // default to 576/8
+        let chunk_rows = max_bytes / width_bytes;
+        self.split_for_long_print_with_chunk_size(chunk_rows)
     }
 
     /// Split with a custom chunk size (in rows).
@@ -75,6 +91,10 @@ impl Program {
             Some(result) => result,
             None => {
                 // No splittable graphics, return single program unchanged
+                println!(
+                    "[split] No splittable graphics found (threshold: {} rows), returning single program",
+                    chunk_rows
+                );
                 return vec![self];
             }
         };
@@ -99,8 +119,28 @@ impl Program {
 
         // If the image is small enough, no split needed
         if total_rows <= effective_chunk_rows {
+            println!(
+                "[split] Image {} rows <= {} chunk rows, no split needed",
+                total_rows, effective_chunk_rows
+            );
             return vec![self];
         }
+
+        // Calculate bytes per row for splitting
+        let width_bytes = width.div_ceil(8) as usize;
+
+        let num_chunks = (total_rows + effective_chunk_rows - 1) / effective_chunk_rows;
+        let total_bytes = total_rows * width_bytes;
+        let chunk_bytes = effective_chunk_rows * width_bytes;
+        println!(
+            "[split] Splitting {} row {} image ({} bytes) into {} chunks of {} rows (~{}KB each)",
+            total_rows,
+            if is_band { "BAND" } else { "RASTER" },
+            total_bytes,
+            num_chunks,
+            effective_chunk_rows,
+            chunk_bytes / 1024
+        );
 
         // Collect pre-graphics ops (excluding Init, we'll add our own)
         let pre_ops: Vec<Op> = self.ops[..graphics_idx]
@@ -113,7 +153,6 @@ impl Program {
         let trailing_ops: Vec<Op> = self.ops[graphics_idx + 1..].to_vec();
 
         // Split the graphics data
-        let width_bytes = width.div_ceil(8) as usize;
         let mut programs = Vec::new();
         let mut row_offset = 0;
 
@@ -179,6 +218,22 @@ impl Program {
         }
         None
     }
+
+    /// Find the width in bytes of the first graphics operation.
+    fn find_graphics_width_bytes(&self) -> Option<usize> {
+        for op in &self.ops {
+            match op {
+                Op::Raster { width, .. } => {
+                    return Some(width.div_ceil(8) as usize);
+                }
+                Op::Band { width_bytes, .. } => {
+                    return Some(*width_bytes as usize);
+                }
+                _ => {}
+            }
+        }
+        None
+    }
 }
 
 #[cfg(test)]
@@ -206,8 +261,8 @@ mod tests {
         program.push(Op::Init);
         program.push(Op::Raster {
             width: 576,
-            height: 2500, // Should split into 3 programs
-            data: vec![0; 576 / 8 * 2500],
+            height: 1800, // Should split into 3 programs with 600-row chunks
+            data: vec![0; 576 / 8 * 1800],
         });
         program.push(Op::Feed { units: 24 });
         program.push(Op::Cut { partial: false });
@@ -222,8 +277,8 @@ mod tests {
         program.push(Op::Init);
         program.push(Op::Raster {
             width: 576,
-            height: 2000,
-            data: vec![0; 576 / 8 * 2000],
+            height: 1200, // Should split into 2 programs with 600-row chunks
+            data: vec![0; 576 / 8 * 1200],
         });
         program.push(Op::Feed { units: 24 });
         program.push(Op::Cut { partial: false });
@@ -250,8 +305,8 @@ mod tests {
         program.push(Op::Init);
         program.push(Op::Raster {
             width: 576,
-            height: 2000,
-            data: vec![0; 576 / 8 * 2000],
+            height: 1200, // Should split into 2 programs with 600-row chunks
+            data: vec![0; 576 / 8 * 1200],
         });
         program.push(Op::Cut { partial: false });
 
@@ -272,8 +327,8 @@ mod tests {
         program.push(Op::Init);
         program.push(Op::Raster {
             width: 576,
-            height: 2500,
-            data: vec![0; 576 / 8 * 2500],
+            height: 1800, // Should split into 3 programs with 600-row chunks
+            data: vec![0; 576 / 8 * 1800],
         });
         program.push(Op::Feed { units: 24 });
         program.push(Op::Cut { partial: false });

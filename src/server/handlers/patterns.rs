@@ -273,8 +273,16 @@ pub async fn print(
 
     // Split for long print and send to printer
     let device_path = state.config.device_path.clone();
+    let pattern_name = name.clone();
+
+    println!(
+        "[patterns] Print request: pattern={}, {}x{} pixels, mode={}",
+        pattern_name, width, height, form.mode
+    );
+
     let print_result = tokio::task::spawn_blocking(move || {
         let programs = program.split_for_long_print();
+        println!("[patterns] Split into {} program(s)", programs.len());
         let mut transport = BluetoothTransport::open(&device_path)?;
         transport.send_programs(&programs)?;
         Ok::<_, crate::EstrellaError>(())

@@ -348,7 +348,12 @@ pub async fn print(
         }
 
         // Split for long print and send to printer
+        println!(
+            "[photo] Print request: {}x{} pixels, mode={}",
+            width, height, mode
+        );
         let programs = program.split_for_long_print();
+        println!("[photo] Split into {} program(s)", programs.len());
         let mut transport = BluetoothTransport::open(&device_path)?;
         transport.send_programs(&programs)?;
         Ok::<_, crate::EstrellaError>(())

@@ -266,8 +266,17 @@ pub async fn print(
     let device_path = state.config.device_path.clone();
     let layer_count = req.spec.layers.len();
 
+    println!(
+        "[composer] Print request: {}x{} pixels, {} layers, mode={}",
+        width, height, layer_count, req.mode
+    );
+
     let print_result = tokio::task::spawn_blocking(move || {
         let programs = program.split_for_long_print();
+        println!(
+            "[composer] Split into {} program(s)",
+            programs.len()
+        );
         let mut transport = BluetoothTransport::open(&device_path)?;
         transport.send_programs(&programs)?;
         Ok::<_, crate::EstrellaError>(())
