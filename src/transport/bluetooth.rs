@@ -67,7 +67,7 @@ const CHUNK_SIZE: usize = 4096;
 /// Delay between independent print jobs (milliseconds).
 /// After tcdrain confirms data left the OS buffer, this extra pause gives the
 /// printer time to finish processing the current job before receiving the next Init.
-const JOB_DELAY_MS: u64 = 2000;
+const JOB_DELAY_MS: u64 = 1000;
 
 /// # Bluetooth Printer Transport
 ///

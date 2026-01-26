@@ -37,11 +37,10 @@
 use super::ops::{Op, Program};
 
 /// Default chunk size in bytes for splitting large raster images.
-/// 86,400 = 72 bytes/row × 24 rows/band × 50 bands = 1200 rows ≈ 150mm.
-/// Chosen so that chunk_rows is always a multiple of 24 (band alignment),
-/// and fits comfortably in the printer's ~100KB internal buffer even
-/// accounting for BT transmission outpacing print speed.
-pub const DEFAULT_CHUNK_BYTES: usize = 86_400;
+/// 45KB is conservative - printer buffer is ~50-60KB based on empirical testing.
+/// Formula: chunk_rows = chunk_bytes / width_bytes
+/// For 576-dot width: 45,000 / 72 = 625 rows ≈ 78mm
+pub const DEFAULT_CHUNK_BYTES: usize = 45_000;
 
 /// Band alignment - band mode must split at 24-row boundaries.
 const BAND_HEIGHT: usize = 24;
@@ -262,8 +261,8 @@ mod tests {
         program.push(Op::Init);
         program.push(Op::Raster {
             width: 576,
-            height: 3000, // 3000 rows / 1200-row chunks = 3 programs
-            data: vec![0; 576 / 8 * 3000],
+            height: 1800, // 1800 rows / 625-row chunks = 3 programs
+            data: vec![0; 576 / 8 * 1800],
         });
         program.push(Op::Feed { units: 24 });
         program.push(Op::Cut { partial: false });
@@ -278,8 +277,8 @@ mod tests {
         program.push(Op::Init);
         program.push(Op::Raster {
             width: 576,
-            height: 2400, // 2400 rows / 1200-row chunks = 2 programs
-            data: vec![0; 576 / 8 * 2400],
+            height: 1200, // 1200 rows / 625-row chunks = 2 programs
+            data: vec![0; 576 / 8 * 1200],
         });
         program.push(Op::Feed { units: 24 });
         program.push(Op::Cut { partial: false });
@@ -306,8 +305,8 @@ mod tests {
         program.push(Op::Init);
         program.push(Op::Raster {
             width: 576,
-            height: 2400, // 2400 rows / 1200-row chunks = 2 programs
-            data: vec![0; 576 / 8 * 2400],
+            height: 1200, // 1200 rows / 625-row chunks = 2 programs
+            data: vec![0; 576 / 8 * 1200],
         });
         program.push(Op::Cut { partial: false });
 
@@ -328,8 +327,8 @@ mod tests {
         program.push(Op::Init);
         program.push(Op::Raster {
             width: 576,
-            height: 3000, // 3000 rows / 1200-row chunks = 3 programs
-            data: vec![0; 576 / 8 * 3000],
+            height: 1800, // 1800 rows / 625-row chunks = 3 programs
+            data: vec![0; 576 / 8 * 1800],
         });
         program.push(Op::Feed { units: 24 });
         program.push(Op::Cut { partial: false });
