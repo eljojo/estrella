@@ -33,6 +33,12 @@ export function Tabs() {
       >
         Composer
       </button>
+      <button
+        class={`tab ${activeTab.value === 'json' ? 'active' : ''}`}
+        onClick={() => (activeTab.value = 'json')}
+      >
+        JSON API
+      </button>
     </div>
   )
 }

@@ -40,9 +40,10 @@ import {
 } from './components/ComposerForm'
 import { LayerCanvas } from './components/LayerCanvas'
 import { PhotoForm, photoPreviewUrl, photoGrayscaleActive, handlePhotoDrop } from './components/PhotoForm'
+import { JsonForm, jsonPreviewUrl, jsonCustomized } from './components/JsonForm'
 import { PrintOptions } from './components/PrintOptions'
 
-export const activeTab = signal<'receipt' | 'patterns' | 'weave' | 'composer' | 'photos'>('photos')
+export const activeTab = signal<'receipt' | 'patterns' | 'weave' | 'composer' | 'photos' | 'json'>('photos')
 
 const previewUrls = {
   receipt: () => receiptPreviewUrl.value,
@@ -50,6 +51,7 @@ const previewUrls = {
   weave: () => weavePreviewUrl.value,
   composer: () => composerPreviewUrl.value,
   photos: () => photoPreviewUrl.value,
+  json: () => jsonPreviewUrl.value,
 }
 
 const placeholderTexts = {
@@ -58,6 +60,7 @@ const placeholderTexts = {
   weave: 'Add at least 2 patterns to see preview...',
   composer: 'Add layers to see preview...',
   photos: 'Upload an image to see preview...',
+  json: 'Edit JSON to see preview...',
 }
 
 const grayscaleStates = {
@@ -66,6 +69,7 @@ const grayscaleStates = {
   weave: () => weaveHasBlend.value,
   composer: () => composerCustomized.value,
   photos: () => photoGrayscaleActive.value,
+  json: () => jsonCustomized.value,
 }
 
 effect(() => {
@@ -133,6 +137,8 @@ export function App() {
             <WeaveForm />
           ) : activeTab.value === 'composer' ? (
             <ComposerForm />
+          ) : activeTab.value === 'json' ? (
+            <JsonForm />
           ) : (
             <PhotoForm />
           )}

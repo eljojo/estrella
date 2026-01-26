@@ -123,6 +123,35 @@ export async function fetchReceiptPreview(
   return URL.createObjectURL(blob)
 }
 
+// ===== JSON API =====
+
+/// Fetch JSON API preview as a blob URL.
+export async function fetchJsonPreview(jsonBody: string): Promise<string> {
+  const response = await fetch('/api/json/preview', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: jsonBody,
+  })
+
+  if (!response.ok) {
+    const text = await response.text()
+    throw new Error(text || 'Failed to fetch JSON preview')
+  }
+
+  const blob = await response.blob()
+  return URL.createObjectURL(blob)
+}
+
+/// Print a JSON document.
+export async function printJson(jsonBody: string): Promise<PrintResult> {
+  const response = await fetch('/api/json/print', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: jsonBody,
+  })
+  return response.json()
+}
+
 // ===== Weave API =====
 
 /// A pattern entry for weave requests.

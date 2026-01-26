@@ -139,6 +139,66 @@ estrella weave ripple plasma waves --length 200mm --crossfade 30mm
 
 ![Weave Crossfade](tests/golden/weave_crossfade.png)
 
+## JSON API
+
+Send structured JSON documents to print anything the component library supports. Useful for automations (e.g. Home Assistant daily briefings).
+
+```bash
+curl -X POST http://localhost:8080/api/json/print \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "document": [
+      {"type": "header", "content": "GOOD MORNING"},
+      {"type": "text", "content": "Monday, January 27", "center": true, "font": "B"},
+      {"type": "divider", "style": "double"},
+      {"type": "text", "content": " WEATHER ", "bold": true, "invert": true},
+      {"type": "columns", "left": "Now", "right": "6°C Cloudy"},
+      {"type": "columns", "left": "High / Low", "right": "11°C / 3°C"},
+      {"type": "divider"},
+      {"type": "text", "content": " CALENDAR ", "bold": true, "invert": true},
+      {"type": "columns", "left": "9:00", "right": "Standup"},
+      {"type": "columns", "left": "11:30", "right": "Dentist"},
+      {"type": "divider"},
+      {"type": "qr_code", "data": "https://calendar.google.com"}
+    ],
+    "cut": true
+  }'
+```
+
+The web UI includes a JSON API tab with a live preview editor and a sample daily briefing template.
+
+**Endpoints:**
+- `POST /api/json/preview` — returns a PNG preview
+- `POST /api/json/print` — sends to printer
+
+<details>
+<summary>Full component reference</summary>
+
+Each component in the `"document"` array has a `"type"` field and type-specific properties:
+
+| Type | Required | Optional (defaults) |
+|------|----------|---------------------|
+| `text` | `content` | `bold`, `underline`, `upperline`, `invert`, `upside_down`, `reduced` (false); `smoothing` (null/auto); `align` ("left"), `center`, `right` (false); `font` ("A"); `size`, `scale` (null); `double_width`, `double_height` (false); `inline` (false) |
+| `header` | `content` | `variant`: "normal" (2x2 centered bold) or "small" (1x1) |
+| `line_item` | `name`, `price` | `width` (48) |
+| `total` | `amount` | `label` ("TOTAL:"), `bold` (true), `double_width` (false), `align` ("right") |
+| `divider` | — | `style`: "dashed" / "solid" / "double" / "equals"; `width` (48) |
+| `spacer` | one of: `mm`, `lines`, `units` | — |
+| `blank_line` | — | — |
+| `columns` | `left`, `right` | `width` (48), `bold`, `underline`, `invert` (false) |
+| `markdown` | `content` | `show_urls` (false) |
+| `qr_code` | `data` | `cell_size` (4), `error_level` ("M"), `align` ("center") |
+| `pdf417` | `data` | `module_width` (3), `ecc_level` (2), `align` ("center") |
+| `barcode` | `format`, `data` | `height` (80); format: "code128" / "code39" / "ean13" / "upca" / "itf" |
+| `pattern` | `name` | `height` (500), `params` ({}), `dither` ("bayer") |
+| `nv_logo` | `key` | `center` (false), `scale` (1), `scale_x` (1), `scale_y` (1) |
+
+**`size` / `scale` on text:** accepts a single number `2` (uniform 2x2) or an array `[2, 3]` for non-uniform height/width.
+
+**`cut`** at the top level defaults to `true`. Set to `false` to suppress the paper cut.
+
+</details>
+
 ## How It Works: The Compilation Pipeline
 
 Components emit an intermediate representation (IR), which gets optimized before generating StarPRNT bytes:

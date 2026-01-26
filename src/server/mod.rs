@@ -54,6 +54,9 @@ pub async fn serve(config: ServerConfig) -> Result<(), EstrellaError> {
         // Frontend
         .route("/", get(static_files::index_handler))
         .route("/assets/*path", get(static_files::asset_handler))
+        // JSON API
+        .route("/api/json/preview", post(handlers::json_api::preview))
+        .route("/api/json/print", post(handlers::json_api::print))
         // Receipt API
         .route("/api/receipt/print", post(handlers::receipt::print))
         .route("/api/receipt/preview", post(handlers::receipt::preview))
