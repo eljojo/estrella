@@ -169,8 +169,13 @@ impl Program {
             // Each chunk starts with Init
             chunk_program.push(Op::Init);
 
-            // Add pre-graphics ops (styles, etc.)
-            chunk_program.extend(pre_ops.clone());
+            // Only the first chunk gets pre-graphics ops (title, dividers, etc.)
+            // Subsequent chunks are pure graphics — raster/band data doesn't
+            // depend on text styling, and re-sending content ops would duplicate
+            // printed text.
+            if programs.is_empty() {
+                chunk_program.extend(pre_ops.clone());
+            }
 
             // Add the graphics chunk
             if is_band {
@@ -390,6 +395,65 @@ mod tests {
         // Text-only program should return single program unchanged
         assert_eq!(programs.len(), 1);
         assert_eq!(programs[0].ops.len(), 4);
+    }
+
+    #[test]
+    fn test_pre_graphics_content_not_duplicated() {
+        // Regression: when splitting, pre-graphics TEXT content (title, dividers)
+        // was cloned into every chunk, causing the header to print again mid-image.
+        // Only the first chunk should contain pre-graphics content ops.
+        let mut program = Program::new();
+        program.push(Op::Init);
+        // Simulate a title + divider before the image (like pattern print with details)
+        program.push(Op::SetAlign(crate::protocol::text::Alignment::Center));
+        program.push(Op::SetBold(true));
+        program.push(Op::Text("topography".into()));
+        program.push(Op::Newline);
+        program.push(Op::SetBold(false));
+        program.push(Op::Text("------------------------------------------------".into()));
+        program.push(Op::Newline);
+        // Large image that will be split
+        program.push(Op::Raster {
+            width: 576,
+            height: 1200,
+            data: vec![0; 576 / 8 * 1200],
+        });
+        program.push(Op::Feed { units: 24 });
+        program.push(Op::Cut { partial: false });
+
+        let programs = program.split_for_long_print();
+        assert_eq!(programs.len(), 2, "Should split into 2 chunks");
+
+        // Second chunk must NOT contain any Text ops (title/divider content)
+        let second_has_text = programs[1]
+            .ops
+            .iter()
+            .any(|op| matches!(op, Op::Text(_)));
+        assert!(
+            !second_has_text,
+            "Second chunk should not re-send pre-graphics text content"
+        );
+
+        // Second chunk must NOT contain Newline ops from the pre-graphics section
+        // (it should only have Init + Raster)
+        let second_has_newline = programs[1]
+            .ops
+            .iter()
+            .any(|op| matches!(op, Op::Newline));
+        assert!(
+            !second_has_newline,
+            "Second chunk should not re-send pre-graphics newlines"
+        );
+
+        // First chunk SHOULD still have the title text
+        let first_has_text = programs[0]
+            .ops
+            .iter()
+            .any(|op| matches!(op, Op::Text(s) if s == "topography"));
+        assert!(
+            first_has_text,
+            "First chunk should contain the title text"
+        );
     }
 
     #[test]
