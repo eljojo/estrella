@@ -20,13 +20,31 @@ pub const DRAIN_MARKER: &[u8] = &[0x1B, 0x00, b'D', b'R', b'A', b'I', b'N', 0x00
 impl Program {
     /// Compile the IR program to StarPRNT bytes.
     ///
-    /// Uses the default printer configuration (TSP650II).
+    /// Automatically inserts drain points for long prints to prevent
+    /// printer buffer overflow. Uses the default printer config (TSP650II).
     pub fn to_bytes(&self) -> Vec<u8> {
         self.to_bytes_with_config(&PrinterConfig::TSP650II)
     }
 
     /// Compile the IR program to StarPRNT bytes with a specific printer config.
-    pub fn to_bytes_with_config(&self, _config: &PrinterConfig) -> Vec<u8> {
+    ///
+    /// Automatically inserts drain points for long prints.
+    pub fn to_bytes_with_config(&self, config: &PrinterConfig) -> Vec<u8> {
+        // Insert drain points before generating bytes
+        let with_drains = self.clone().insert_drain_points();
+        with_drains.to_bytes_raw_with_config(config)
+    }
+
+    /// Compile to bytes WITHOUT automatic drain point insertion.
+    ///
+    /// Use this only if you need raw bytes without pauses (e.g., for testing
+    /// or when you've already called `insert_drain_points()` manually).
+    pub fn to_bytes_raw(&self) -> Vec<u8> {
+        self.to_bytes_raw_with_config(&PrinterConfig::TSP650II)
+    }
+
+    /// Compile to bytes without drain points, with a specific printer config.
+    pub fn to_bytes_raw_with_config(&self, _config: &PrinterConfig) -> Vec<u8> {
         let mut out = Vec::new();
 
         for op in &self.ops {

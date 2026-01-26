@@ -348,26 +348,28 @@ The marker is designed to be:
 
 ### Usage
 
-Long print mode is **automatic** - no code changes needed. The system will:
-- Print normally for text-only or small graphics
-- Automatically insert pauses for large graphics
+Long print mode is **fully automatic**. The `to_bytes()` method automatically inserts drain points - no code changes needed:
 
-For custom thresholds (advanced):
+```rust
+let bytes = receipt.compile().to_bytes();  // Drain points included automatically
+```
+
+The system will:
+- Print normally for text-only or small graphics
+- Automatically insert pauses for large graphics (>64KB)
+
+For custom thresholds or raw bytes without drain points:
 
 ```rust
 use estrella::ir::Program;
 
-// By bytes (recommended)
+// Custom threshold (bytes)
 let program = receipt.compile()
-    .optimize()
-    .insert_drain_points_with_threshold_bytes(32 * 1024);  // 32KB
+    .insert_drain_points_with_threshold_bytes(32 * 1024);
+let bytes = program.to_bytes_raw();  // Don't double-insert
 
-// By mm (converts to bytes assuming full-width graphics)
-let program = receipt.compile()
-    .optimize()
-    .insert_drain_points_with_threshold(50.0);  // ~29KB
-
-let bytes = program.to_bytes();
+// Raw bytes without any drain points (for testing)
+let bytes = program.to_bytes_raw();
 ```
 
 ### Technical Details
