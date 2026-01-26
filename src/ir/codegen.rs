@@ -17,10 +17,10 @@ use crate::protocol::{barcode, commands, graphics, nv_graphics, text};
 /// The ESC bytes make it look like a command, NULs are ignored by printer.
 pub const DRAIN_MARKER: &[u8] = &[0x1B, 0x00, b'D', b'R', b'A', b'I', b'N', 0x00, 0x1B];
 
-/// Threshold for inserting drain markers within graphics (16KB).
+/// Threshold for inserting drain markers within graphics (14KB).
 /// This is used directly in codegen to insert drains between raster/band chunks.
-/// 16KB ≈ 220 rows of full-width graphics ≈ 28mm.
-const DRAIN_THRESHOLD: usize = 16 * 1024;
+/// 14KB ≈ 194 rows of full-width graphics ≈ 24mm.
+const DRAIN_THRESHOLD: usize = 14 * 1024;
 
 impl Program {
     /// Compile the IR program to StarPRNT bytes.
@@ -162,9 +162,9 @@ impl Program {
                     data,
                 } => {
                     // Chunk large raster images to avoid printer buffer overflow
-                    // Max chunk: 256 rows (matches golden test behavior)
+                    // 128 rows × 72 bytes = 9KB per chunk, fits under 14KB drain threshold
                     let width_bytes = width.div_ceil(8) as usize;
-                    let chunk_rows = 256usize;
+                    let chunk_rows = 128usize;
                     let total_height = *height as usize;
 
                     let mut row_offset = 0;
