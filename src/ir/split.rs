@@ -69,7 +69,9 @@ impl Program {
     /// let programs = program.split_for_long_print();
     /// ```
     pub fn split_for_long_print(self) -> Vec<Program> {
-        self.split_for_long_print_with_max_bytes(DEFAULT_CHUNK_BYTES)
+        // Job splitting disabled - tcdrain pacing in transport handles flow control.
+        // TODO: re-enable if needed: self.split_for_long_print_with_max_bytes(DEFAULT_CHUNK_BYTES)
+        vec![self]
     }
 
     /// Split with a custom maximum bytes per chunk.
@@ -256,6 +258,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "split disabled - tcdrain pacing handles flow control"]
     fn test_large_raster_splits() {
         let mut program = Program::new();
         program.push(Op::Init);
@@ -272,6 +275,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "split disabled - tcdrain pacing handles flow control"]
     fn test_trailing_ops_on_last_chunk_only() {
         let mut program = Program::new();
         program.push(Op::Init);
@@ -322,6 +326,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "split disabled - tcdrain pacing handles flow control"]
     fn test_no_feed_between_chunks() {
         let mut program = Program::new();
         program.push(Op::Init);
@@ -344,6 +349,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "split disabled - tcdrain pacing handles flow control"]
     fn test_band_mode_splits_aligned() {
         // Band mode should split at 24-row boundaries
         let width_bytes: u8 = 72;
