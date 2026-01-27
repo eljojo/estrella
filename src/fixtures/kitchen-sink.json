@@ -1,0 +1,63 @@
+{
+  "document": [
+    {"type": "header", "content": "KITCHEN SINK"},
+    {"type": "divider"},
+
+    {"type": "text", "content": "Plain text"},
+    {"type": "text", "content": "Bold text", "bold": true},
+    {"type": "text", "content": "Centered text", "center": true},
+    {"type": "text", "content": "Right-aligned", "right": true},
+    {"type": "text", "content": "Underlined", "underline": true},
+    {"type": "text", "content": "Inverted", "invert": true},
+    {"type": "text", "content": "Size 0 (Font B)", "size": 0},
+    {"type": "text", "content": "Size 2", "size": 2},
+    {"type": "text", "content": "Size 3", "size": 3},
+    {"type": "text", "content": "Bold+Center+Size2", "bold": true, "center": true, "size": 2},
+
+    {"type": "divider", "style": "dashed"},
+    {"type": "divider", "style": "solid"},
+    {"type": "divider", "style": "double"},
+    {"type": "divider", "style": "equals"},
+
+    {"type": "spacer", "mm": 2.0},
+    {"type": "blank_line"},
+    {"type": "spacer", "lines": 1},
+
+    {"type": "columns", "left": "Left col", "right": "Right col"},
+    {"type": "columns", "left": "Bold cols", "right": "Value", "bold": true},
+
+    {"type": "banner", "content": "SINGLE", "border": "single", "size": 2},
+    {"type": "banner", "content": "DOUBLE", "border": "double", "size": 2},
+    {"type": "banner", "content": "HEAVY", "border": "heavy", "size": 2},
+    {"type": "banner", "content": "SHADE", "border": "shade", "size": 2},
+    {"type": "banner", "content": "SHADOW", "border": "shadow", "size": 2},
+    {"type": "banner", "content": "MIXED", "border": "mixed", "size": 2},
+    {"type": "banner", "content": "RULE", "border": "rule", "size": 2},
+    {"type": "banner", "content": "HEADING", "border": "heading", "size": 2},
+    {"type": "banner", "content": "TAG", "border": "tag", "size": 2},
+
+    {"type": "line_item", "name": "Espresso", "price": 4.50},
+    {"type": "line_item", "name": "Croissant", "price": 3.20},
+    {"type": "total", "amount": 7.70},
+
+    {"type": "table", "headers": ["Name", "Value"], "rows": [["Alpha", "100"], ["Beta", "200"]], "border": "single", "align": ["left", "right"]},
+    {"type": "table", "headers": ["Col A", "Col B"], "rows": [["One", "Two"], ["Three", "Four"]], "border": "double", "row_separator": true},
+    {"type": "table", "headers": ["H1", "H2"], "rows": [["a", "b"]], "border": "mixed"},
+
+    {"type": "markdown", "content": "## Heading\n\n**Bold** and *italic* text.\n\n- Item one\n- Item two\n- Item three"},
+
+    {"type": "chart", "style": "line", "labels": ["A", "B", "C", "D"], "values": [1, 4, 2, 5], "height": 100, "y_suffix": "u"},
+    {"type": "chart", "style": "area", "labels": ["A", "B", "C", "D"], "values": [1, 4, 2, 5], "height": 100, "y_suffix": "u"},
+    {"type": "chart", "style": "bar", "labels": ["A", "B", "C", "D"], "values": [1, 4, 2, 5], "height": 100, "y_suffix": "u"},
+    {"type": "chart", "style": "dot", "labels": ["A", "B", "C", "D"], "values": [1, 4, 2, 5], "height": 100, "y_suffix": "u"},
+
+    {"type": "pattern", "name": "estrella", "height": 80},
+
+    {"type": "qr_code", "data": "https://example.com"},
+    {"type": "pdf417", "data": "PDF417-DATA"},
+    {"type": "barcode", "format": "code128", "data": "ABC-123", "height": 60},
+
+    {"type": "nv_logo", "key": "A1", "center": true}
+  ],
+  "cut": true
+}

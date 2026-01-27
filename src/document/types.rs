@@ -169,6 +169,12 @@ pub enum BorderStyle {
     Shadow,
     /// Single borders with double-line header separator (tables only; banners treat as single).
     Mixed,
+    /// Inline rule: `──── TEXT ──────────` (single line, compact).
+    Rule,
+    /// Section heading: bold text + full-width rule below (2 lines, compact).
+    Heading,
+    /// Tagged label: `■ TEXT` (single line, most compact).
+    Tag,
 }
 
 fn default_banner_size() -> u8 {

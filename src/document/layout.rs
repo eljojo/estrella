@@ -113,6 +113,9 @@ impl Banner {
 
         match self.border {
             BorderStyle::Shadow => self.emit_shadow(ops, total_width),
+            BorderStyle::Rule => self.emit_rule(ops, total_width),
+            BorderStyle::Heading => self.emit_heading(ops, total_width),
+            BorderStyle::Tag => self.emit_tag(ops, total_width),
             _ => self.emit_boxed(ops, total_width),
         }
 
@@ -132,7 +135,7 @@ impl Banner {
             BorderStyle::Double => ('\u{2554}', '\u{2557}', '\u{255A}', '\u{255D}', '\u{2550}', '\u{2551}'),
             BorderStyle::Heavy  => ('\u{2588}', '\u{2588}', '\u{2588}', '\u{2588}', '\u{2588}', '\u{2588}'),
             BorderStyle::Shade  => ('\u{2592}', '\u{2592}', '\u{2592}', '\u{2592}', '\u{2592}', '\u{2592}'),
-            BorderStyle::Shadow => unreachable!(),
+            BorderStyle::Shadow | BorderStyle::Rule | BorderStyle::Heading | BorderStyle::Tag => unreachable!(),
         };
 
         let inner = total_width - 2;
@@ -266,14 +269,77 @@ impl Banner {
         ops.push(Op::Newline);
     }
 
+    /// Emit a rule-style banner: `──── TEXT ──────────────────────` (single line).
+    fn emit_rule(&self, ops: &mut Vec<Op>, total_width: usize) {
+        let text = &self.content;
+        let text_len = text.len();
+        // " TEXT " with 1 space on each side
+        let text_with_spaces = text_len + 2;
+        let remaining = total_width.saturating_sub(text_with_spaces);
+        let left_rules = remaining / 2;
+        let right_rules = remaining - left_rules;
+
+        let line = format!(
+            "{} {} {}",
+            "\u{2500}".repeat(left_rules),
+            text,
+            "\u{2500}".repeat(right_rules),
+        );
+
+        if self.bold {
+            ops.push(Op::SetBold(true));
+        }
+        ops.push(Op::Text(line));
+        ops.push(Op::Newline);
+        if self.bold {
+            ops.push(Op::SetBold(false));
+        }
+    }
+
+    /// Emit a heading-style banner: centered bold text + full-width rule below (2 lines).
+    fn emit_heading(&self, ops: &mut Vec<Op>, total_width: usize) {
+        // Centered text line
+        ops.push(Op::SetAlign(Alignment::Center));
+        if self.bold {
+            ops.push(Op::SetBold(true));
+        }
+        ops.push(Op::Text(self.content.clone()));
+        ops.push(Op::Newline);
+        if self.bold {
+            ops.push(Op::SetBold(false));
+        }
+
+        // Full-width rule below
+        ops.push(Op::SetAlign(Alignment::Left));
+        let rule: String = "\u{2500}".repeat(total_width);
+        ops.push(Op::Text(rule));
+        ops.push(Op::Newline);
+    }
+
+    /// Emit a tag-style banner: `■ TEXT` (single line, left-aligned).
+    fn emit_tag(&self, ops: &mut Vec<Op>, _total_width: usize) {
+        let line = format!("\u{25A0} {}", self.content);
+
+        if self.bold {
+            ops.push(Op::SetBold(true));
+        }
+        ops.push(Op::Text(line));
+        ops.push(Op::Newline);
+        if self.bold {
+            ops.push(Op::SetBold(false));
+        }
+    }
+
     /// Find the largest size that fits the content.
     ///
     /// Returns `([h, w], total_chars_per_line)`.
     /// Cascades width from `max_size` down to 1, then falls back to Font B.
     pub fn fit(content_len: usize, max_size: u8, border: BorderStyle) -> ([u8; 2], usize) {
         let border_overhead = match border {
-            BorderStyle::Shadow => 3, // left + right + shadow column
-            _ => 2,                   // left + right
+            BorderStyle::Shadow => 3,  // left + right + shadow column
+            BorderStyle::Tag => 2,     // "■ " prefix
+            BorderStyle::Rule | BorderStyle::Heading => 0, // rules fill remaining space
+            _ => 2,                    // left + right
         };
 
         // Try each width from max down to 1 (Font A with ESC i)
@@ -311,7 +377,8 @@ struct TableChars {
 
 fn table_chars(style: BorderStyle) -> TableChars {
     match style {
-        BorderStyle::Single | BorderStyle::Mixed | BorderStyle::Shadow => TableChars {
+        BorderStyle::Single | BorderStyle::Mixed | BorderStyle::Shadow
+            | BorderStyle::Rule | BorderStyle::Heading | BorderStyle::Tag => TableChars {
             tl: '\u{250C}',
             tr: '\u{2510}',
             bl: '\u{2514}',
@@ -873,6 +940,95 @@ mod tests {
             }
         });
         assert!(has_single_top, "Mixed banner should use single-line border");
+    }
+
+    #[test]
+    fn test_banner_rule() {
+        let banner = Banner {
+            content: "WEATHER".into(),
+            border: BorderStyle::Rule,
+            size: 2,
+            ..Default::default()
+        };
+        let mut ops = Vec::new();
+        banner.emit(&mut ops);
+
+        // Should produce a single text line + newline (plus style ops)
+        let texts: Vec<&str> = ops
+            .iter()
+            .filter_map(|op| if let Op::Text(s) = op { Some(s.as_str()) } else { None })
+            .collect();
+        assert_eq!(texts.len(), 1, "Rule banner should emit exactly 1 text line");
+
+        let line = texts[0];
+        assert!(line.contains("WEATHER"), "Rule line should contain the text");
+        assert!(line.contains('\u{2500}'), "Rule line should contain ─ characters");
+        // Text should be surrounded by spaces
+        assert!(line.contains(" WEATHER "), "Text should have spaces around it");
+    }
+
+    #[test]
+    fn test_banner_heading() {
+        let banner = Banner {
+            content: "FORECAST".into(),
+            border: BorderStyle::Heading,
+            size: 2,
+            ..Default::default()
+        };
+        let mut ops = Vec::new();
+        banner.emit(&mut ops);
+
+        let texts: Vec<&str> = ops
+            .iter()
+            .filter_map(|op| if let Op::Text(s) = op { Some(s.as_str()) } else { None })
+            .collect();
+        assert_eq!(texts.len(), 2, "Heading banner should emit 2 text lines");
+        assert_eq!(texts[0], "FORECAST");
+        // Second line is all ─
+        assert!(texts[1].chars().all(|c| c == '\u{2500}'), "Second line should be all ─");
+
+        // Should set center alignment for text
+        assert!(ops.contains(&Op::SetAlign(Alignment::Center)));
+        // Should reset to left for the rule
+        assert!(ops.iter().filter(|op| matches!(op, Op::SetAlign(Alignment::Left))).count() >= 1);
+    }
+
+    #[test]
+    fn test_banner_tag() {
+        let banner = Banner {
+            content: "GROCERIES".into(),
+            border: BorderStyle::Tag,
+            size: 2,
+            ..Default::default()
+        };
+        let mut ops = Vec::new();
+        banner.emit(&mut ops);
+
+        let texts: Vec<&str> = ops
+            .iter()
+            .filter_map(|op| if let Op::Text(s) = op { Some(s.as_str()) } else { None })
+            .collect();
+        assert_eq!(texts.len(), 1, "Tag banner should emit exactly 1 text line");
+        assert_eq!(texts[0], "\u{25A0} GROCERIES");
+    }
+
+    #[test]
+    fn test_banner_fit_rule() {
+        // Rule has 0 border overhead
+        let (size, total) = Banner::fit(5, 3, BorderStyle::Rule);
+        assert_eq!(size, [3, 3]);
+        assert_eq!(total, 16);
+        // All 16 chars usable (no border deduction)
+        let usable = total; // 0 overhead
+        assert!(5 <= usable);
+    }
+
+    #[test]
+    fn test_banner_fit_tag() {
+        // Tag has 2 chars overhead ("■ " prefix)
+        let (size, total) = Banner::fit(5, 3, BorderStyle::Tag);
+        assert_eq!(size, [3, 3]);
+        assert_eq!(total, 16);
     }
 
     // ========================================================================
