@@ -41,10 +41,7 @@ const DEFAULT_JSON = JSON.stringify(
       { type: 'divider' },
       { type: 'banner', content: 'CALENDAR', border: 'heavy', size: 2 },
       { type: 'spacer', mm: 1 },
-      { type: 'columns', left: '9:00', right: 'Standup' },
-      { type: 'columns', left: '11:30', right: 'Dentist', bold: true },
-      { type: 'columns', left: '14:00', right: 'Design review' },
-      { type: 'columns', left: '18:30', right: 'Dinner w/ Alex', bold: true },
+      { type: 'table', headers: ['Time', 'Event'], rows: [['9:00', 'Standup'], ['11:30', 'Dentist'], ['14:00', 'Design review'], ['18:30', 'Dinner w/ Alex']], border: 'mixed', align: ['left', 'left'] },
 
       { type: 'divider' },
       { type: 'text', content: ' NEWS ', bold: true, invert: true },
@@ -179,7 +176,7 @@ export function JsonForm() {
         {parseError.value && <p class="hint error-hint">{parseError.value}</p>}
         <p class="hint">
           Components: text, header, banner, line_item, total, divider, spacer, blank_line, columns,
-          markdown, qr_code, pdf417, barcode, pattern, nv_logo. Use {'{{'}<em>name</em>{'}}'}  in
+          table, markdown, qr_code, pdf417, barcode, pattern, nv_logo. Use {'{{'}<em>name</em>{'}}'}  in
           text with a top-level "variables" object. Built-ins: date, date_short, day, time,
           time_12h, datetime, year, iso_date.
         </p>

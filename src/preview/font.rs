@@ -329,6 +329,77 @@ fn fallback_glyph(ch: char, w: usize, h: usize) -> Option<Vec<u8>> {
             }
         }
 
+        // ── Single T-junctions + cross ──
+        '\u{252C}' => { // ┬ T-down: full horiz + bottom vert
+            fill_rect(&mut g, w, 0, t1, w, t2);
+            fill_rect(&mut g, w, s1, t1, s2, h);
+        }
+        '\u{2534}' => { // ┴ T-up: full horiz + top vert
+            fill_rect(&mut g, w, 0, t1, w, t2);
+            fill_rect(&mut g, w, s1, 0, s2, t2);
+        }
+        '\u{251C}' => { // ├ T-right: full vert + right horiz
+            fill_rect(&mut g, w, s1, 0, s2, h);
+            fill_rect(&mut g, w, s1, t1, w, t2);
+        }
+        '\u{2524}' => { // ┤ T-left: full vert + left horiz
+            fill_rect(&mut g, w, s1, 0, s2, h);
+            fill_rect(&mut g, w, 0, t1, s2, t2);
+        }
+        '\u{253C}' => { // ┼ cross: full horiz + full vert
+            fill_rect(&mut g, w, 0, t1, w, t2);
+            fill_rect(&mut g, w, s1, 0, s2, h);
+        }
+
+        // ══ Double T-junctions + cross ══
+        '\u{2566}' => { // ╦ T-down: full double horiz + bottom double vert
+            fill_rect(&mut g, w, 0, dt, w, db);
+            fill_rect(&mut g, w, 0, dt2, w, db2);
+            fill_rect(&mut g, w, dl, dt, dr, h);
+            fill_rect(&mut g, w, dl2, dt2, dr2, h);
+        }
+        '\u{2569}' => { // ╩ T-up: full double horiz + top double vert
+            fill_rect(&mut g, w, 0, dt, w, db);
+            fill_rect(&mut g, w, 0, dt2, w, db2);
+            fill_rect(&mut g, w, dl, 0, dr, db2);
+            fill_rect(&mut g, w, dl2, 0, dr2, db);
+        }
+        '\u{2560}' => { // ╠ T-right: full double vert + right double horiz
+            fill_rect(&mut g, w, dl, 0, dr, h);
+            fill_rect(&mut g, w, dl2, 0, dr2, h);
+            fill_rect(&mut g, w, dl, dt, w, db);
+            fill_rect(&mut g, w, dl2, dt2, w, db2);
+        }
+        '\u{2563}' => { // ╣ T-left: full double vert + left double horiz
+            fill_rect(&mut g, w, dl, 0, dr, h);
+            fill_rect(&mut g, w, dl2, 0, dr2, h);
+            fill_rect(&mut g, w, 0, dt, dr2, db);
+            fill_rect(&mut g, w, 0, dt2, dr, db2);
+        }
+        '\u{256C}' => { // ╬ cross: full double horiz + full double vert
+            fill_rect(&mut g, w, 0, dt, w, db);
+            fill_rect(&mut g, w, 0, dt2, w, db2);
+            fill_rect(&mut g, w, dl, 0, dr, h);
+            fill_rect(&mut g, w, dl2, 0, dr2, h);
+        }
+
+        // ── Mixed junctions (single vert + double horiz) ──
+        '\u{255E}' => { // ╞ single vert + right double horiz
+            fill_rect(&mut g, w, s1, 0, s2, h);
+            fill_rect(&mut g, w, s1, dt, w, db);
+            fill_rect(&mut g, w, s1, dt2, w, db2);
+        }
+        '\u{2561}' => { // ╡ single vert + left double horiz
+            fill_rect(&mut g, w, s1, 0, s2, h);
+            fill_rect(&mut g, w, 0, dt, s2, db);
+            fill_rect(&mut g, w, 0, dt2, s2, db2);
+        }
+        '\u{256A}' => { // ╪ single vert + full double horiz
+            fill_rect(&mut g, w, s1, 0, s2, h);
+            fill_rect(&mut g, w, 0, dt, w, db);
+            fill_rect(&mut g, w, 0, dt2, w, db2);
+        }
+
         // ■ Filled square ──
         '\u{25A0}' => {
             let mx = w / 6;
@@ -378,7 +449,10 @@ mod tests {
         // All characters that should have fallback glyphs (not empty box outlines)
         let chars = [
             '─', '│', '┌', '┐', '└', '┘',       // single box-drawing
+            '┬', '┴', '├', '┤', '┼',             // single T-junctions + cross
             '═', '║', '╔', '╗', '╚', '╝',       // double box-drawing
+            '╦', '╩', '╠', '╣', '╬',             // double T-junctions + cross
+            '╞', '╡', '╪',                        // mixed junctions
             '«', '»',                             // guillemets
             '■',                                   // filled square
         ];
@@ -391,14 +465,14 @@ mod tests {
             let black_count: usize = glyph.iter().filter(|&&p| p != 0).count();
             assert!(black_count > 0, "{} (U+{:04X}) has no black pixels", ch, *ch as u32);
 
-            // Should NOT be just a box outline (draw_box produces exactly
-            // 2*(w + h - 2) = 2*(12+24-2) = 68 pixels). Fallback glyphs
-            // should differ from that.
-            let box_pixel_count = 2 * (12 + 24 - 2);
+            // Should NOT be identical to a box outline (draw_box fills edges).
+            // Compare against actual draw_box output to verify the fallback was used.
+            let mut box_glyph = vec![0u8; 12 * 24];
+            draw_box(&mut box_glyph, 12, 24);
             assert_ne!(
-                black_count, box_pixel_count,
-                "{} (U+{:04X}) looks like a box fallback ({} pixels)",
-                ch, *ch as u32, black_count
+                glyph, box_glyph,
+                "{} (U+{:04X}) is identical to box fallback",
+                ch, *ch as u32
             );
         }
     }

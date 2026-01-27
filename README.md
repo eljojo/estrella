@@ -59,6 +59,7 @@ let json = serde_json::to_string(&doc)?;     // Same type serializes to JSON
 | `Divider` | Horizontal line (dashed, solid, double, equals) |
 | `Spacer` | Vertical space in mm, lines, or raw units |
 | `Columns` | Two-column layout (left + right) |
+| `Table` | Table with box-drawing borders, headers, per-column alignment |
 | `Markdown` | Rich text from Markdown (headings, bold, lists) |
 | `Image` | Image from URL with dithering |
 | `Pattern` | Generative art pattern with params |
@@ -190,13 +191,14 @@ Each component in the `"document"` array has a `"type"` field and type-specific 
 |------|----------|---------------------|
 | `text` | `content` | `bold`, `underline`, `upperline`, `invert`, `upside_down`, `reduced` (false); `smoothing` (null/auto); `align` ("left"), `center`, `right` (false); `size` (1, default Font A — 0=Font B, 2=double, 3=triple, or `[h,w]`); `scale` (null); `double_width`, `double_height` (false); `inline` (false) |
 | `header` | `content` | `variant`: "normal" (2x2 centered bold) or "small" (1x1) |
-| `banner` | `content` | `size` (3, max expansion 0–3, auto-cascades width); `border`: "single"/"double"; `bold` (true); `padding` (1) |
+| `banner` | `content` | `size` (3, max expansion 0–3, auto-cascades width); `border`: "single"/"double"/"heavy"/"shade"/"shadow"; `bold` (true); `padding` (1) |
 | `line_item` | `name`, `price` | `width` (48) |
 | `total` | `amount` | `label` ("TOTAL:"), `bold` (true), `double_width` (false), `align` ("right") |
 | `divider` | — | `style`: "dashed" / "solid" / "double" / "equals"; `width` (48) |
 | `spacer` | one of: `mm`, `lines`, `units` | — |
 | `blank_line` | — | — |
 | `columns` | `left`, `right` | `width` (48), `bold`, `underline`, `invert` (false) |
+| `table` | `rows` | `headers` (null), `border`: "single"/"double"/"mixed"/"heavy"/"shade" (default: "single"); `align` ([] — per-column: "left"/"center"/"right"); `row_separator` (false); `width` (48) |
 | `markdown` | `content` | `show_urls` (false) |
 | `qr_code` | `data` | `cell_size` (4), `error_level` ("M"), `align` ("center") |
 | `pdf417` | `data` | `module_width` (3), `ecc_level` (2), `align` ("center") |

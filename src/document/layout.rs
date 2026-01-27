@@ -1,6 +1,8 @@
 //! Emit logic for layout components: Divider, Spacer, BlankLine, Columns, Banner.
 
-use super::types::{Banner, BlankLine, BorderStyle, Columns, Divider, DividerStyle, Spacer};
+use super::types::{
+    Banner, BlankLine, BorderStyle, ColumnAlign, Columns, Divider, DividerStyle, Spacer, Table,
+};
 use crate::ir::Op;
 use crate::protocol::text::{Alignment, Font};
 
@@ -126,7 +128,7 @@ impl Banner {
     /// Emit a standard boxed banner (Single, Double, Heavy, Shade).
     fn emit_boxed(&self, ops: &mut Vec<Op>, total_width: usize) {
         let (tl, tr, bl, br, horiz, vert) = match self.border {
-            BorderStyle::Single => ('\u{250C}', '\u{2510}', '\u{2514}', '\u{2518}', '\u{2500}', '\u{2502}'),
+            BorderStyle::Single | BorderStyle::Mixed => ('\u{250C}', '\u{2510}', '\u{2514}', '\u{2518}', '\u{2500}', '\u{2502}'),
             BorderStyle::Double => ('\u{2554}', '\u{2557}', '\u{255A}', '\u{255D}', '\u{2550}', '\u{2551}'),
             BorderStyle::Heavy  => ('\u{2588}', '\u{2588}', '\u{2588}', '\u{2588}', '\u{2588}', '\u{2588}'),
             BorderStyle::Shade  => ('\u{2592}', '\u{2592}', '\u{2592}', '\u{2592}', '\u{2592}', '\u{2592}'),
@@ -285,6 +287,282 @@ impl Banner {
 
         // Font B fallback: 64 chars per line
         ([0, 0], 64)
+    }
+}
+
+// ============================================================================
+// Table
+// ============================================================================
+
+/// Box-drawing character set for table borders.
+struct TableChars {
+    tl: char,
+    tr: char,
+    bl: char,
+    br: char,
+    horiz: char,
+    vert: char,
+    t_down: char,
+    t_up: char,
+    t_right: char,
+    t_left: char,
+    cross: char,
+}
+
+fn table_chars(style: BorderStyle) -> TableChars {
+    match style {
+        BorderStyle::Single | BorderStyle::Mixed | BorderStyle::Shadow => TableChars {
+            tl: '\u{250C}',
+            tr: '\u{2510}',
+            bl: '\u{2514}',
+            br: '\u{2518}',
+            horiz: '\u{2500}',
+            vert: '\u{2502}',
+            t_down: '\u{252C}',
+            t_up: '\u{2534}',
+            t_right: '\u{251C}',
+            t_left: '\u{2524}',
+            cross: '\u{253C}',
+        },
+        BorderStyle::Double => TableChars {
+            tl: '\u{2554}',
+            tr: '\u{2557}',
+            bl: '\u{255A}',
+            br: '\u{255D}',
+            horiz: '\u{2550}',
+            vert: '\u{2551}',
+            t_down: '\u{2566}',
+            t_up: '\u{2569}',
+            t_right: '\u{2560}',
+            t_left: '\u{2563}',
+            cross: '\u{256C}',
+        },
+        BorderStyle::Heavy => TableChars {
+            tl: '\u{2588}',
+            tr: '\u{2588}',
+            bl: '\u{2588}',
+            br: '\u{2588}',
+            horiz: '\u{2588}',
+            vert: '\u{2588}',
+            t_down: '\u{2588}',
+            t_up: '\u{2588}',
+            t_right: '\u{2588}',
+            t_left: '\u{2588}',
+            cross: '\u{2588}',
+        },
+        BorderStyle::Shade => TableChars {
+            tl: '\u{2592}',
+            tr: '\u{2592}',
+            bl: '\u{2592}',
+            br: '\u{2592}',
+            horiz: '\u{2592}',
+            vert: '\u{2592}',
+            t_down: '\u{2592}',
+            t_up: '\u{2592}',
+            t_right: '\u{2592}',
+            t_left: '\u{2592}',
+            cross: '\u{2592}',
+        },
+    }
+}
+
+/// Build a horizontal rule line: `left` + (fill × col_width+2) + `junction` + ... + `right`.
+fn horizontal_line(
+    left: char,
+    fill: char,
+    junction: char,
+    right: char,
+    col_widths: &[usize],
+) -> String {
+    let mut line = String::new();
+    line.push(left);
+    for (i, &w) in col_widths.iter().enumerate() {
+        for _ in 0..(w + 2) {
+            line.push(fill);
+        }
+        if i < col_widths.len() - 1 {
+            line.push(junction);
+        }
+    }
+    line.push(right);
+    line
+}
+
+/// Build a data row: `vert` + ` cell ` + `vert` + ... + `vert`.
+fn data_row(
+    vert: char,
+    cells: &[String],
+    col_widths: &[usize],
+    align: &[ColumnAlign],
+    num_cols: usize,
+) -> String {
+    let mut line = String::new();
+    line.push(vert);
+    for i in 0..num_cols {
+        let cell = cells.get(i).map(|s| s.as_str()).unwrap_or("");
+        let w = col_widths[i];
+        let truncated = if cell.len() > w { &cell[..w] } else { cell };
+        let alignment = align.get(i).copied().unwrap_or(ColumnAlign::Left);
+        let padded = match alignment {
+            ColumnAlign::Left => format!(" {:<width$} ", truncated, width = w),
+            ColumnAlign::Right => format!(" {:>width$} ", truncated, width = w),
+            ColumnAlign::Center => format!(" {:^width$} ", truncated, width = w),
+        };
+        line.push_str(&padded);
+        if i < num_cols - 1 {
+            line.push(vert);
+        }
+    }
+    line.push(vert);
+    line
+}
+
+/// Compute column widths distributed proportionally to max content widths.
+fn compute_col_widths(num_cols: usize, max_widths: &[usize], total_width: usize) -> Vec<usize> {
+    if num_cols == 0 {
+        return vec![];
+    }
+
+    // Borders: (num_cols + 1) border chars, Padding: 2 per column (1 space each side)
+    let overhead = (num_cols + 1) + (2 * num_cols);
+    let available = total_width.saturating_sub(overhead);
+
+    if available == 0 {
+        return vec![0; num_cols];
+    }
+
+    let total_content: usize = max_widths.iter().sum();
+
+    if total_content == 0 {
+        // Equal distribution when no content
+        let each = available / num_cols;
+        let remainder = available % num_cols;
+        let mut widths = vec![each; num_cols];
+        for w in widths.iter_mut().take(remainder) {
+            *w += 1;
+        }
+        return widths;
+    }
+
+    // Proportional distribution
+    let mut widths = vec![0usize; num_cols];
+    let mut assigned = 0;
+
+    for i in 0..num_cols {
+        widths[i] = (max_widths[i] * available) / total_content;
+        if widths[i] == 0 && max_widths[i] > 0 && available > assigned {
+            widths[i] = 1;
+        }
+        assigned += widths[i];
+    }
+
+    // Distribute remainder to widest columns first
+    let mut remainder = available.saturating_sub(assigned);
+    if remainder > 0 {
+        let mut indices: Vec<usize> = (0..num_cols).collect();
+        indices.sort_by(|&a, &b| max_widths[b].cmp(&max_widths[a]));
+        for &i in &indices {
+            if remainder == 0 {
+                break;
+            }
+            widths[i] += 1;
+            remainder -= 1;
+        }
+    }
+
+    widths
+}
+
+impl Table {
+    /// Emit IR ops for this table component.
+    pub fn emit(&self, ops: &mut Vec<Op>) {
+        let total_width = self.width.unwrap_or(48);
+
+        // Determine number of columns
+        let num_cols = {
+            let from_headers = self.headers.as_ref().map(|h| h.len()).unwrap_or(0);
+            let from_rows = self.rows.iter().map(|r| r.len()).max().unwrap_or(0);
+            from_headers.max(from_rows)
+        };
+
+        if num_cols == 0 {
+            return;
+        }
+
+        // Compute max content width per column
+        let mut max_widths = vec![0usize; num_cols];
+        if let Some(ref headers) = self.headers {
+            for (i, h) in headers.iter().enumerate() {
+                max_widths[i] = max_widths[i].max(h.len());
+            }
+        }
+        for row in &self.rows {
+            for (i, cell) in row.iter().enumerate() {
+                if i < num_cols {
+                    max_widths[i] = max_widths[i].max(cell.len());
+                }
+            }
+        }
+
+        let col_widths = compute_col_widths(num_cols, &max_widths, total_width);
+        let chars = table_chars(self.border);
+
+        ops.push(Op::SetFont(Font::A));
+        ops.push(Op::SetAlign(Alignment::Left));
+
+        // Top border: ┌──┬──┐
+        let top = horizontal_line(chars.tl, chars.horiz, chars.t_down, chars.tr, &col_widths);
+        ops.push(Op::Text(top));
+        ops.push(Op::Newline);
+
+        // Header row
+        if let Some(ref headers) = self.headers {
+            ops.push(Op::SetBold(true));
+            let header_row = data_row(chars.vert, headers, &col_widths, &self.align, num_cols);
+            ops.push(Op::Text(header_row));
+            ops.push(Op::Newline);
+            ops.push(Op::SetBold(false));
+
+            // Header separator: ├──┼──┤ or ╞══╪══╡ for mixed
+            let sep = if matches!(self.border, BorderStyle::Mixed) {
+                horizontal_line('\u{255E}', '\u{2550}', '\u{256A}', '\u{2561}', &col_widths)
+            } else {
+                horizontal_line(
+                    chars.t_right,
+                    chars.horiz,
+                    chars.cross,
+                    chars.t_left,
+                    &col_widths,
+                )
+            };
+            ops.push(Op::Text(sep));
+            ops.push(Op::Newline);
+        }
+
+        // Data rows
+        for (i, row) in self.rows.iter().enumerate() {
+            let row_text = data_row(chars.vert, row, &col_widths, &self.align, num_cols);
+            ops.push(Op::Text(row_text));
+            ops.push(Op::Newline);
+
+            // Row separator between rows, not after last
+            if self.row_separator && i < self.rows.len() - 1 {
+                let sep = horizontal_line(
+                    chars.t_right,
+                    chars.horiz,
+                    chars.cross,
+                    chars.t_left,
+                    &col_widths,
+                );
+                ops.push(Op::Text(sep));
+                ops.push(Op::Newline);
+            }
+        }
+
+        // Bottom border: └──┴──┘
+        let bottom = horizontal_line(chars.bl, chars.horiz, chars.t_up, chars.br, &col_widths);
+        ops.push(Op::Text(bottom));
+        ops.push(Op::Newline);
     }
 }
 
@@ -575,5 +853,266 @@ mod tests {
         let (size, total) = Banner::fit(13, 3, BorderStyle::Shadow);
         assert_eq!(size, [3, 3]);
         assert_eq!(total, 16);
+    }
+
+    #[test]
+    fn test_banner_mixed_border() {
+        // Mixed border should render the same as Single for banners
+        let banner = Banner {
+            content: "HI".into(),
+            border: BorderStyle::Mixed,
+            ..Default::default()
+        };
+        let mut ops = Vec::new();
+        banner.emit(&mut ops);
+        let has_single_top = ops.iter().any(|op| {
+            if let Op::Text(s) = op {
+                s.starts_with('\u{250C}') && s.ends_with('\u{2510}')
+            } else {
+                false
+            }
+        });
+        assert!(has_single_top, "Mixed banner should use single-line border");
+    }
+
+    // ========================================================================
+    // Table tests
+    // ========================================================================
+
+    #[test]
+    fn test_table_basic() {
+        let table = Table {
+            rows: vec![
+                vec!["A".into(), "B".into()],
+                vec!["C".into(), "D".into()],
+            ],
+            width: Some(20),
+            ..Default::default()
+        };
+        let mut ops = Vec::new();
+        table.emit(&mut ops);
+
+        // Should set Font A and Left alignment
+        assert!(ops.contains(&Op::SetFont(Font::A)));
+        assert!(ops.contains(&Op::SetAlign(Alignment::Left)));
+
+        // Collect all text ops
+        let texts: Vec<&str> = ops
+            .iter()
+            .filter_map(|op| if let Op::Text(s) = op { Some(s.as_str()) } else { None })
+            .collect();
+
+        // Top border: ┌...┬...┐
+        assert!(texts[0].starts_with('\u{250C}'), "Top starts with ┌");
+        assert!(texts[0].ends_with('\u{2510}'), "Top ends with ┐");
+        assert!(texts[0].contains('\u{252C}'), "Top has ┬ junction");
+
+        // Data rows contain cells
+        assert!(texts[1].contains("A"));
+        assert!(texts[1].contains("B"));
+        assert!(texts[2].contains("C"));
+        assert!(texts[2].contains("D"));
+
+        // Bottom border: └...┴...┘
+        let last = texts.last().unwrap();
+        assert!(last.starts_with('\u{2514}'), "Bottom starts with └");
+        assert!(last.ends_with('\u{2518}'), "Bottom ends with ┘");
+        assert!(last.contains('\u{2534}'), "Bottom has ┴ junction");
+    }
+
+    #[test]
+    fn test_table_with_headers() {
+        let table = Table {
+            headers: Some(vec!["Name".into(), "Price".into()]),
+            rows: vec![vec!["Coffee".into(), "$4.50".into()]],
+            width: Some(30),
+            ..Default::default()
+        };
+        let mut ops = Vec::new();
+        table.emit(&mut ops);
+
+        // Header should be bold
+        assert!(ops.contains(&Op::SetBold(true)));
+        assert!(ops.contains(&Op::SetBold(false)));
+
+        // Should have header separator (├...┼...┤)
+        let has_separator = ops.iter().any(|op| {
+            if let Op::Text(s) = op {
+                s.starts_with('\u{251C}') && s.contains('\u{253C}') && s.ends_with('\u{2524}')
+            } else {
+                false
+            }
+        });
+        assert!(has_separator, "Should have header separator ├┼┤");
+    }
+
+    #[test]
+    fn test_table_column_widths() {
+        // Proportional: "LongColumn" (10) vs "B" (1) → 10:1 ratio
+        let widths = compute_col_widths(2, &[10, 1], 20);
+        assert!(widths[0] > widths[1], "Wider content gets more space");
+        assert_eq!(
+            widths.iter().sum::<usize>(),
+            20 - 3 - 4, // total - 3 borders - 4 padding
+            "Widths sum to available space"
+        );
+    }
+
+    #[test]
+    fn test_table_alignment() {
+        let table = Table {
+            rows: vec![vec!["L".into(), "C".into(), "R".into()]],
+            align: vec![ColumnAlign::Left, ColumnAlign::Center, ColumnAlign::Right],
+            width: Some(30),
+            ..Default::default()
+        };
+        let mut ops = Vec::new();
+        table.emit(&mut ops);
+
+        let row = ops
+            .iter()
+            .find_map(|op| {
+                if let Op::Text(s) = op {
+                    if s.contains("L") && s.contains("C") && s.contains("R") {
+                        Some(s.clone())
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            })
+            .expect("Should have data row");
+
+        // Split on │ to get cells
+        let cells: Vec<&str> = row.split('\u{2502}').collect();
+        // First and last are empty (before first │ and after last │)
+        assert!(cells[1].starts_with(" L"), "Left-aligned cell starts with ' L'");
+        assert!(cells[3].ends_with("R "), "Right-aligned cell ends with 'R '");
+    }
+
+    #[test]
+    fn test_table_double_border() {
+        let table = Table {
+            rows: vec![vec!["X".into()]],
+            border: BorderStyle::Double,
+            width: Some(20),
+            ..Default::default()
+        };
+        let mut ops = Vec::new();
+        table.emit(&mut ops);
+
+        let texts: Vec<&str> = ops
+            .iter()
+            .filter_map(|op| if let Op::Text(s) = op { Some(s.as_str()) } else { None })
+            .collect();
+
+        assert!(texts[0].starts_with('\u{2554}'), "Double top starts with ╔");
+        assert!(texts[0].ends_with('\u{2557}'), "Double top ends with ╗");
+        assert!(texts[0].contains('\u{2550}'), "Double top has ═ fill");
+    }
+
+    #[test]
+    fn test_table_mixed_border() {
+        let table = Table {
+            headers: Some(vec!["H1".into(), "H2".into()]),
+            rows: vec![vec!["A".into(), "B".into()]],
+            border: BorderStyle::Mixed,
+            width: Some(20),
+            ..Default::default()
+        };
+        let mut ops = Vec::new();
+        table.emit(&mut ops);
+
+        // Top border should be single (┌)
+        let texts: Vec<&str> = ops
+            .iter()
+            .filter_map(|op| if let Op::Text(s) = op { Some(s.as_str()) } else { None })
+            .collect();
+        assert!(texts[0].starts_with('\u{250C}'), "Mixed top uses single ┌");
+
+        // Header separator should use mixed chars ╞═╪═╡
+        let has_mixed_sep = ops.iter().any(|op| {
+            if let Op::Text(s) = op {
+                s.starts_with('\u{255E}') && s.contains('\u{256A}') && s.ends_with('\u{2561}')
+            } else {
+                false
+            }
+        });
+        assert!(has_mixed_sep, "Mixed border should use ╞═╪═╡ header separator");
+    }
+
+    #[test]
+    fn test_table_row_separator() {
+        let table = Table {
+            rows: vec![
+                vec!["A".into()],
+                vec!["B".into()],
+                vec!["C".into()],
+            ],
+            row_separator: true,
+            width: Some(20),
+            ..Default::default()
+        };
+        let mut ops = Vec::new();
+        table.emit(&mut ops);
+
+        // Count separator lines (├...┤) — should be 2 (between 3 rows)
+        let sep_count = ops
+            .iter()
+            .filter(|op| {
+                if let Op::Text(s) = op {
+                    s.starts_with('\u{251C}') && s.ends_with('\u{2524}')
+                } else {
+                    false
+                }
+            })
+            .count();
+        assert_eq!(sep_count, 2, "Should have 2 row separators between 3 rows");
+    }
+
+    #[test]
+    fn test_table_uneven_rows() {
+        // Rows with different numbers of cells
+        let table = Table {
+            headers: Some(vec!["A".into(), "B".into(), "C".into()]),
+            rows: vec![
+                vec!["1".into()],                              // 1 cell, 3 columns
+                vec!["1".into(), "2".into(), "3".into()],      // 3 cells
+            ],
+            width: Some(30),
+            ..Default::default()
+        };
+        let mut ops = Vec::new();
+        table.emit(&mut ops);
+
+        // Short row should still produce a valid line with 3 │ separators
+        let first_data_row = ops
+            .iter()
+            .find_map(|op| {
+                if let Op::Text(s) = op {
+                    if s.contains("1") && !s.contains("2") && s.starts_with('\u{2502}') {
+                        Some(s.clone())
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            });
+        assert!(first_data_row.is_some(), "Short row should still render");
+    }
+
+    #[test]
+    fn test_table_empty_rows() {
+        let table = Table {
+            rows: vec![],
+            width: Some(20),
+            ..Default::default()
+        };
+        let mut ops = Vec::new();
+        table.emit(&mut ops);
+        // Empty table with no rows and no headers → no output
+        assert!(ops.is_empty(), "Empty table should produce no ops");
     }
 }

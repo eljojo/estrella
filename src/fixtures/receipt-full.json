@@ -29,13 +29,17 @@
     {"type": "spacer", "mm": 2.0},
 
     {"type": "divider"},
-    {"type": "columns", "left": "ITEM", "right": "CAD", "bold": true},
-    {"type": "divider"},
-    {"type": "line_item", "name": "Liminal Espresso", "price": 4.50},
-    {"type": "line_item", "name": "Basement Techno Vinyl", "price": 29.00},
-    {"type": "line_item", "name": "Thermal Paper (mystery)", "price": 7.25},
-    {"type": "line_item", "name": "Sticker: *****", "price": 2.00},
-    {"type": "divider"},
+    {"type": "table", "headers": ["Item", "Qty", "Price"],
+      "rows": [
+        ["Liminal Espresso", "1", "$4.50"],
+        ["Techno Vinyl", "1", "$29.00"],
+        ["Thermal Paper", "1", "$7.25"],
+        ["Sticker: *****", "1", "$2.00"]
+      ],
+      "border": "mixed",
+      "align": ["left", "right", "right"]
+    },
+    {"type": "spacer", "mm": 1.0},
     {"type": "total", "label": "SUBTOTAL:", "amount": 42.75},
     {"type": "total", "label": "HST (13%):", "amount": 5.56},
     {"type": "total", "label": "TOTAL:", "amount": 48.31, "bold": true, "double_width": true},

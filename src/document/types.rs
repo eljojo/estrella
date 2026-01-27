@@ -157,7 +157,7 @@ impl Header {
     }
 }
 
-/// Border style for Banner component.
+/// Border style for Banner and Table components.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BorderStyle {
@@ -167,6 +167,8 @@ pub enum BorderStyle {
     Heavy,
     Shade,
     Shadow,
+    /// Single borders with double-line header separator (tables only; banners treat as single).
+    Mixed,
 }
 
 fn default_banner_size() -> u8 {
@@ -379,6 +381,70 @@ impl Columns {
         Self {
             left: left.into(),
             right: right.into(),
+            ..Default::default()
+        }
+    }
+}
+
+/// Column alignment for Table cells.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ColumnAlign {
+    #[default]
+    Left,
+    Center,
+    Right,
+}
+
+/// Table with box-drawing borders, optional headers, and per-column alignment.
+///
+/// Columns are auto-sized proportionally to their maximum content width.
+///
+/// ## Border styles
+///
+/// - `single` (default): single-line box drawing (┌─┬┐│├┼┤└┴┘)
+/// - `double`: double-line box drawing (╔═╦╗║╠╬╣╚╩╝)
+/// - `mixed`: single borders + double header separator (╞═╪═╡)
+/// - `heavy`: full block character (█)
+/// - `shade`: medium shade character (▒)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Table {
+    /// Optional header row. If present, rendered bold with a separator below.
+    #[serde(default)]
+    pub headers: Option<Vec<String>>,
+    /// Data rows. Each inner Vec is one row of cell values.
+    pub rows: Vec<Vec<String>>,
+    /// Border style (default: single).
+    #[serde(default)]
+    pub border: BorderStyle,
+    /// Per-column alignment. Columns beyond this list default to left.
+    #[serde(default)]
+    pub align: Vec<ColumnAlign>,
+    /// Draw separator lines between data rows (default: false).
+    #[serde(default)]
+    pub row_separator: bool,
+    /// Override total width in characters (default: 48 for Font A).
+    #[serde(default)]
+    pub width: Option<usize>,
+}
+
+impl Default for Table {
+    fn default() -> Self {
+        Self {
+            headers: None,
+            rows: Vec::new(),
+            border: BorderStyle::Single,
+            align: Vec::new(),
+            row_separator: false,
+            width: None,
+        }
+    }
+}
+
+impl Table {
+    pub fn new(rows: Vec<Vec<String>>) -> Self {
+        Self {
+            rows,
             ..Default::default()
         }
     }
@@ -598,6 +664,21 @@ impl Interpolatable for Pdf417 {
 impl Interpolatable for Barcode {
     fn interpolate(&mut self, vars: &HashMap<String, String>) {
         interpolate_string(&mut self.data, vars);
+    }
+}
+
+impl Interpolatable for Table {
+    fn interpolate(&mut self, vars: &HashMap<String, String>) {
+        if let Some(ref mut headers) = self.headers {
+            for h in headers.iter_mut() {
+                interpolate_string(h, vars);
+            }
+        }
+        for row in &mut self.rows {
+            for cell in row.iter_mut() {
+                interpolate_string(cell, vars);
+            }
+        }
     }
 }
 

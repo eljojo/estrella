@@ -146,6 +146,7 @@ pub enum Component {
     Spacer(Spacer),
     BlankLine(BlankLine),
     Columns(Columns),
+    Table(Table),
     Markdown(Markdown),
     QrCode(QrCode),
     Pdf417(Pdf417),
@@ -168,6 +169,7 @@ impl Component {
             Component::Spacer(c) => c.emit(ops),
             Component::BlankLine(c) => c.emit(ops),
             Component::Columns(c) => c.emit(ops),
+            Component::Table(c) => c.emit(ops),
             Component::Markdown(c) => c.emit(ops),
             Component::QrCode(c) => c.emit(ops),
             Component::Pdf417(c) => c.emit(ops),
@@ -190,6 +192,7 @@ impl Component {
             Component::Spacer(c) => c.interpolate(vars),
             Component::BlankLine(c) => c.interpolate(vars),
             Component::Columns(c) => c.interpolate(vars),
+            Component::Table(c) => c.interpolate(vars),
             Component::Markdown(c) => c.interpolate(vars),
             Component::QrCode(c) => c.interpolate(vars),
             Component::Pdf417(c) => c.interpolate(vars),
@@ -384,6 +387,7 @@ mod tests {
                 {"type": "spacer", "units": 10},
                 {"type": "blank_line"},
                 {"type": "columns", "left": "L", "right": "R"},
+                {"type": "table", "rows": [["A", "B"], ["C", "D"]]},
                 {"type": "markdown", "content": "**bold**"},
                 {"type": "qr_code", "data": "test"},
                 {"type": "pdf417", "data": "test"},
@@ -394,6 +398,45 @@ mod tests {
         let doc: Document = serde_json::from_str(json).unwrap();
         let ir = doc.compile();
         assert!(ir.len() > 10);
+    }
+
+    #[test]
+    fn test_table_json() {
+        let json = r#"{"document": [{
+            "type": "table",
+            "headers": ["Item", "Qty", "Price"],
+            "rows": [["Espresso", "2", "$6.00"], ["Croissant", "1", "$3.50"]],
+            "border": "mixed",
+            "align": ["left", "right", "right"],
+            "row_separator": false
+        }]}"#;
+        let doc: Document = serde_json::from_str(json).unwrap();
+        let ir = doc.compile();
+
+        // Should contain header text
+        assert!(ir.ops.iter().any(|op| matches!(op, Op::Text(s) if s.contains("Item"))));
+        // Should contain data
+        assert!(ir.ops.iter().any(|op| matches!(op, Op::Text(s) if s.contains("Espresso"))));
+        // Should have bold for headers
+        assert!(ir.ops.iter().any(|op| matches!(op, Op::SetBold(true))));
+        // Should have mixed header separator (╞)
+        assert!(ir.ops.iter().any(|op| matches!(op, Op::Text(s) if s.contains('\u{255E}'))));
+    }
+
+    #[test]
+    fn test_table_variable_interpolation() {
+        let json = r#"{
+            "variables": {"item": "Latte"},
+            "document": [{
+                "type": "table",
+                "headers": ["Item"],
+                "rows": [["{{item}}"]]
+            }]
+        }"#;
+        let doc: Document = serde_json::from_str(json).unwrap();
+        let ir = doc.compile();
+        assert!(ir.ops.iter().any(|op| matches!(op, Op::Text(s) if s.contains("Latte"))));
+        assert!(!ir.ops.iter().any(|op| matches!(op, Op::Text(s) if s.contains("{{item}}"))));
     }
 
     #[test]
