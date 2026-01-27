@@ -6,7 +6,7 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;
-use uuid::Uuid;
+
 
 /// Server configuration.
 #[derive(Debug, Clone)]
@@ -156,8 +156,8 @@ pub struct AppState {
     pub config: ServerConfig,
     /// Unix timestamp of server boot for cache busting.
     pub boot_time: u64,
-    /// Photo sessions for uploaded images.
-    pub photo_sessions: Arc<RwLock<HashMap<Uuid, PhotoSession>>>,
+    /// Photo sessions for uploaded and downloaded images.
+    pub photo_sessions: Arc<RwLock<HashMap<String, PhotoSession>>>,
     /// Cached layer intensity buffers for composer.
     pub layer_cache: Arc<RwLock<HashMap<LayerCacheKey, CachedLayer>>>,
 }

@@ -146,7 +146,7 @@ pub async fn upload(
 
     {
         let mut sessions = state.photo_sessions.write().await;
-        sessions.insert(session_id, session);
+        sessions.insert(session_id.to_string(), session);
     }
 
     Ok(Json(UploadResponse {
@@ -164,14 +164,11 @@ pub async fn preview(
     Path(id): Path<String>,
     Query(query): Query<PreviewQuery>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-    let session_id = Uuid::parse_str(&id)
-        .map_err(|_| (StatusCode::BAD_REQUEST, "Invalid session ID".to_string()))?;
-
     // Get the image from session (minimize lock time)
     let source_image = {
         let mut sessions = state.photo_sessions.write().await;
         let session = sessions
-            .get_mut(&session_id)
+            .get_mut(&id)
             .ok_or((StatusCode::NOT_FOUND, "Session not found or expired".to_string()))?;
 
         // Touch session to keep it alive
@@ -285,17 +282,10 @@ pub async fn print(
     Path(id): Path<String>,
     Json(req): Json<PrintRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
-    let session_id = Uuid::parse_str(&id).map_err(|_| {
-        (
-            StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({"success": false, "error": "Invalid session ID"})),
-        )
-    })?;
-
     // Get the image from session (minimize lock time)
     let source_image = {
         let mut sessions = state.photo_sessions.write().await;
-        let session = sessions.get_mut(&session_id).ok_or((
+        let session = sessions.get_mut(&id).ok_or((
             StatusCode::NOT_FOUND,
             Json(serde_json::json!({"success": false, "error": "Session not found or expired"})),
         ))?;

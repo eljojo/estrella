@@ -15,6 +15,31 @@ The web UI supports printing photos with real-time dithered preview:
 
 <img width="1125" height="1068" alt="Screenshot 2026-01-23 at 18 19 25" src="https://github.com/user-attachments/assets/d8e7779d-7940-47c6-a304-4fc6c7b2992e" />
 
+## Image Downloads
+
+Documents can include images from URLs. When a document is submitted via the JSON API, images are automatically downloaded, cached, resized, and dithered for printing.
+
+```json
+{"type": "image", "url": "https://example.com/photo.jpg"}
+```
+
+- **Auto-resize:** Images are scaled to the printer's full width (576 dots) preserving aspect ratio
+- **Max height:** Optional `height` field acts as a cap — if the resized image is taller, it shrinks to fit
+- **Alignment:** Images narrower than paper width are centered by default (`"align": "center"`). Also accepts `"left"` or `"right"`
+- **Dithering:** Defaults to Floyd-Steinberg. Set `"dither"` to `"bayer"`, `"atkinson"`, `"jarvis"`, or `"none"`
+- **Caching:** Downloaded images are cached in memory and shared with photo sessions (30-min TTL), so previewing a document multiple times won't re-download
+
+```json
+{
+  "type": "image",
+  "url": "https://example.com/photo.jpg",
+  "width": 400,
+  "height": 300,
+  "align": "center",
+  "dither": "atkinson"
+}
+```
+
 ## The Document System
 
 Instead of manually constructing printer escape sequences, Estrella provides a declarative `Document` model. The same types work for both Rust construction and JSON deserialization — one set of types, zero conversion layer.
@@ -61,7 +86,7 @@ let json = serde_json::to_string(&doc)?;     // Same type serializes to JSON
 | `Columns` | Two-column layout (left + right) |
 | `Table` | Table with box-drawing borders, headers, per-column alignment |
 | `Markdown` | Rich text from Markdown (headings, bold, lists) |
-| `Image` | Image from URL with dithering |
+| `Image` | Image from URL (downloaded, cached, dithered, auto-centered) |
 | `Pattern` | Generative art pattern with params |
 | `QrCode`, `Pdf417`, `Barcode` | 1D and 2D barcodes |
 | `NvLogo` | Logo from printer's flash memory |
@@ -203,7 +228,7 @@ Each component in the `"document"` array has a `"type"` field and type-specific 
 | `qr_code` | `data` | `cell_size` (4), `error_level` ("M"), `align` ("center") |
 | `pdf417` | `data` | `module_width` (3), `ecc_level` (2), `align` ("center") |
 | `barcode` | `format`, `data` | `height` (80); format: "code128" / "code39" / "ean13" / "upca" / "itf" |
-| `image` | `url` | `dither` ("bayer"), `width` (576), `height` (null) |
+| `image` | `url` | `dither` ("floyd-steinberg"), `width` (576), `height` (null), `align` ("center" — also "left", "right"; only affects images narrower than paper) |
 | `pattern` | `name` | `height` (500), `params` ({}), `dither` ("bayer") |
 | `nv_logo` | `key` | `center` (false), `scale` (1), `scale_x` (1), `scale_y` (1) |
 

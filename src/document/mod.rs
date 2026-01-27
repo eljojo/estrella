@@ -29,8 +29,10 @@ mod barcode;
 mod graphics;
 mod layout;
 mod markdown;
+pub mod resolve;
 mod text;
 
+pub use resolve::ImageResolver;
 pub use types::*;
 
 use crate::ir::{Op, Program};

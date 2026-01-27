@@ -10,13 +10,23 @@ use axum::{
 };
 use std::sync::Arc;
 
-use crate::document::Document;
+use crate::document::{Document, ImageResolver};
 use crate::transport::BluetoothTransport;
 
 use super::super::state::AppState;
 
 /// Handle POST /api/json/preview - render JSON document as PNG.
-pub async fn preview(Json(doc): Json<Document>) -> Result<impl IntoResponse, (StatusCode, String)> {
+pub async fn preview(
+    State(state): State<Arc<AppState>>,
+    Json(mut doc): Json<Document>,
+) -> Result<impl IntoResponse, (StatusCode, String)> {
+    // Resolve images from URLs before compilation
+    let resolver = ImageResolver::new(state.photo_sessions.clone());
+    resolver
+        .resolve(&mut doc)
+        .await
+        .map_err(|e| (StatusCode::BAD_REQUEST, format!("Image resolution failed: {}", e)))?;
+
     let program = doc.compile();
     let png_bytes = program.to_preview_png().map_err(|e| {
         (
@@ -31,8 +41,21 @@ pub async fn preview(Json(doc): Json<Document>) -> Result<impl IntoResponse, (St
 /// Handle POST /api/json/print - print JSON document to device.
 pub async fn print(
     State(state): State<Arc<AppState>>,
-    Json(doc): Json<Document>,
+    Json(mut doc): Json<Document>,
 ) -> Response {
+    // Resolve images from URLs before compilation
+    let resolver = ImageResolver::new(state.photo_sessions.clone());
+    if let Err(e) = resolver.resolve(&mut doc).await {
+        return (
+            StatusCode::BAD_REQUEST,
+            Html(format!(
+                r#"{{"success": false, "error": "Image resolution failed: {}"}}"#,
+                e
+            )),
+        )
+            .into_response();
+    }
+
     let print_data = doc.build();
     let device_path = state.config.device_path.clone();
 

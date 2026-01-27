@@ -548,6 +548,9 @@ pub struct Image {
     /// Optional max height constraint.
     #[serde(default)]
     pub height: Option<usize>,
+    /// Image alignment when narrower than paper: "left", "center" (default), "right".
+    #[serde(default)]
+    pub align: Option<String>,
     /// Resolved image data (populated by `Document::resolve()`).
     #[serde(skip)]
     pub resolved_data: Option<ResolvedImage>,

@@ -70,6 +70,8 @@ const DEFAULT_JSON = JSON.stringify(
       { type: 'spacer', mm: 2 },
       { type: 'qr_code', data: 'https://calendar.google.com' },
       { type: 'spacer', mm: 2 },
+      { type: 'image', url: 'https://upload.wikimedia.org/wikipedia/en/6/61/Attempted_restoration_of_Ecce_Homo.jpg' },
+      { type: 'spacer', mm: 3 },
     ],
     cut: true,
   },

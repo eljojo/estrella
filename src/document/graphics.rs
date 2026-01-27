@@ -5,7 +5,7 @@ use crate::ir::Op;
 use crate::render::{dither, patterns};
 
 /// Parse a dithering algorithm string.
-fn parse_dither_algorithm(s: &str) -> Option<dither::DitheringAlgorithm> {
+pub(crate) fn parse_dither_algorithm(s: &str) -> Option<dither::DitheringAlgorithm> {
     match s.to_lowercase().as_str() {
         "bayer" => Some(dither::DitheringAlgorithm::Bayer),
         "floyd-steinberg" | "floyd_steinberg" | "fs" => Some(dither::DitheringAlgorithm::FloydSteinberg),
@@ -23,13 +23,24 @@ impl Image {
     /// `Document::resolve()` before compilation.
     pub fn emit(&self, ops: &mut Vec<Op>) {
         if let Some(ref resolved) = self.resolved_data {
+            let print_width: u16 = 576;
+            if resolved.width < print_width {
+                let align = self.align.as_deref().unwrap_or("center");
+                let position = match align {
+                    "left" => 0,
+                    "right" => print_width - resolved.width,
+                    _ => (print_width - resolved.width) / 2,
+                };
+                if position > 0 {
+                    ops.push(Op::SetAbsolutePosition(position));
+                }
+            }
             ops.push(Op::Raster {
                 width: resolved.width,
                 height: resolved.height,
                 data: resolved.raster_data.clone(),
             });
         }
-        // If not resolved, emit nothing (caller must resolve first)
     }
 }
 

@@ -14,7 +14,7 @@ mod handlers;
 mod state;
 mod static_files;
 
-pub use state::ServerConfig;
+pub use state::{PhotoSession, ServerConfig};
 
 use axum::{
     extract::DefaultBodyLimit,
