@@ -165,10 +165,11 @@ impl Document {
         self.document.push(component);
     }
 
-    /// Compile the document to an IR program.
+    /// Compile the document to an optimized IR program.
     ///
     /// This performs template variable interpolation (if enabled),
-    /// emits IR ops for each component, and adds Init/Cut ops.
+    /// emits IR ops for each component, adds Init/Cut ops, and
+    /// runs the optimizer (word-wrapping, redundancy elimination, etc.).
     pub fn compile(&self) -> Program {
         let mut doc = self.clone();
 
@@ -190,17 +191,18 @@ impl Document {
             ops.push(Op::Cut { partial: true });
         }
 
-        Program { ops }
+        let program = Program { ops };
+        program.optimize()
     }
 
-    /// Compile, optimize, and generate StarPRNT bytes.
+    /// Compile and generate StarPRNT bytes.
     pub fn build(&self) -> Vec<u8> {
         self.build_with_config(&PrinterConfig::TSP650II)
     }
 
-    /// Compile, optimize, and generate bytes with a specific printer config.
+    /// Compile and generate bytes with a specific printer config.
     pub fn build_with_config(&self, config: &PrinterConfig) -> Vec<u8> {
-        self.compile().optimize().to_bytes_with_config(config)
+        self.compile().to_bytes_with_config(config)
     }
 
     /// Build the merged variable map: built-in datetime helpers + user overrides.
@@ -371,11 +373,12 @@ mod tests {
     #[test]
     fn test_text_default_size_font_a() {
         // No size field → default [1, 1] → Font A, no SetSize
+        // Font A is default after Init, so optimizer removes the redundant SetFont(Font::A)
         let json = r#"{"document": [{"type": "text", "content": "x"}]}"#;
         let doc: Document = serde_json::from_str(json).unwrap();
         let ir = doc.compile();
-        assert!(ir.ops.iter().any(|op| matches!(op, Op::SetFont(crate::protocol::text::Font::A))));
         assert!(!ir.ops.iter().any(|op| matches!(op, Op::SetSize { .. })));
+        assert!(ir.ops.iter().any(|op| matches!(op, Op::Text(s) if s == "x")));
     }
 
     #[test]

@@ -38,6 +38,7 @@ impl Program {
         let ops = remove_redundant_styles(ops);
         let ops = remove_empty_text(ops);
         let ops = merge_adjacent_text(ops);
+        let ops = wrap_long_text(ops);
         let ops = remove_trailing_dead_styles(ops);
         Program { ops }
     }
@@ -309,6 +310,144 @@ fn remove_trailing_dead_styles(ops: Vec<Op>) -> Vec<Op> {
     for idx in dead_indices {
         result.remove(idx);
     }
+    result
+}
+
+/// Count characters (not bytes) in a str.
+fn char_len(s: &str) -> usize {
+    s.chars().count()
+}
+
+/// Collect the first `n` characters of a string, returning (taken, rest).
+fn char_split_at(s: &str, n: usize) -> (&str, &str) {
+    let byte_idx = s.char_indices().nth(n).map(|(i, _)| i).unwrap_or(s.len());
+    (&s[..byte_idx], &s[byte_idx..])
+}
+
+/// Split text into lines that fit within `max_chars`, breaking at spaces.
+///
+/// Handles existing `\n` by splitting on them first. Words longer than
+/// `max_chars` are force-broken at the character limit.
+fn word_wrap(text: &str, max_chars: usize) -> Vec<String> {
+    let mut lines = Vec::new();
+
+    for paragraph in text.split('\n') {
+        if paragraph.is_empty() {
+            lines.push(String::new());
+            continue;
+        }
+
+        let mut line = String::new();
+        let mut line_chars: usize = 0;
+
+        for word in paragraph.split(' ') {
+            let word_chars = char_len(word);
+
+            if word.is_empty() {
+                // Consecutive spaces: add a space to current line
+                if line_chars > 0 && line_chars + 1 <= max_chars {
+                    line.push(' ');
+                    line_chars += 1;
+                }
+                continue;
+            }
+
+            if line_chars == 0 {
+                // First word on line — force-break if too long
+                if word_chars <= max_chars {
+                    line.push_str(word);
+                    line_chars = word_chars;
+                } else {
+                    let mut remaining = word;
+                    while char_len(remaining) > max_chars {
+                        let (chunk, rest) = char_split_at(remaining, max_chars);
+                        lines.push(chunk.to_string());
+                        remaining = rest;
+                    }
+                    if !remaining.is_empty() {
+                        line.push_str(remaining);
+                        line_chars = char_len(remaining);
+                    }
+                }
+            } else if line_chars + 1 + word_chars <= max_chars {
+                // Word fits with a space
+                line.push(' ');
+                line.push_str(word);
+                line_chars += 1 + word_chars;
+            } else {
+                // Word doesn't fit — start new line
+                lines.push(std::mem::take(&mut line));
+                line_chars = 0;
+                if word_chars <= max_chars {
+                    line.push_str(word);
+                    line_chars = word_chars;
+                } else {
+                    let mut remaining = word;
+                    while char_len(remaining) > max_chars {
+                        let (chunk, rest) = char_split_at(remaining, max_chars);
+                        lines.push(chunk.to_string());
+                        remaining = rest;
+                    }
+                    if !remaining.is_empty() {
+                        line.push_str(remaining);
+                        line_chars = char_len(remaining);
+                    }
+                }
+            }
+        }
+        lines.push(line);
+    }
+
+    lines
+}
+
+/// Wrap long `Op::Text` ops at word boundaries, inserting `Op::Newline` between lines.
+///
+/// Tracks `StyleState` to calculate the correct `chars_per_line` for each text op.
+fn wrap_long_text(ops: Vec<Op>) -> Vec<Op> {
+    let mut result = Vec::with_capacity(ops.len());
+    let mut state = StyleState::default();
+
+    for op in ops {
+        match &op {
+            Op::Init | Op::ResetStyle => {
+                state = StyleState::default();
+                result.push(op);
+            }
+            Op::SetFont(f) => {
+                state.font = *f;
+                result.push(op);
+            }
+            Op::SetSize { height, width } => {
+                state.height_mult = *height;
+                state.width_mult = *width;
+                result.push(op);
+            }
+            Op::SetExpandedWidth(w) => {
+                state.expanded_width = *w;
+                result.push(op);
+            }
+            Op::Text(text) => {
+                let max = state.chars_per_line();
+                // Only wrap if text could overflow (contains long content or \n)
+                if char_len(text) <= max && !text.contains('\n') {
+                    result.push(op);
+                } else {
+                    let lines = word_wrap(text, max);
+                    for (i, line) in lines.into_iter().enumerate() {
+                        if i > 0 {
+                            result.push(Op::Newline);
+                        }
+                        if !line.is_empty() {
+                            result.push(Op::Text(line));
+                        }
+                    }
+                }
+            }
+            _ => result.push(op),
+        }
+    }
+
     result
 }
 
@@ -612,5 +751,118 @@ mod tests {
         let result = remove_redundant_styles(ops);
         assert_eq!(result.len(), 6); // All kept
         assert_eq!(result.iter().filter(|op| matches!(op, Op::SetAbsolutePosition(100))).count(), 2);
+    }
+
+    // ========== Word Wrap Tests ==========
+
+    #[test]
+    fn test_word_wrap_basic() {
+        let lines = word_wrap("Hello world this is a test", 12);
+        assert_eq!(lines, vec!["Hello world", "this is a", "test"]);
+    }
+
+    #[test]
+    fn test_word_wrap_exact_fit() {
+        let lines = word_wrap("Hello world!", 12);
+        assert_eq!(lines, vec!["Hello world!"]);
+    }
+
+    #[test]
+    fn test_word_wrap_long_word() {
+        let lines = word_wrap("abcdefghijklmnop short", 10);
+        assert_eq!(lines, vec!["abcdefghij", "klmnop", "short"]);
+    }
+
+    #[test]
+    fn test_word_wrap_explicit_newline() {
+        let lines = word_wrap("Line one\nLine two", 48);
+        assert_eq!(lines, vec!["Line one", "Line two"]);
+    }
+
+    #[test]
+    fn test_word_wrap_no_wrap_needed() {
+        let lines = word_wrap("Short", 48);
+        assert_eq!(lines, vec!["Short"]);
+    }
+
+    #[test]
+    fn test_word_wrap_empty() {
+        let lines = word_wrap("", 48);
+        assert_eq!(lines, vec![""]);
+    }
+
+    #[test]
+    fn test_word_wrap_font_b_width() {
+        // Font B has 64 chars per line
+        let text = "a ".repeat(33).trim().to_string(); // 65 chars with spaces
+        let lines = word_wrap(&text, 64);
+        assert_eq!(lines.len(), 2);
+        assert!(lines[0].len() <= 64);
+    }
+
+    #[test]
+    fn test_wrap_long_text_pass() {
+        let ops = vec![
+            Op::Init,
+            Op::Text("The quick brown fox jumps over the lazy dog and keeps on running through the forest until it reaches the end of the line".into()),
+            Op::Newline,
+        ];
+        let result = wrap_long_text(ops);
+        // Should be split into multiple Text + Newline ops
+        let text_count = result.iter().filter(|op| matches!(op, Op::Text(_))).count();
+        assert!(text_count > 1, "Long text should be split: got {} text ops", text_count);
+        // Each text op should fit within 48 chars (Font A default)
+        for op in &result {
+            if let Op::Text(s) = op {
+                assert!(s.len() <= 48, "Text '{}' exceeds 48 chars (len={})", s, s.len());
+            }
+        }
+    }
+
+    #[test]
+    fn test_wrap_long_text_with_size() {
+        // Size 2 = width_mult 1, so 48 / 2 = 24 chars per line
+        let ops = vec![
+            Op::Init,
+            Op::SetSize { height: 1, width: 1 },
+            Op::Text("Continuous Low of 3 feels like -1".into()),
+            Op::Newline,
+        ];
+        let result = wrap_long_text(ops);
+        let text_count = result.iter().filter(|op| matches!(op, Op::Text(_))).count();
+        assert!(text_count > 1, "Size-2 text should be wrapped: got {} text ops", text_count);
+        for op in &result {
+            if let Op::Text(s) = op {
+                assert!(s.len() <= 24, "Text '{}' exceeds 24 chars (len={})", s, s.len());
+            }
+        }
+    }
+
+    #[test]
+    fn test_wrap_long_text_with_newline_in_text() {
+        let ops = vec![
+            Op::Init,
+            Op::Text("Line one\nLine two".into()),
+            Op::Newline,
+        ];
+        let result = wrap_long_text(ops);
+        // Should produce: Init, Text("Line one"), Newline, Text("Line two"), Newline
+        assert_eq!(result.len(), 5);
+        assert_eq!(result[0], Op::Init);
+        assert_eq!(result[1], Op::Text("Line one".into()));
+        assert_eq!(result[2], Op::Newline);
+        assert_eq!(result[3], Op::Text("Line two".into()));
+        assert_eq!(result[4], Op::Newline);
+    }
+
+    #[test]
+    fn test_wrap_short_text_unchanged() {
+        let ops = vec![
+            Op::Init,
+            Op::Text("Short text".into()),
+            Op::Newline,
+        ];
+        let result = wrap_long_text(ops.clone());
+        assert_eq!(result, ops);
     }
 }

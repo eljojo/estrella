@@ -58,6 +58,13 @@ impl PreviewRenderer {
 
         // Render each character
         for ch in chars {
+            if ch == '\n' {
+                self.state.x = 0;
+                self.state.y += line_height;
+                self.ensure_height(self.state.y + line_height);
+                continue;
+            }
+
             if self.state.x + char_width > self.print_width {
                 // Wrap to next line
                 self.state.x = 0;

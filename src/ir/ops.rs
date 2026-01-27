@@ -65,6 +65,21 @@ pub struct StyleState {
     pub absolute_position: u16,
 }
 
+impl StyleState {
+    /// Calculate the number of characters that fit on one line given current style.
+    ///
+    /// Font A = 48 base chars, Font B/C = 64 base chars.
+    /// Width multipliers reduce the count proportionally.
+    pub(crate) fn chars_per_line(&self) -> usize {
+        let base: usize = match self.font {
+            Font::A => 48,
+            Font::B | Font::C => 64,
+        };
+        let width = (self.width_mult as usize + 1) * (self.expanded_width as usize + 1);
+        base / width
+    }
+}
+
 impl Default for StyleState {
     fn default() -> Self {
         Self {
