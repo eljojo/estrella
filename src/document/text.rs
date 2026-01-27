@@ -20,7 +20,7 @@ impl Text {
         } else if self.right {
             Some(Alignment::Right)
         } else {
-            None
+            Some(Alignment::Left)
         };
 
         // Derive font and ESC i values from unified size field
