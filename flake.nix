@@ -56,8 +56,12 @@
           pname = "estrella-frontend";
           version = "0.1.0";
           src = ./frontend;
-          npmDepsHash = "sha256-DakZWPBlcfvcxJv0u3DFasjpG+V0M7CA+Cn+Iw0+tGo="; # Update after npm install
-          buildPhase = "npm run build";
+          npmDepsHash = "sha256-MaPU2rEK6l+0yWFfvNa+fwKkm1EENfq77cr00EqiF4w="; # Update after npm install
+          buildPhase = ''
+            mkdir -p ../src/fixtures
+            cp ${./src/fixtures/morning-briefing.json} ../src/fixtures/morning-briefing.json
+            npm run build
+          '';
           installPhase = "cp -r dist $out";
         };
       in
