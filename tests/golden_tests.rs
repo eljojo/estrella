@@ -16,12 +16,13 @@
 //! make golden
 //! ```
 
-use estrella::components::{ComponentExt, Pattern as PatternComponent, Receipt};
-use estrella::ir::Program;
+use estrella::document::{self, Component, Divider, Document, Text};
+use estrella::ir::{Op, Program};
 use estrella::receipt;
 use estrella::render::dither::{self, DitheringAlgorithm};
 use estrella::render::patterns::{self, Pattern};
 use estrella::render::weave::{BlendCurve, Weave};
+use estrella::PrinterConfig;
 use std::fs;
 
 /// Path to golden test directory
@@ -39,22 +40,66 @@ const PLATFORM_DEPENDENT_PATTERNS: &[&str] = &[
 // HELPER FUNCTIONS
 // ============================================================================
 
-/// Generate printer commands using raster mode via component system.
-/// Uses build_raw() for pure StarPRNT protocol bytes (no drain markers).
-fn generate_raster_commands(name: &str, height: usize) -> Vec<u8> {
-    Receipt::new()
-        .child(PatternComponent::new(name, height).with_title().raster_mode())
-        .cut()
-        .build_raw()
+/// Build a Document for a pattern with title + raster graphics.
+fn build_pattern_document(name: &str, height: usize) -> Document {
+    Document {
+        document: vec![
+            Component::Text(Text {
+                content: name.to_uppercase(),
+                center: true,
+                bold: true,
+                size: [3, 2],
+                ..Default::default()
+            }),
+            Component::Divider(Divider::default()),
+            Component::Pattern(document::Pattern {
+                name: name.to_string(),
+                height: Some(height),
+                ..Default::default()
+            }),
+        ],
+        cut: true,
+        interpolate: false,
+        ..Default::default()
+    }
 }
 
-/// Generate printer commands using band mode via component system.
-/// Uses build_raw() for pure StarPRNT protocol bytes (no drain markers).
+/// Generate printer commands using raster mode via Document.
+fn generate_raster_commands(name: &str, height: usize) -> Vec<u8> {
+    build_pattern_document(name, height).build()
+}
+
+/// Generate printer commands using band mode.
+/// Band mode requires manual Program construction since Document::Pattern
+/// only supports raster mode.
 fn generate_band_commands(name: &str, height: usize) -> Vec<u8> {
-    Receipt::new()
-        .child(PatternComponent::new(name, height).with_title().band_mode())
-        .cut()
-        .build_raw()
+    let pattern_impl = patterns::by_name(name).unwrap();
+    let width = 576usize;
+    let data = patterns::render(pattern_impl.as_ref(), width, height, DitheringAlgorithm::Bayer);
+
+    let mut program = Program::with_init();
+
+    // Title (matching raster format)
+    let title_text = Text {
+        content: name.to_uppercase(),
+        center: true,
+        bold: true,
+        size: [3, 2],
+        ..Default::default()
+    };
+    title_text.emit(&mut program.ops);
+    let divider = Divider::default();
+    divider.emit(&mut program.ops);
+
+    // Band mode graphics
+    let width_bytes = (width as u16).div_ceil(8) as u8;
+    program.push(Op::Band { width_bytes, data });
+
+    program.push(Op::Cut { partial: true });
+
+    program
+        .optimize()
+        .to_bytes_with_config(&PrinterConfig::TSP650II)
 }
 
 /// Generate preview PNG for a program
@@ -193,10 +238,7 @@ fn generate_golden_files() {
         let pattern = patterns::by_name(name).unwrap();
         let (_width, height) = pattern.default_dimensions();
 
-        let program = Receipt::new()
-            .child(PatternComponent::new(name, height).with_title().raster_mode())
-            .cut()
-            .compile();
+        let program = build_pattern_document(name, height).compile();
         let png = generate_preview_png(&program);
         write_golden(name, "png", &png);
     }
@@ -295,10 +337,7 @@ fn test_preview_all_patterns() {
 
         let pattern = patterns::by_name(name).expect("Pattern not found");
         let (_width, height) = pattern.default_dimensions();
-        let program = Receipt::new()
-            .child(PatternComponent::new(name, height).with_title().raster_mode())
-            .cut()
-            .compile();
+        let program = build_pattern_document(name, height).compile();
         let png = generate_preview_png(&program);
         check_golden(name, "png", &png);
     }
@@ -435,14 +474,8 @@ fn test_pattern_determinism() {
     let pattern = patterns::Ripple::default();
     let (_width, height) = pattern.default_dimensions();
 
-    let program1 = Receipt::new()
-        .child(PatternComponent::new("ripple", height).with_title().raster_mode())
-        .cut()
-        .compile();
-    let program2 = Receipt::new()
-        .child(PatternComponent::new("ripple", height).with_title().raster_mode())
-        .cut()
-        .compile();
+    let program1 = build_pattern_document("ripple", height).compile();
+    let program2 = build_pattern_document("ripple", height).compile();
 
     let png1 = generate_preview_png(&program1);
     let png2 = generate_preview_png(&program2);

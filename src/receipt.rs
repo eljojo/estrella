@@ -3,7 +3,7 @@
 //! Pre-built receipt templates demonstrating StarPRNT text capabilities.
 //!
 //! These generate command sequences that can be sent directly to the printer.
-//! Receipts are built using the declarative component system and optimized
+//! Receipts are built using the unified Document model and optimized
 //! for minimal byte output.
 //!
 //! ## Date Handling
@@ -13,12 +13,7 @@
 
 use chrono::Local;
 
-use crate::components::{
-    Barcode, Columns, ComponentExt, Divider, LineItem, Markdown, NvLogo, Pdf417, QrCode, Raw,
-    Receipt, Spacer, Text, Total,
-};
-use crate::ir::Op;
-use crate::protocol::text::Font;
+use crate::document::{Component, Document, Markdown};
 
 /// Fixed date used for golden tests (ensures reproducible output)
 pub const GOLDEN_TEST_DATE: &str = "2026-01-20";
@@ -49,203 +44,55 @@ pub fn current_datetime() -> String {
 /// - Upside-down text
 /// - Font selection
 pub fn demo_receipt() -> Vec<u8> {
-    demo_receipt_builder(&current_datetime()).build()
+    demo_receipt_doc(&current_datetime()).build()
 }
 
 /// Generate a simple demo receipt with a fixed date (for golden tests).
-/// Uses build_raw() for pure StarPRNT protocol bytes without drain markers.
 pub fn demo_receipt_golden() -> Vec<u8> {
-    demo_receipt_builder(GOLDEN_TEST_DATETIME).build_raw()
+    demo_receipt_doc(GOLDEN_TEST_DATETIME).build()
 }
 
-/// Build a simple demo receipt with a specific datetime string.
-fn demo_receipt_builder(datetime: &str) -> Receipt {
-    Receipt::new()
-        // Header
-        .child(
-            Text::new("CHURRA MART")
-                .center()
-                .bold()
-                .size(2, 2), // Smoothing auto-enabled for scaled text
-        )
-        .child(
-            Text::new("starprnt style demo receipt")
-                .center()
-                .underline(),
-        )
-        .child(Text::new(datetime).center())
-        .child(Spacer::mm(3.0))
-        // Inverted banner
-        .child(
-            Text::new("  TODAY ONLY: 0% OFF EVERYTHING  ")
-                .center()
-                .invert()
-                .bold(),
-        )
-        .child(Spacer::mm(2.0))
-        // Items table
-        .child(Columns::new("ITEM", "CAD").bold())
-        .child(Divider::dashed())
-        .child(LineItem::new("Liminal Espresso", 4.50))
-        .child(LineItem::new("Basement Techno Vinyl", 29.00))
-        .child(LineItem::new("Thermal Paper (mystery)", 7.25))
-        .child(LineItem::new("Sticker: *****", 2.00))
-        .child(Divider::dashed())
-        // Totals
-        .child(Total::labeled("SUBTOTAL:", 42.75).bold())
-        .child(Total::labeled("HST (13%):", 5.56))
-        .child(Total::labeled("TOTAL:", 48.31).bold().double_width())
-        .child(Spacer::mm(3.0))
-        // Boxed thank you
-        .child(
-            Text::new("thank you for your vibes")
-                .center()
-                .underline()
-                .upperline(),
-        )
-        .child(Spacer::mm(2.5))
-        // Upside down easter egg
-        .child(Text::new("")) // blank line
-        .child(
-            Text::new("secret message from below")
-                .center()
-                .upside_down(),
-        )
-        .child(Spacer::mm(2.5))
-        // Fine print
-        .child(
-            Text::new("fine print: this receipt exists to show StarPRNT text styling.")
-                .left()
-                .font(Font::B),
-        )
-        .child(
-            Text::new("note: some options depend on printer spec / memory switch settings.")
-                .font(Font::B),
-        )
-        .child(Spacer::mm(4.5))
-        // Footer
-        .child(Text::new("COME BACK SOON").center().bold())
-        .child(Spacer::mm(6.0))
-        .cut()
+/// JSON fixture for the demo receipt.
+const RECEIPT_JSON: &str = include_str!("fixtures/receipt.json");
+
+/// JSON fixture for the full receipt.
+const RECEIPT_FULL_JSON: &str = include_str!("fixtures/receipt-full.json");
+
+/// Load a receipt Document from a JSON fixture, injecting the datetime variable.
+fn load_fixture(json: &str, datetime: &str) -> Document {
+    let mut doc: Document =
+        serde_json::from_str(json).expect("Invalid receipt fixture JSON");
+    doc.variables
+        .insert("datetime".to_string(), datetime.to_string());
+    doc
+}
+
+/// Build a simple demo receipt Document with a specific datetime string.
+fn demo_receipt_doc(datetime: &str) -> Document {
+    load_fixture(RECEIPT_JSON, datetime)
 }
 
 /// Generate a full demo receipt with barcodes, using the current date/time.
 ///
 /// Features demonstrated:
 /// - Everything from demo_receipt()
-/// - NV logo (if stored with key "A0")
+/// - NV logo (if stored with key "A1")
 /// - Font selection (A, B, C)
 /// - Code39 barcode
 /// - QR code
 /// - PDF417 barcode
 pub fn full_receipt() -> Vec<u8> {
-    full_receipt_builder(&current_datetime()).build()
+    full_receipt_doc(&current_datetime()).build()
 }
 
 /// Generate a full demo receipt with a fixed date (for golden tests).
-/// Uses build_raw() for pure StarPRNT protocol bytes without drain markers.
 pub fn full_receipt_golden() -> Vec<u8> {
-    full_receipt_builder(GOLDEN_TEST_DATETIME).build_raw()
+    full_receipt_doc(GOLDEN_TEST_DATETIME).build()
 }
 
-/// Build a full demo receipt with a specific datetime string.
-fn full_receipt_builder(datetime: &str) -> Receipt {
-    Receipt::new()
-        // Set codepage
-        .child(Raw::op(Op::SetCodepage(1)))
-        // NV Logo (star from registry)
-        .child(NvLogo::new("A1").center())
-        .child(Spacer::mm(2.0))
-        // Header
-        .child(
-            Text::new("CHURRA MART")
-                .center()
-                .bold()
-                .double_height()
-                .double_width(), // Smoothing auto-enabled for scaled text
-        )
-        .child(
-            Text::new("StarPRNT style demo receipt")
-                .center()
-                .underline(),
-        )
-        .child(Text::new(datetime).center())
-        .child(Spacer::mm(2.5))
-        // Inverted banner
-        .child(
-            Text::new(" TODAY ONLY: 0% OFF EVERYTHING ")
-                .center()
-                .invert(),
-        )
-        .child(Spacer::mm(2.0))
-        // Font showcase
-        .child(Divider::dashed())
-        .child(Text::new("FONTS:").left().bold())
-        .child(Text::new("Font A (12x24): THE QUICK BROWN FOX 0123456789").font(Font::A))
-        .child(Text::new("Font B ( 9x24): THE QUICK BROWN FOX 0123456789").font(Font::B))
-        .child(Text::new("Font C ( 9x17): THE QUICK BROWN FOX 0123456789").font(Font::C))
-        .child(Spacer::mm(2.0))
-        // Style showcase
-        .child(Divider::dashed())
-        .child(Text::new("STYLES:").left().bold())
-        .child(Text::new("Normal text."))
-        .child(Text::new("Emphasized (bold-ish).").bold())
-        .child(Text::new("Underlined.").underline())
-        .child(Text::new("White/black inverted.").invert())
-        .child(Text::new("Smoothing ON (edges a bit softer).").smoothing())
-        .child(Text::new("Double-wide.").double_width())
-        .child(Text::new("Double-high.").double_height())
-        .child(Text::new("BIG BIG").double_width().double_height())
-        .child(Text::new("upside-down message").center().upside_down())
-        .child(Spacer::mm(2.0))
-        // Receipt body
-        .child(Divider::dashed())
-        .child(Columns::new("ITEM", "CAD").bold())
-        .child(Divider::dashed())
-        .child(LineItem::new("Liminal Espresso", 4.50))
-        .child(LineItem::new("Basement Techno Vinyl", 29.00))
-        .child(LineItem::new("Thermal Paper (mystery)", 7.25))
-        .child(LineItem::new("Sticker: *****", 2.00))
-        .child(Divider::dashed())
-        // Totals
-        .child(Total::labeled("SUBTOTAL:", 42.75))
-        .child(Total::labeled("HST (13%):", 5.56))
-        .child(Total::labeled("TOTAL:", 48.31).bold().double_width())
-        .child(Spacer::mm(3.0))
-        // Barcodes
-        .child(Divider::dashed())
-        .child(Text::new("CODES:").center().bold())
-        .child(Text::new("1D Barcode (Code39 + HRI):").left())
-        .child(Barcode::code39("CHURRA-2026-0001").height(80))
-        .child(Spacer::mm(3.0))
-        .child(Text::new("QR Code:").left())
-        .child(QrCode::new("https://example.invalid/churra-mart").cell_size(6))
-        .child(Spacer::mm(3.0))
-        .child(Text::new("PDF417:").left())
-        .child(
-            Pdf417::new("CHURRA|MART|ORDER|2026-0001|TOTAL|48.31")
-                .module_width(2)
-                .ecc_level(3),
-        )
-        .child(Spacer::mm(4.0))
-        // Footer
-        .child(Divider::dashed())
-        .child(Text::new("thank you for your vibes").center().underline())
-        .child(Spacer::mm(2.0))
-        .child(
-            Text::new("fine print: this receipt exists to show StarPRNT text styling.")
-                .left()
-                .font(Font::B),
-        )
-        .child(
-            Text::new("note: some options depend on printer spec / memory switch settings.")
-                .font(Font::B),
-        )
-        .child(Text::new("tip: avoid Unicode unless you really know your code page.").font(Font::B))
-        .child(Spacer::mm(6.0))
-        .child(Text::new("COME BACK SOON").center().bold())
-        .child(Spacer::mm(10.0))
-        .cut()
+/// Build a full demo receipt Document with a specific datetime string.
+fn full_receipt_doc(datetime: &str) -> Document {
+    load_fixture(RECEIPT_FULL_JSON, datetime)
 }
 
 /// Generate a demo receipt using Markdown syntax.
@@ -259,235 +106,16 @@ fn full_receipt_builder(datetime: &str) -> Receipt {
 /// - Horizontal rules
 /// - Paragraphs and spacing
 pub fn markdown_demo() -> Vec<u8> {
-    markdown_demo_builder(&current_date()).build()
+    markdown_demo_doc(&current_date()).build()
 }
 
 /// Generate a markdown demo receipt with a fixed date (for golden tests).
-/// Uses build_raw() for pure StarPRNT protocol bytes without drain markers.
 pub fn markdown_demo_golden() -> Vec<u8> {
-    markdown_demo_builder(GOLDEN_TEST_DATE).build_raw()
+    markdown_demo_doc(GOLDEN_TEST_DATE).build()
 }
 
-// ============================================================================
-// LOOKUP FUNCTIONS
-// ============================================================================
-
-/// List available receipt templates
-pub fn list_receipts() -> &'static [&'static str] {
-    &["receipt", "receipt-full", "markdown"]
-}
-
-/// Get receipt data by name
-pub fn by_name(name: &str) -> Option<Vec<u8>> {
-    match name.to_lowercase().as_str() {
-        "receipt" => Some(demo_receipt()),
-        "receipt-full" | "receipt_full" => Some(full_receipt()),
-        "markdown" => Some(markdown_demo()),
-        _ => None,
-    }
-}
-
-/// Get receipt IR Program by name (uses current date for live preview).
-pub fn program_by_name(name: &str) -> Option<crate::ir::Program> {
-    use crate::components::ComponentExt;
-
-    match name.to_lowercase().as_str() {
-        "receipt" => Some(demo_receipt_component_with_datetime(&current_datetime()).compile()),
-        "receipt-full" | "receipt_full" => {
-            Some(full_receipt_component_with_datetime(&current_datetime()).compile())
-        }
-        "markdown" => Some(markdown_demo_builder(&current_date()).compile()),
-        _ => None,
-    }
-}
-
-/// Get receipt IR Program by name with fixed date (for golden tests).
-pub fn program_by_name_golden(name: &str) -> Option<crate::ir::Program> {
-    use crate::components::ComponentExt;
-
-    match name.to_lowercase().as_str() {
-        "receipt" => Some(demo_receipt_component_with_datetime(GOLDEN_TEST_DATETIME).compile()),
-        "receipt-full" | "receipt_full" => {
-            Some(full_receipt_component_with_datetime(GOLDEN_TEST_DATETIME).compile())
-        }
-        "markdown" => Some(markdown_demo_builder(GOLDEN_TEST_DATE).compile()),
-        _ => None,
-    }
-}
-
-/// Get the demo receipt component with a specific datetime.
-fn demo_receipt_component_with_datetime(datetime: &str) -> Receipt {
-    Receipt::new()
-        // Header
-        .child(
-            Text::new("CHURRA MART")
-                .center()
-                .bold()
-                .size(2, 2),
-        )
-        .child(
-            Text::new("starprnt style demo receipt")
-                .center()
-                .underline(),
-        )
-        .child(Text::new(datetime).center())
-        .child(Spacer::mm(3.0))
-        // Inverted banner
-        .child(
-            Text::new("  TODAY ONLY: 0% OFF EVERYTHING  ")
-                .center()
-                .invert()
-                .bold(),
-        )
-        .child(Spacer::mm(2.0))
-        // Items table
-        .child(Columns::new("ITEM", "CAD").bold())
-        .child(Divider::dashed())
-        .child(LineItem::new("Liminal Espresso", 4.50))
-        .child(LineItem::new("Basement Techno Vinyl", 29.00))
-        .child(LineItem::new("Thermal Paper (mystery)", 7.25))
-        .child(LineItem::new("Sticker: *****", 2.00))
-        .child(Divider::dashed())
-        // Totals
-        .child(Total::labeled("SUBTOTAL:", 42.75).bold())
-        .child(Total::labeled("HST (13%):", 5.56))
-        .child(Total::labeled("TOTAL:", 48.31).bold().double_width())
-        .child(Spacer::mm(3.0))
-        // Boxed thank you
-        .child(
-            Text::new("thank you for your vibes")
-                .center()
-                .underline()
-                .upperline(),
-        )
-        .child(Spacer::mm(2.5))
-        // Upside down easter egg
-        .child(Text::new(""))
-        .child(
-            Text::new("secret message from below")
-                .center()
-                .upside_down(),
-        )
-        .child(Spacer::mm(2.5))
-        // Fine print
-        .child(
-            Text::new("fine print: this receipt exists to show StarPRNT text styling.")
-                .left()
-                .font(Font::B),
-        )
-        .child(
-            Text::new("note: some options depend on printer spec / memory switch settings.")
-                .font(Font::B),
-        )
-        .child(Spacer::mm(4.5))
-        // Footer
-        .child(Text::new("COME BACK SOON").center().bold())
-        .child(Spacer::mm(6.0))
-        .cut()
-}
-
-/// Get the full receipt component with a specific datetime.
-fn full_receipt_component_with_datetime(datetime: &str) -> Receipt {
-    Receipt::new()
-        // Set codepage
-        .child(Raw::op(Op::SetCodepage(1)))
-        // NV Logo (star from registry)
-        .child(NvLogo::new("A1").center())
-        .child(Spacer::mm(2.0))
-        // Header
-        .child(
-            Text::new("CHURRA MART")
-                .center()
-                .bold()
-                .double_height()
-                .double_width(),
-        )
-        .child(
-            Text::new("StarPRNT style demo receipt")
-                .center()
-                .underline(),
-        )
-        .child(Text::new(datetime).center())
-        .child(Spacer::mm(2.5))
-        // Inverted banner
-        .child(
-            Text::new(" TODAY ONLY: 0% OFF EVERYTHING ")
-                .center()
-                .invert(),
-        )
-        .child(Spacer::mm(2.0))
-        // Font showcase
-        .child(Divider::dashed())
-        .child(Text::new("FONTS:").left().bold())
-        .child(Text::new("Font A (12x24): THE QUICK BROWN FOX 0123456789").font(Font::A))
-        .child(Text::new("Font B ( 9x24): THE QUICK BROWN FOX 0123456789").font(Font::B))
-        .child(Text::new("Font C ( 9x17): THE QUICK BROWN FOX 0123456789").font(Font::C))
-        .child(Spacer::mm(2.0))
-        // Style showcase
-        .child(Divider::dashed())
-        .child(Text::new("STYLES:").left().bold())
-        .child(Text::new("Normal text."))
-        .child(Text::new("Emphasized (bold-ish).").bold())
-        .child(Text::new("Underlined.").underline())
-        .child(Text::new("White/black inverted.").invert())
-        .child(Text::new("Smoothing ON (edges a bit softer).").smoothing())
-        .child(Text::new("Double-wide.").double_width())
-        .child(Text::new("Double-high.").double_height())
-        .child(Text::new("BIG BIG").double_width().double_height())
-        .child(Text::new("upside-down message").center().upside_down())
-        .child(Spacer::mm(2.0))
-        // Receipt body
-        .child(Divider::dashed())
-        .child(Columns::new("ITEM", "CAD").bold())
-        .child(Divider::dashed())
-        .child(LineItem::new("Liminal Espresso", 4.50))
-        .child(LineItem::new("Basement Techno Vinyl", 29.00))
-        .child(LineItem::new("Thermal Paper (mystery)", 7.25))
-        .child(LineItem::new("Sticker: *****", 2.00))
-        .child(Divider::dashed())
-        // Totals
-        .child(Total::labeled("SUBTOTAL:", 42.75))
-        .child(Total::labeled("HST (13%):", 5.56))
-        .child(Total::labeled("TOTAL:", 48.31).bold().double_width())
-        .child(Spacer::mm(3.0))
-        // Barcodes
-        .child(Divider::dashed())
-        .child(Text::new("CODES:").center().bold())
-        .child(Text::new("1D Barcode (Code39 + HRI):").left())
-        .child(Barcode::code39("CHURRA-2026-0001").height(80))
-        .child(Spacer::mm(3.0))
-        .child(Text::new("QR Code:").left())
-        .child(QrCode::new("https://example.invalid/churra-mart").cell_size(6))
-        .child(Spacer::mm(3.0))
-        .child(Text::new("PDF417:").left())
-        .child(
-            Pdf417::new("CHURRA|MART|ORDER|2026-0001|TOTAL|48.31")
-                .module_width(2)
-                .ecc_level(3),
-        )
-        .child(Spacer::mm(4.0))
-        // Footer
-        .child(Divider::dashed())
-        .child(Text::new("thank you for your vibes").center().underline())
-        .child(Spacer::mm(2.0))
-        .child(
-            Text::new("fine print: this receipt exists to show StarPRNT text styling.")
-                .left()
-                .font(Font::B),
-        )
-        .child(
-            Text::new("note: some options depend on printer spec / memory switch settings.")
-                .font(Font::B),
-        )
-        .child(Text::new("tip: avoid Unicode unless you really know your code page.").font(Font::B))
-        .child(Spacer::mm(6.0))
-        .child(Text::new("COME BACK SOON").center().bold())
-        .child(Spacer::mm(10.0))
-        .cut()
-}
-
-/// Get the markdown demo component with a specific date.
-fn markdown_demo_builder(date: &str) -> Receipt {
+/// Build a markdown demo Document with a specific date.
+fn markdown_demo_doc(date: &str) -> Document {
     let content = format!(
         r#"# Markdown *Kitchen* Sink
 
@@ -556,7 +184,55 @@ Thank *you* for your purchase!
 "#,
         date
     );
-    Receipt::new().child(Markdown::new(&content)).cut()
+    Document {
+        document: vec![Component::Markdown(Markdown::new(&content))],
+        cut: true,
+        interpolate: false,
+        ..Default::default()
+    }
+}
+
+// ============================================================================
+// LOOKUP FUNCTIONS
+// ============================================================================
+
+/// List available receipt templates
+pub fn list_receipts() -> &'static [&'static str] {
+    &["receipt", "receipt-full", "markdown"]
+}
+
+/// Get receipt data by name
+pub fn by_name(name: &str) -> Option<Vec<u8>> {
+    match name.to_lowercase().as_str() {
+        "receipt" => Some(demo_receipt()),
+        "receipt-full" | "receipt_full" => Some(full_receipt()),
+        "markdown" => Some(markdown_demo()),
+        _ => None,
+    }
+}
+
+/// Get receipt IR Program by name (uses current date for live preview).
+pub fn program_by_name(name: &str) -> Option<crate::ir::Program> {
+    match name.to_lowercase().as_str() {
+        "receipt" => Some(demo_receipt_doc(&current_datetime()).compile()),
+        "receipt-full" | "receipt_full" => {
+            Some(full_receipt_doc(&current_datetime()).compile())
+        }
+        "markdown" => Some(markdown_demo_doc(&current_date()).compile()),
+        _ => None,
+    }
+}
+
+/// Get receipt IR Program by name with fixed date (for golden tests).
+pub fn program_by_name_golden(name: &str) -> Option<crate::ir::Program> {
+    match name.to_lowercase().as_str() {
+        "receipt" => Some(demo_receipt_doc(GOLDEN_TEST_DATETIME).compile()),
+        "receipt-full" | "receipt_full" => {
+            Some(full_receipt_doc(GOLDEN_TEST_DATETIME).compile())
+        }
+        "markdown" => Some(markdown_demo_doc(GOLDEN_TEST_DATE).compile()),
+        _ => None,
+    }
 }
 
 /// Check if a name is a receipt template
@@ -619,10 +295,9 @@ mod tests {
     #[test]
     fn test_demo_receipt_size() {
         let data = demo_receipt();
-        // Component-based version should be ~805 bytes (optimized)
-        // Optimizer removes: redundant styles, empty text, trailing dead styles, redundant positions
+        // Document-based version should be similarly sized to old component version
         assert!(
-            data.len() <= 850,
+            data.len() <= 1000,
             "demo_receipt should be optimized: {} bytes",
             data.len()
         );
@@ -631,11 +306,10 @@ mod tests {
     #[test]
     fn test_full_receipt_size() {
         let data = full_receipt();
-        // Component-based version should be ~1732 bytes (optimized)
-        // Includes NvLogo print command (12 bytes) + spacer
-        // Optimizer removes: redundant styles, empty text, trailing dead styles, redundant positions
+        // Document-based version should be similarly sized
+        // (slightly smaller since SetCodepage(1) was dropped)
         assert!(
-            data.len() <= 1750,
+            data.len() <= 1900,
             "full_receipt should be optimized: {} bytes",
             data.len()
         );

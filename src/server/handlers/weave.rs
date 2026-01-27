@@ -221,9 +221,8 @@ pub async fn print(
     );
 
     // Build print command based on mode
-    use crate::components::{Component, Divider, Text};
+    use crate::document::{Divider, Text};
     use crate::ir::{Op, Program};
-    use crate::protocol::text::Font;
 
     let mut program = Program::new();
     program.push(Op::Init);
@@ -247,7 +246,7 @@ pub async fn print(
 
     // Print details at bottom if enabled
     if req.print_details {
-        let divider = Divider::dashed();
+        let divider = Divider::default();
         let mut divider_ops = Vec::new();
         divider.emit(&mut divider_ops);
         program.extend(divider_ops);
@@ -265,7 +264,11 @@ pub async fn print(
                 format!(" ({})", params.join(", "))
             };
             let line = format!("{}. {}{}", i + 1, entry.name, params_str);
-            let text = Text::new(&line).font(Font::B);
+            let text = Text {
+                content: line,
+                size: [0, 0],
+                ..Default::default()
+            };
             let mut text_ops = Vec::new();
             text.emit(&mut text_ops);
             program.extend(text_ops);

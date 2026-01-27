@@ -109,7 +109,7 @@ impl Program {
 
                 // ===== Content =====
                 Op::Text(s) => {
-                    out.extend(s.as_bytes());
+                    out.extend(crate::protocol::cp437::encode(s));
                 }
                 Op::Newline => {
                     out.push(0x0A);
@@ -247,7 +247,8 @@ mod tests {
     fn test_init_only() {
         let program = Program::with_init();
         let bytes = program.to_bytes();
-        assert_eq!(bytes, vec![0x1B, 0x40]);
+        // Init (ESC @) + SetCodepage CP437 (ESC GS t 1)
+        assert_eq!(bytes, vec![0x1B, 0x40, 0x1B, 0x1D, 0x74, 0x01]);
     }
 
     #[test]

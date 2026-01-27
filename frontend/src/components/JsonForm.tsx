@@ -3,24 +3,29 @@ import { fetchJsonPreview, printJson } from '../api'
 
 const DEFAULT_JSON = JSON.stringify(
   {
+    variables: {
+      name: 'Jojo',
+      weather: '6\u00b0C Cloudy',
+      high_low: '11\u00b0C / 3\u00b0C',
+    },
     document: [
       { type: 'pattern', name: 'estrella', height: 160, params: { size: '0.7' } },
       { type: 'spacer', mm: 1 },
-      { type: 'text', content: 'GOOD MORNING', center: true, bold: true, size: 2 },
-      { type: 'text', content: 'Monday, January 27', center: true, font: 'B' },
+      { type: 'text', content: 'GOOD MORNING, {{name}}', center: true, bold: true, size: 2 },
+      { type: 'text', content: '{{day}}, {{date_short}}', center: true, font: 'B' },
       { type: 'divider', style: 'double' },
 
       { type: 'text', content: ' WEATHER ', bold: true, invert: true },
       { type: 'spacer', mm: 1 },
-      { type: 'columns', left: 'Now', right: '6\u00b0C Cloudy' },
-      { type: 'columns', left: 'High / Low', right: '11\u00b0C / 3\u00b0C' },
+      { type: 'columns', left: 'Now', right: '{{weather}}' },
+      { type: 'columns', left: 'High / Low', right: '{{high_low}}' },
       { type: 'columns', left: 'Wind', right: '19 km/h NW' },
-      { type: 'text', content: '\u26a0 Rain expected after 3pm', bold: true },
+      { type: 'text', content: 'Rain expected after 3pm', bold: true },
 
       { type: 'divider' },
       { type: 'text', content: ' BIRTHDAYS ', bold: true, invert: true },
       { type: 'spacer', mm: 1 },
-      { type: 'text', content: '\ud83c\udf82 Ana turns 30 today!', scale: 2 },
+      { type: 'text', content: 'Ana turns 30 today!', size: 2 },
       { type: 'text', content: 'Carlos on Wednesday', font: 'B' },
 
       { type: 'divider' },
@@ -55,7 +60,7 @@ const DEFAULT_JSON = JSON.stringify(
       { type: 'total', amount: 10.89 },
 
       { type: 'divider', style: 'double' },
-      { type: 'text', content: 'Have a great day!', center: true, bold: true },
+      { type: 'text', content: 'Have a great day, {{name}}!', center: true, bold: true },
       { type: 'spacer', mm: 2 },
       { type: 'qr_code', data: 'https://calendar.google.com' },
       { type: 'spacer', mm: 2 },
@@ -164,8 +169,10 @@ export function JsonForm() {
         />
         {parseError.value && <p class="hint error-hint">{parseError.value}</p>}
         <p class="hint">
-          Full component reference: text, header, line_item, total, divider, spacer, blank_line,
-          columns, markdown, qr_code, pdf417, barcode, pattern, nv_logo
+          Components: text, header, banner, line_item, total, divider, spacer, blank_line, columns,
+          markdown, qr_code, pdf417, barcode, pattern, nv_logo. Use {'{{'}<em>name</em>{'}}'}  in
+          text with a top-level "variables" object. Built-ins: date, date_short, day, time,
+          time_12h, datetime, year, iso_date.
         </p>
       </div>
 

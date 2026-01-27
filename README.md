@@ -15,29 +15,34 @@ The web UI supports printing photos with real-time dithered preview:
 
 <img width="1125" height="1068" alt="Screenshot 2026-01-23 at 18 19 25" src="https://github.com/user-attachments/assets/d8e7779d-7940-47c6-a304-4fc6c7b2992e" />
 
-## The Component System
+## The Document System
 
-Instead of manually constructing printer escape sequences, Estrella provides a declarative API inspired by React. You describe *what* you want, and the system figures out the bytes.
+Instead of manually constructing printer escape sequences, Estrella provides a declarative `Document` model. The same types work for both Rust construction and JSON deserialization — one set of types, zero conversion layer.
 
 ```rust
-use estrella::components::*;
+use estrella::document::*;
 
-let receipt = Receipt::new()
-    .child(Text::new("CHURRA MART").center().bold().size(2, 2))
-    .child(Text::new("2026-01-20 12:00:00").center())
-    .child(Spacer::mm(3.0))
-    .child(Text::new(" TODAY ONLY: 50% OFF ").center().invert().bold())
-    .child(Divider::dashed())
-    .child(LineItem::new("Espresso", 4.50))
-    .child(LineItem::new("Croissant", 3.25))
-    .child(Divider::dashed())
-    .child(Total::new(7.75).bold().double_width())
-    .child(Spacer::mm(3.0))
-    .child(QrCode::new("https://example.com/rewards").cell_size(6))
-    .child(Text::new("Thank you!").center().bold())
-    .cut();
+let doc = Document {
+    document: vec![
+        Component::Banner(Banner::new("CHURRA MART")),
+        Component::Text(Text { content: "2026-01-20 12:00:00".into(), center: true, ..Default::default() }),
+        Component::Spacer(Spacer::mm(3.0)),
+        Component::Banner(Banner { content: "TODAY ONLY: 50% OFF".into(), border: BorderStyle::Double, size: 2, ..Default::default() }),
+        Component::Divider(Divider::default()),
+        Component::LineItem(LineItem::new("Espresso", 4.50)),
+        Component::LineItem(LineItem::new("Croissant", 3.25)),
+        Component::Divider(Divider::default()),
+        Component::Total(Total { amount: 7.75, bold: Some(true), double_width: true, ..Default::default() }),
+        Component::Spacer(Spacer::mm(3.0)),
+        Component::QrCode(QrCode { data: "https://example.com/rewards".into(), cell_size: Some(6), ..Default::default() }),
+        Component::Text(Text { content: "Thank you!".into(), center: true, bold: true, ..Default::default() }),
+    ],
+    cut: true,
+    ..Default::default()
+};
 
-let bytes = receipt.build();  // StarPRNT bytes, ready to send
+let bytes = doc.build();                     // StarPRNT bytes, ready to send
+let json = serde_json::to_string(&doc)?;     // Same type serializes to JSON
 ```
 
 ![Demo Receipt](tests/golden/demo_receipt.png)
@@ -46,12 +51,17 @@ let bytes = receipt.build();  // StarPRNT bytes, ready to send
 
 | Component | Description |
 |-----------|-------------|
-| `Text` | Styled text with `.bold()`, `.center()`, `.invert()`, `.size(w, h)`, etc. |
+| `Text` | Styled text (bold, center, invert, size 0–3, etc.) |
+| `Header` | Pre-styled centered bold header |
+| `Banner` | Framed text with box-drawing borders, auto-sizing |
 | `LineItem` | Left name + right price (e.g., "Coffee" ... "$4.50") |
 | `Total` | Right-aligned total line |
-| `Divider` | Horizontal line (`.dashed()`, `.solid()`, `.double()`) |
-| `Spacer` | Vertical space in mm or lines |
-| `Image` | Raster graphics with dithering |
+| `Divider` | Horizontal line (dashed, solid, double, equals) |
+| `Spacer` | Vertical space in mm, lines, or raw units |
+| `Columns` | Two-column layout (left + right) |
+| `Markdown` | Rich text from Markdown (headings, bold, lists) |
+| `Image` | Image from URL with dithering |
+| `Pattern` | Generative art pattern with params |
 | `QrCode`, `Pdf417`, `Barcode` | 1D and 2D barcodes |
 | `NvLogo` | Logo from printer's flash memory |
 
@@ -141,15 +151,15 @@ estrella weave ripple plasma waves --length 200mm --crossfade 30mm
 
 ## JSON API
 
-Send structured JSON documents to print anything the component library supports. Useful for automations (e.g. Home Assistant daily briefings).
+The JSON API uses the same `Document` type as the Rust API — the component structs are all `Serialize + Deserialize`, so JSON documents map directly to Rust types with zero conversion. Useful for automations (e.g. Home Assistant daily briefings).
 
 ```bash
 curl -X POST http://localhost:8080/api/json/print \
   -H 'Content-Type: application/json' \
   -d '{
     "document": [
-      {"type": "header", "content": "GOOD MORNING"},
-      {"type": "text", "content": "Monday, January 27", "center": true, "font": "B"},
+      {"type": "banner", "content": "GOOD MORNING"},
+      {"type": "text", "content": "Monday, January 27", "center": true, "size": 0},
       {"type": "divider", "style": "double"},
       {"type": "text", "content": " WEATHER ", "bold": true, "invert": true},
       {"type": "columns", "left": "Now", "right": "6°C Cloudy"},
@@ -178,8 +188,9 @@ Each component in the `"document"` array has a `"type"` field and type-specific 
 
 | Type | Required | Optional (defaults) |
 |------|----------|---------------------|
-| `text` | `content` | `bold`, `underline`, `upperline`, `invert`, `upside_down`, `reduced` (false); `smoothing` (null/auto); `align` ("left"), `center`, `right` (false); `font` ("A"); `size`, `scale` (null); `double_width`, `double_height` (false); `inline` (false) |
+| `text` | `content` | `bold`, `underline`, `upperline`, `invert`, `upside_down`, `reduced` (false); `smoothing` (null/auto); `align` ("left"), `center`, `right` (false); `size` (1, default Font A — 0=Font B, 2=double, 3=triple, or `[h,w]`); `scale` (null); `double_width`, `double_height` (false); `inline` (false) |
 | `header` | `content` | `variant`: "normal" (2x2 centered bold) or "small" (1x1) |
+| `banner` | `content` | `size` (3, max expansion 0–3, auto-cascades width); `border`: "single"/"double"; `bold` (true); `padding` (1) |
 | `line_item` | `name`, `price` | `width` (48) |
 | `total` | `amount` | `label` ("TOTAL:"), `bold` (true), `double_width` (false), `align` ("right") |
 | `divider` | — | `style`: "dashed" / "solid" / "double" / "equals"; `width` (48) |
@@ -190,10 +201,22 @@ Each component in the `"document"` array has a `"type"` field and type-specific 
 | `qr_code` | `data` | `cell_size` (4), `error_level` ("M"), `align` ("center") |
 | `pdf417` | `data` | `module_width` (3), `ecc_level` (2), `align` ("center") |
 | `barcode` | `format`, `data` | `height` (80); format: "code128" / "code39" / "ean13" / "upca" / "itf" |
+| `image` | `url` | `dither` ("bayer"), `width` (576), `height` (null) |
 | `pattern` | `name` | `height` (500), `params` ({}), `dither` ("bayer") |
 | `nv_logo` | `key` | `center` (false), `scale` (1), `scale_x` (1), `scale_y` (1) |
 
-**`size` / `scale` on text:** accepts a single number `2` (uniform 2x2) or an array `[2, 3]` for non-uniform height/width.
+**Text `size`** controls both font selection and character expansion using a 1-indexed model:
+
+| Size | Font | Expansion | Chars/line | Description |
+|------|------|-----------|-----------|-------------|
+| `0` | B (9×24) | none | 64 | Small text |
+| `1` | A (12×24) | none | 48 | Normal (default) |
+| `2` | A | 2× | 24 | Double |
+| `3` | A | 3× | 16 | Triple |
+
+Pass a single number for uniform scaling (`"size": 2` = double height and width), or an `[h, w]` array for independent control (`"size": [3, 1]` = triple height, normal width, 48 chars/line).
+
+The `banner` component uses the same sizing model but auto-selects the largest width that fits. Given `"size": 3`, it tries widths 3→2→1→Font B until the content fits inside the box-drawing frame.
 
 **`cut`** at the top level defaults to `true`. Set to `false` to suppress the paper cut.
 
@@ -201,7 +224,7 @@ Each component in the `"document"` array has a `"type"` field and type-specific 
 
 ## How It Works: The Compilation Pipeline
 
-Components emit an intermediate representation (IR), which gets optimized before generating StarPRNT bytes:
+Document components emit an intermediate representation (IR), which gets optimized before generating StarPRNT bytes:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -209,10 +232,10 @@ Components emit an intermediate representation (IR), which gets optimized before
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │   ┌─────────────┐      ┌─────────────┐      ┌─────────────┐      ┌───────┐  │
-│   │  Components │      │     IR      │      │  Optimizer  │      │ Bytes │  │
+│   │  Document   │      │     IR      │      │  Optimizer  │      │ Bytes │  │
 │   │             │      │             │      │             │      │       │  │
-│   │  Receipt    │      │  Op::Init   │      │  4 passes   │      │ ESC @ │  │
-│   │  Text       │ ───► │  Op::Text   │ ───► │  that remove│ ───► │ ...   │  │
+│   │  Text       │      │  Op::Init   │      │  4 passes   │      │ ESC @ │  │
+│   │  LineItem   │ ───► │  Op::Text   │ ───► │  that remove│ ───► │ ...   │  │
 │   │  QrCode     │ emit │  Op::Bold   │      │  redundant  │ gen  │ 1D 69 │  │
 │   │  ...        │      │  Op::Cut    │      │  operations │      │ ...   │  │
 │   │             │      │  ...        │      │             │      │       │  │

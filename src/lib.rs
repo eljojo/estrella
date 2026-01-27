@@ -68,10 +68,9 @@
 //! appropriate configuration adjustments.
 
 pub mod art;
-pub mod components;
+pub mod document;
 pub mod error;
 pub mod ir;
-pub mod json_api;
 pub mod logos;
 pub mod preview;
 pub mod printer;

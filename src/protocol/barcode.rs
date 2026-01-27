@@ -432,7 +432,7 @@ pub mod qr {
     /// | M | ~15% | General use (default) |
     /// | Q | ~25% | Industrial use |
     /// | H | ~30% | Harsh environments |
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
     pub enum QrErrorLevel {
         /// Level L: ~7% error recovery
         L = 0,

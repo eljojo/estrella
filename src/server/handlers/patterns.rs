@@ -206,9 +206,8 @@ pub async fn print(
     let raster_data = patterns::render(pattern.as_ref(), width, height, dither_algo);
 
     // Build print command based on mode
-    use crate::components::{Component, Divider, Text};
+    use crate::document::{Divider, Text};
     use crate::ir::{Op, Program};
-    use crate::protocol::text::Font;
 
     let mut program = Program::new();
     program.push(Op::Init);
@@ -216,14 +215,20 @@ pub async fn print(
     // Print title if details enabled
     if form.print_details {
         // Title
-        let title = Text::new(pattern.name()).center().bold().size(2, 1);
+        let title = Text {
+            content: pattern.name().to_string(),
+            center: true,
+            bold: true,
+            size: [3, 2],
+            ..Default::default()
+        };
         let mut title_ops = Vec::new();
         title.emit(&mut title_ops);
         program.extend(title_ops);
         program.push(Op::Newline);
 
         // Divider
-        let divider = Divider::dashed();
+        let divider = Divider::default();
         let mut divider_ops = Vec::new();
         divider.emit(&mut divider_ops);
         program.extend(divider_ops);
@@ -244,7 +249,7 @@ pub async fn print(
 
     // Print parameters if details enabled
     if form.print_details {
-        let divider = Divider::dashed();
+        let divider = Divider::default();
         let mut divider_ops = Vec::new();
         divider.emit(&mut divider_ops);
         program.extend(divider_ops);
@@ -257,7 +262,12 @@ pub async fn print(
                 .map(|(k, v)| format!("{}={}", k, v))
                 .collect::<Vec<_>>()
                 .join(", ");
-            let params = Text::new(&params_text).center().font(Font::B);
+            let params = Text {
+                content: params_text,
+                center: true,
+                size: [0, 0],
+                ..Default::default()
+            };
             let mut params_ops = Vec::new();
             params.emit(&mut params_ops);
             program.extend(params_ops);

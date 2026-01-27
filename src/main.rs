@@ -36,7 +36,7 @@ use std::path::PathBuf;
 
 use estrella::{
     EstrellaError,
-    components::{ComponentExt, Pattern as PatternComponent, Receipt},
+    document,
     logos,
     preview,
     printer::PrinterConfig,
@@ -378,20 +378,16 @@ fn run() -> Result<(), EstrellaError> {
                         }
                     };
 
-                    let mut pattern = PatternComponent::from_impl(pattern_impl, pattern_height)
-                        .width(pattern_width)
-                        .dithering(dither_algo);
-                    if !no_title {
-                        pattern = pattern.with_title();
-                    }
-                    if band {
-                        pattern = pattern.band_mode();
-                    }
-                    if !no_params && !golden {
-                        pattern = pattern.show_params();
-                    }
-
-                    let print_data = Receipt::new().child(pattern).cut().build();
+                    let program = build_pattern_program(
+                        pattern_impl.as_ref(),
+                        pattern_width,
+                        pattern_height,
+                        dither_algo,
+                        !no_title,
+                        band,
+                        !no_params && !golden,
+                    );
+                    let print_data = program.optimize().to_bytes_with_config(&PrinterConfig::TSP650II);
                     print_raw_to_device(&device, &print_data)?;
                 }
 
@@ -492,23 +488,19 @@ fn run() -> Result<(), EstrellaError> {
                 }
             };
 
-            // Build pattern component from the impl
-            let mut pattern = PatternComponent::from_impl(pattern_impl, height)
-                .width(width)
-                .dithering(dither_algo);
-            if !no_title {
-                pattern = pattern.with_title();
-            }
-            if band {
-                pattern = pattern.band_mode();
-            }
-            if !no_params && !golden {
-                pattern = pattern.show_params();
-            }
+            // Build pattern program
+            let program = build_pattern_program(
+                pattern_impl.as_ref(),
+                width,
+                height,
+                dither_algo,
+                !no_title,
+                band,
+                !no_params && !golden,
+            );
 
             // Output to PNG or printer
             if let Some(png_path) = png {
-                let program = Receipt::new().child(pattern).cut().compile();
                 let png_bytes = program.to_preview_png().map_err(|e| {
                     EstrellaError::Image(format!("Failed to render preview: {}", e))
                 })?;
@@ -517,7 +509,7 @@ fn run() -> Result<(), EstrellaError> {
                 })?;
                 println!("Saved to {}", png_path.display());
             } else {
-                let print_data = Receipt::new().child(pattern).cut().build();
+                let print_data = program.optimize().to_bytes_with_config(&PrinterConfig::TSP650II);
                 print_raw_to_device(&device, &print_data)?;
                 println!("Printed successfully!");
             }
@@ -591,6 +583,74 @@ fn run() -> Result<(), EstrellaError> {
     }
 
     Ok(())
+}
+
+/// Build an IR Program for a pattern with optional title and params display.
+fn build_pattern_program(
+    pattern_impl: &dyn patterns::Pattern,
+    width: usize,
+    height: usize,
+    dither_algo: dither::DitheringAlgorithm,
+    show_title: bool,
+    band_mode: bool,
+    show_params: bool,
+) -> estrella::ir::Program {
+    use estrella::ir::{Op, Program};
+
+    let raster_data = patterns::render(pattern_impl, width, height, dither_algo);
+    let mut program = Program::with_init();
+
+    if show_title {
+        let title = document::Text {
+            content: pattern_impl.name().to_string(),
+            center: true,
+            bold: true,
+            size: [3, 2],
+            ..Default::default()
+        };
+        title.emit(&mut program.ops);
+        program.push(Op::Newline);
+        let divider = document::Divider::default();
+        divider.emit(&mut program.ops);
+    }
+
+    if band_mode {
+        program.push(Op::Band {
+            width_bytes: (width / 8) as u8,
+            data: raster_data,
+        });
+    } else {
+        program.push(Op::Raster {
+            width: width as u16,
+            height: height as u16,
+            data: raster_data,
+        });
+    }
+
+    if show_params {
+        let divider = document::Divider::default();
+        divider.emit(&mut program.ops);
+        let params_list = pattern_impl.list_params();
+        if !params_list.is_empty() {
+            let params_text = params_list
+                .iter()
+                .map(|(k, v)| format!("{}={}", k, v))
+                .collect::<Vec<_>>()
+                .join(", ");
+            let text = document::Text {
+                content: params_text,
+                center: true,
+                size: [0, 0],
+                ..Default::default()
+            };
+            text.emit(&mut program.ops);
+            program.push(Op::Newline);
+        }
+    }
+
+    program.push(Op::Feed { units: 24 });
+    program.push(Op::Cut { partial: true });
+    program
 }
 
 /// Print raw command data to the printer device

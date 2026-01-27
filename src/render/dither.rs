@@ -142,13 +142,15 @@
 //! ```
 
 /// Dithering algorithm selection.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum DitheringAlgorithm {
     /// No dithering - simple threshold at 50%. Use for already-dithered or 1-bit images.
     None,
     /// Bayer 8x8 ordered dithering (fast, regular pattern)
     Bayer,
     /// Floyd-Steinberg error diffusion (slower, organic look)
+    #[serde(alias = "floyd-steinberg")]
     FloydSteinberg,
     /// Atkinson dithering (classic Macintosh look, higher contrast)
     Atkinson,

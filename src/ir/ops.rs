@@ -31,11 +31,13 @@ pub enum GraphicsMode {
 }
 
 /// 1D barcode type.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum BarcodeKind {
     Code39,
     Code128,
     Ean13,
+    #[serde(rename = "upca")]
     UpcA,
     Itf,
 }
@@ -252,10 +254,10 @@ impl Program {
         crate::preview::render_preview(self)
     }
 
-    /// Create a program with an initial Init op.
+    /// Create a program with an initial Init op and CP437 code page.
     pub fn with_init() -> Self {
         Self {
-            ops: vec![Op::Init],
+            ops: vec![Op::Init, Op::SetCodepage(1)],
         }
     }
 
@@ -324,8 +326,9 @@ mod tests {
     #[test]
     fn test_program_with_init() {
         let program = Program::with_init();
-        assert_eq!(program.len(), 1);
+        assert_eq!(program.len(), 2);
         assert_eq!(program.ops[0], Op::Init);
+        assert_eq!(program.ops[1], Op::SetCodepage(1));
     }
 
     #[test]

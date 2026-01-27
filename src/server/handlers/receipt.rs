@@ -10,9 +10,8 @@ use serde::Deserialize;
 use std::sync::Arc;
 
 use crate::{
-    components::{ComponentExt, Divider, Markdown, Receipt, Spacer, Text},
+    document::{Component, Divider, Document, Markdown, Spacer, Text},
     ir::Program,
-    protocol::text::Font,
     receipt::current_datetime,
     transport::BluetoothTransport,
 };
@@ -67,39 +66,46 @@ pub async fn print(
 
 /// Build receipt program from form data.
 fn build_receipt(form: &ReceiptForm) -> Program {
-    let mut receipt = Receipt::new();
+    let mut components = Vec::new();
 
     // Add title if provided
     if let Some(title) = &form.title {
         if !title.trim().is_empty() {
-            receipt = receipt
-                .child(Text::new(title.trim()).center().bold().size(2, 1))
-                .child(Spacer::mm(2.0));
+            components.push(Component::Text(Text {
+                content: title.trim().to_string(),
+                center: true,
+                bold: true,
+                size: [3, 2],
+                ..Default::default()
+            }));
+            components.push(Component::Spacer(Spacer::mm(2.0)));
         }
     }
 
     // Parse body as Markdown
-    receipt = receipt.child(Markdown::new(&form.body));
+    components.push(Component::Markdown(Markdown::new(&form.body)));
 
     // Add date footer if print_details is enabled
     if form.print_details {
-        receipt = receipt
-            .child(Spacer::mm(3.0))
-            .child(Divider::dashed())
-            .child(
-                Text::new(&format!("Printed: {}", current_datetime()))
-                    .center()
-                    .font(Font::B),
-            );
+        components.push(Component::Spacer(Spacer::mm(3.0)));
+        components.push(Component::Divider(Divider::default()));
+        components.push(Component::Text(Text {
+            content: format!("Printed: {}", current_datetime()),
+            center: true,
+            size: [0, 0],
+            ..Default::default()
+        }));
     }
 
-    receipt = receipt.child(Spacer::mm(6.0));
+    components.push(Component::Spacer(Spacer::mm(6.0)));
 
-    if form.cut {
-        receipt = receipt.cut();
+    Document {
+        document: components,
+        cut: form.cut,
+        interpolate: false,
+        ..Default::default()
     }
-
-    receipt.compile()
+    .compile()
 }
 
 /// Print to the physical device.

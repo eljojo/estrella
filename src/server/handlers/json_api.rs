@@ -1,6 +1,6 @@
 //! JSON API handlers for preview and printing.
 //!
-//! Accepts JSON documents that map to the full component library.
+//! Accepts JSON documents using the unified Document model.
 
 use axum::{
     extract::State,
@@ -10,19 +10,14 @@ use axum::{
 };
 use std::sync::Arc;
 
-use crate::components::ComponentExt;
-use crate::json_api::JsonDocument;
+use crate::document::Document;
 use crate::transport::BluetoothTransport;
 
 use super::super::state::AppState;
 
 /// Handle POST /api/json/preview - render JSON document as PNG.
-pub async fn preview(Json(doc): Json<JsonDocument>) -> Result<impl IntoResponse, (StatusCode, String)> {
-    let receipt = doc.to_receipt().map_err(|e| {
-        (StatusCode::BAD_REQUEST, e.to_string())
-    })?;
-
-    let program = receipt.compile();
+pub async fn preview(Json(doc): Json<Document>) -> Result<impl IntoResponse, (StatusCode, String)> {
+    let program = doc.compile();
     let png_bytes = program.to_preview_png().map_err(|e| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -36,26 +31,14 @@ pub async fn preview(Json(doc): Json<JsonDocument>) -> Result<impl IntoResponse,
 /// Handle POST /api/json/print - print JSON document to device.
 pub async fn print(
     State(state): State<Arc<AppState>>,
-    Json(doc): Json<JsonDocument>,
+    Json(doc): Json<Document>,
 ) -> Response {
-    let receipt_data = match doc.to_receipt() {
-        Ok(r) => r.build(),
-        Err(e) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Html(format!(
-                    r#"{{"success": false, "error": "{}"}}"#,
-                    e.to_string().replace('"', "\\\"")
-                )),
-            )
-                .into_response();
-        }
-    };
+    let print_data = doc.build();
     let device_path = state.config.device_path.clone();
 
     let print_result = tokio::task::spawn_blocking(move || {
         let mut transport = BluetoothTransport::open(&device_path)?;
-        transport.write_all(&receipt_data)?;
+        transport.write_all(&print_data)?;
         Ok::<_, crate::EstrellaError>(())
     })
     .await;

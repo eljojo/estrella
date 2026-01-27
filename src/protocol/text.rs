@@ -38,7 +38,8 @@ use super::commands::{ESC, GS, RS};
 // ============================================================================
 
 /// Text alignment options
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Alignment {
     #[default]
     Left = 0,
@@ -142,7 +143,7 @@ pub fn absolute_position(dots: u16) -> Vec<u8> {
 // ============================================================================
 
 /// Available fonts
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Font {
     /// Font A: 12×24 dots, 48 columns on 72mm paper
     #[default]
