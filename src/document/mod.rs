@@ -141,6 +141,11 @@ pub struct Document {
     /// Whether to interpolate `{{variables}}` in text content (default: true).
     #[serde(default = "default_true")]
     pub interpolate: bool,
+    /// Print entire document as a raster image instead of text commands.
+    /// Renders everything through the bitmap preview engine first, then sends
+    /// the result as a single raster image. Experimental.
+    #[serde(default)]
+    pub raster: bool,
 }
 
 impl Default for Document {
@@ -150,6 +155,7 @@ impl Default for Document {
             cut: true,
             variables: HashMap::new(),
             interpolate: true,
+            raster: false,
         }
     }
 }
@@ -201,8 +207,29 @@ impl Document {
     }
 
     /// Compile and generate bytes with a specific printer config.
+    ///
+    /// When `raster` is true, renders the entire document through the bitmap
+    /// preview engine and sends it as a single raster image.
     pub fn build_with_config(&self, config: &PrinterConfig) -> Vec<u8> {
-        self.compile().to_bytes_with_config(config)
+        if self.raster {
+            let program = self.compile();
+            let raw = crate::preview::render_raw(&program)
+                .expect("raster render failed");
+            let mut raster_program = Program::new();
+            raster_program.push(Op::Init);
+            raster_program.push(Op::Raster {
+                width: raw.width as u16,
+                height: raw.height as u16,
+                data: raw.data,
+            });
+            if self.cut {
+                raster_program.push(Op::Feed { units: 24 });
+                raster_program.push(Op::Cut { partial: true });
+            }
+            raster_program.to_bytes_with_config(config)
+        } else {
+            self.compile().to_bytes_with_config(config)
+        }
     }
 
     /// Build the merged variable map: built-in datetime helpers + user overrides.

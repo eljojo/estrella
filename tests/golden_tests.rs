@@ -481,6 +481,44 @@ fn test_preview_kitchen_sink() {
     check_golden("kitchen_sink", "png", &png);
 }
 
+/// Test that the raster round-trip produces identical output to text-mode rendering.
+///
+/// The raster path pre-renders the entire document as a bitmap, then sends it
+/// as a single Op::Raster. When previewed, this must produce the exact same
+/// image as direct text-mode rendering — the round-trip is lossless.
+///
+/// Pipeline comparison:
+///   text:   compile() ─────────────────────────────→ preview PNG
+///   raster: compile() → render_raw() → Op::Raster → preview PNG
+#[test]
+fn test_kitchen_sink_raster_vs_text() {
+    // Use cut=false to avoid the Cut op (render_raw skips it,
+    // so it would cause a mismatch in the preview)
+    let mut doc = build_kitchen_sink_document();
+    doc.cut = false;
+    let program = doc.compile();
+
+    // Text-mode preview (direct rendering)
+    let text_png = generate_preview_png(&program);
+
+    // Raster-mode preview: render_raw → pack to 1-bit → Op::Raster → preview
+    let raw = estrella::preview::render_raw(&program).expect("render_raw failed");
+    let mut raster_program = Program::new();
+    raster_program.push(Op::Raster {
+        width: raw.width as u16,
+        height: raw.height as u16,
+        data: raw.data,
+    });
+    let raster_png = generate_preview_png(&raster_program);
+
+    assert_eq!(
+        text_png, raster_png,
+        "raster round-trip must produce identical preview (text={} bytes, raster={} bytes)",
+        text_png.len(),
+        raster_png.len()
+    );
+}
+
 // ============================================================================
 // MISCELLANEOUS TESTS
 // ============================================================================
