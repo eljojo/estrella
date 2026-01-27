@@ -123,7 +123,7 @@ export function App() {
   }, [])
 
   return (
-    <div class="container">
+    <div class={`container${activeTab.value === 'json' ? ' container--wide' : ''}`}>
       <h1>Estrella ⭐️</h1>
       <p class="subtitle">Print text receipts or visual patterns to your thermal printer</p>
       <Tabs />

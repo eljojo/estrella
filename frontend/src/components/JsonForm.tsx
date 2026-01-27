@@ -1,8 +1,6 @@
 import { signal, effect, computed } from '@preact/signals'
 import { fetchJsonPreview, printJson } from '../api'
-import defaultTemplate from '../../../src/fixtures/morning-briefing.json'
-
-const DEFAULT_JSON = JSON.stringify(defaultTemplate, null, 2)
+import DEFAULT_JSON from '../../../src/fixtures/morning-briefing.json?raw'
 
 const jsonText = signal(DEFAULT_JSON)
 const status = signal<{ type: 'success' | 'error'; message: string } | null>(null)

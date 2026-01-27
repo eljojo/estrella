@@ -29,6 +29,11 @@ body {
     max-width: 1200px;
     width: 100%;
     padding: 40px;
+    transition: max-width 0.3s ease;
+}
+
+.container--wide {
+    max-width: 2400px;
 }
 
 .main-layout {
@@ -42,7 +47,8 @@ body {
 }
 
 .preview-panel {
-    flex: 1 1 0%;
+    flex: 0 0 auto;
+    width: 576px;
     position: sticky;
     top: 20px;
     align-self: flex-start;

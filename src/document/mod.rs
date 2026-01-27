@@ -44,6 +44,83 @@ fn default_true() -> bool {
     true
 }
 
+// ============================================================================
+// SHORTHAND DESERIALIZATION
+// ============================================================================
+
+/// Shorthand keys: (shorthand_key, type_name, target_field).
+///
+/// When a component JSON object has no `"type"` field, these shorthands are
+/// checked in order. The shorthand key's value is moved to `target_field`,
+/// and `"type"` is set to `type_name`.
+///
+/// Example: `{"text": "hello", "bold": true}` → `{"type": "text", "content": "hello", "bold": true}`
+const SHORTHANDS: &[(&str, &str, &str)] = &[
+    ("text",      "text",      "content"),
+    ("banner",    "banner",    "content"),
+    ("line_item", "line_item", "name"),
+    ("total",     "total",     "amount"),
+    ("divider",   "divider",   "style"),
+    ("spacer_mm", "spacer",    "mm"),
+    ("image",     "image",     "url"),
+    ("qr_code",   "qr_code",  "data"),
+    ("markdown",  "markdown",  "content"),
+];
+
+/// Rewrite a shorthand JSON object to canonical `{"type": ...}` form.
+/// Only called when the map has no `"type"` key.
+fn normalize_shorthand(map: &mut serde_json::Map<String, serde_json::Value>) -> Result<(), String> {
+    for &(key, type_name, field) in SHORTHANDS {
+        if let Some(val) = map.remove(key) {
+            map.insert("type".into(), serde_json::Value::String(type_name.into()));
+            map.insert(field.into(), val);
+            return Ok(());
+        }
+    }
+    Err(format!(
+        "component object has no 'type' field and no shorthand key ({})",
+        SHORTHANDS.iter().map(|(k, _, _)| *k).collect::<Vec<_>>().join(", ")
+    ))
+}
+
+/// Deserialize a `Vec<Component>` with shorthand support.
+///
+/// Each element is first parsed as raw JSON. If it lacks a `"type"` field,
+/// shorthand normalization rewrites it to canonical form before passing it
+/// to `Component`'s derived deserializer.
+fn deserialize_components<'de, D>(deserializer: D) -> Result<Vec<Component>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let values: Vec<serde_json::Value> = Vec::deserialize(deserializer)?;
+    values
+        .into_iter()
+        .enumerate()
+        .map(|(i, v)| {
+            let mut obj = match v {
+                serde_json::Value::Object(map) => map,
+                other => {
+                    return Err(serde::de::Error::custom(format!(
+                        "document[{}]: expected object, got {}",
+                        i,
+                        other
+                    )))
+                }
+            };
+
+            if !obj.contains_key("type") {
+                normalize_shorthand(&mut obj).map_err(|e| {
+                    serde::de::Error::custom(format!("document[{}]: {}", i, e))
+                })?;
+            }
+
+            serde_json::from_value(serde_json::Value::Object(obj)).map_err(|e| {
+                serde::de::Error::custom(format!("document[{}]: {}", i, e))
+            })
+        })
+        .collect()
+}
+
 /// A printable document: a sequence of components with options.
 ///
 /// This is the unified type for both the Rust API and the JSON API.
@@ -51,6 +128,9 @@ fn default_true() -> bool {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Document {
     /// The components that make up this document.
+    ///
+    /// Supports shorthand syntax: `{"text": "hi"}` instead of `{"type": "text", "content": "hi"}`.
+    #[serde(deserialize_with = "deserialize_components")]
     pub document: Vec<Component>,
     /// Whether to cut the paper after printing (default: true).
     #[serde(default = "default_true")]
@@ -546,5 +626,112 @@ mod tests {
         let doc2: Document = serde_json::from_str(&json).unwrap();
         assert_eq!(doc2.document.len(), 2);
         assert!(doc2.cut);
+    }
+
+    // ========================================================================
+    // SHORTHAND DESERIALIZATION TESTS
+    // ========================================================================
+
+    #[test]
+    fn test_shorthand_text() {
+        let json = r#"{"document": [{"text": "hello"}]}"#;
+        let doc: Document = serde_json::from_str(json).unwrap();
+        let ir = doc.compile();
+        assert!(ir.ops.iter().any(|op| matches!(op, Op::Text(s) if s == "hello")));
+    }
+
+    #[test]
+    fn test_shorthand_text_with_options() {
+        let json = r#"{"document": [{"text": "hi", "bold": true, "size": 2}]}"#;
+        let doc: Document = serde_json::from_str(json).unwrap();
+        let ir = doc.compile();
+        assert!(ir.ops.iter().any(|op| matches!(op, Op::Text(s) if s == "hi")));
+        assert!(ir.ops.iter().any(|op| matches!(op, Op::SetBold(true))));
+        assert!(ir.ops.iter().any(|op| matches!(op, Op::SetSize { height: 1, width: 1 })));
+    }
+
+    #[test]
+    fn test_shorthand_banner() {
+        let json = r#"{"document": [{"banner": "SALE", "border": "heavy"}]}"#;
+        let doc: Document = serde_json::from_str(json).unwrap();
+        let ir = doc.compile();
+        assert!(ir.ops.iter().any(|op| matches!(op, Op::Text(s) if s.contains("SALE"))));
+    }
+
+    #[test]
+    fn test_shorthand_line_item() {
+        let json = r#"{"document": [{"line_item": "Coffee", "price": 4.50}]}"#;
+        let doc: Document = serde_json::from_str(json).unwrap();
+        let ir = doc.compile();
+        assert!(ir.ops.iter().any(|op| matches!(op, Op::Text(s) if s.contains("Coffee") && s.contains("4.50"))));
+    }
+
+    #[test]
+    fn test_shorthand_total() {
+        let json = r#"{"document": [{"total": 9.99}]}"#;
+        let doc: Document = serde_json::from_str(json).unwrap();
+        let ir = doc.compile();
+        assert!(ir.ops.iter().any(|op| matches!(op, Op::Text(s) if s.contains("9.99"))));
+    }
+
+    #[test]
+    fn test_shorthand_divider() {
+        let json = r#"{"document": [{"divider": "double"}]}"#;
+        let doc: Document = serde_json::from_str(json).unwrap();
+        let ir = doc.compile();
+        assert!(ir.ops.iter().any(|op| matches!(op, Op::Text(s) if s.contains("═"))));
+    }
+
+    #[test]
+    fn test_shorthand_spacer_mm() {
+        let json = r#"{"document": [{"spacer_mm": 5.0}]}"#;
+        let doc: Document = serde_json::from_str(json).unwrap();
+        let ir = doc.compile();
+        assert!(ir.ops.iter().any(|op| matches!(op, Op::Feed { units: 20 })));
+    }
+
+    #[test]
+    fn test_shorthand_image() {
+        let json = r#"{"document": [{"image": "https://example.com/photo.jpg"}]}"#;
+        let doc: Document = serde_json::from_str(json).unwrap();
+        assert_eq!(doc.document.len(), 1);
+        assert!(matches!(&doc.document[0], Component::Image(img) if img.url == "https://example.com/photo.jpg"));
+    }
+
+    #[test]
+    fn test_shorthand_qr_code() {
+        let json = r#"{"document": [{"qr_code": "https://example.com"}]}"#;
+        let doc: Document = serde_json::from_str(json).unwrap();
+        let ir = doc.compile();
+        assert!(ir.ops.iter().any(|op| matches!(op, Op::QrCode { .. })));
+    }
+
+    #[test]
+    fn test_shorthand_markdown() {
+        let json = r#"{"document": [{"markdown": "**bold**"}]}"#;
+        let doc: Document = serde_json::from_str(json).unwrap();
+        let ir = doc.compile();
+        assert!(ir.ops.iter().any(|op| matches!(op, Op::SetBold(true))));
+    }
+
+    #[test]
+    fn test_shorthand_ignored_when_type_present() {
+        // "type" takes precedence; "text" key is just an unknown field (ignored by serde)
+        let json = r#"{"document": [{"type": "text", "content": "real", "text": "ignored"}]}"#;
+        let doc: Document = serde_json::from_str(json).unwrap();
+        let ir = doc.compile();
+        assert!(ir.ops.iter().any(|op| matches!(op, Op::Text(s) if s == "real")));
+    }
+
+    #[test]
+    fn test_shorthand_mixed_with_canonical() {
+        let json = r#"{"document": [
+            {"text": "shorthand"},
+            {"type": "text", "content": "canonical"},
+            {"banner": "HELLO"},
+            {"type": "divider"}
+        ]}"#;
+        let doc: Document = serde_json::from_str(json).unwrap();
+        assert_eq!(doc.document.len(), 4);
     }
 }

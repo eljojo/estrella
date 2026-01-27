@@ -2,74 +2,62 @@
   "variables": {
     "name": "Jojo",
     "weather": "6\u00b0C Cloudy",
-    "high_low": "11\u00b0C / 3\u00b0C"
+    "high_low": "11\u00b0C / 3\u00b0C",
+    "forecast": "Rain expected after 3pm"
   },
   "document": [
     { "type": "pattern", "name": "estrella", "height": 160, "params": { "size": "0.7" } },
-    { "type": "spacer", "mm": 1 },
-    { "type": "text", "content": "GOOD MORNING, {{name}}", "center": true, "bold": true, "size": 2 },
-    { "type": "text", "content": "{{day}}, {{date_short}}", "center": true, "font": "B" },
+    { "banner": "{{day}}, {{date_short}}", "border": "heavy", "bold": true, "size": 2 },
     {
-      "type": "text",
-      "content": "\u2591\u2591\u2592\u2592\u2593\u2593\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2593\u2593\u2592\u2592\u2591\u2591"
+      "text": "\u2591\u2591\u2592\u2592\u2593\u2593\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2593\u2593\u2592\u2592\u2591\u2591"
     },
 
-    { "type": "banner", "content": "WEATHER", "border": "shade", "size": 2 },
-    { "type": "spacer", "mm": 1 },
+    { "divider": "dashed" },
+    { "banner": "WEATHER", "border": "tag", "size": 2 },
+    { "spacer_mm": 1 },
     { "type": "columns", "left": "Now", "right": "{{weather}}" },
     { "type": "columns", "left": "High / Low", "right": "{{high_low}}" },
     { "type": "columns", "left": "Wind", "right": "19 km/h NW" },
-    { "type": "text", "content": "Rain expected after 3pm", "bold": true },
-
-    { "type": "banner", "content": "FORECAST", "border": "heavy", "size": 2 },
-    { "type": "spacer", "mm": 1 },
+    { "banner": "{{forecast}}", "border": "heavy", "size": 2 },
+    { "spacer_mm": 1 },
     { "type": "chart", "style": "area", "labels": ["9AM", "10", "11", "12PM", "1", "2", "3", "4", "5PM"], "values": [4, 5, 7, 9, 11, 10, 8, 7, 6], "height": 180, "y_suffix": "\u00b0C" },
 
-    { "type": "divider" },
-    { "type": "banner", "content": "BIRTHDAYS", "border": "shadow", "size": 2 },
-    { "type": "spacer", "mm": 1 },
-    { "type": "text", "content": "Ana turns 30 today!", "size": 2 },
-    { "type": "text", "content": "Carlos on Wednesday", "font": "B" },
 
-    { "type": "divider" },
-    { "type": "text", "content": " TRASH ", "bold": true, "invert": true },
-    { "type": "spacer", "mm": 1 },
-    { "type": "columns", "left": "Today", "right": "Recycling", "bold": true, "underline": true },
-    { "type": "columns", "left": "Thursday", "right": "General waste" },
-
-    { "type": "divider" },
-    { "type": "banner", "content": "CALENDAR", "border": "heavy", "size": 2 },
-    { "type": "spacer", "mm": 1 },
+    { "divider": "dashed" },
+    { "banner": "CALENDAR", "border": "tag", "size": 2 },
+    { "spacer_mm": 1 },
     { "type": "table", "headers": ["Time", "Event"], "rows": [["9:00", "Standup"], ["11:30", "Dentist"], ["14:00", "Design review"], ["18:30", "Dinner w/ Alex"]], "border": "mixed", "align": ["left", "left"] },
 
-    { "type": "divider" },
-    { "type": "text", "content": " NEWS ", "bold": true, "invert": true },
-    { "type": "spacer", "mm": 1 },
-    {
-      "type": "markdown",
-      "content": "- Scientists discover high-temp superconductor\n- City council approves new bike lanes\n- Local bakery wins national award"
-    },
+    { "banner": "Ana turns 30 today!", "border": "shadow", "size": 2 },
+    { "text": "* Carlos birthday on Wednesday", "font": "B" },
+    { "spacer_mm": 1 },
+    { "text": " TRASH ", "bold": true, "invert": true },
+    { "spacer_mm": 1 },
+    { "type": "columns", "left": "Thursday", "right": "Recycling" },
 
-    { "type": "divider" },
-    { "type": "text", "content": " GROCERIES ", "bold": true, "invert": true },
-    { "type": "spacer", "mm": 1 },
-    { "type": "line_item", "name": "Oat milk", "price": 2.49 },
-    { "type": "line_item", "name": "Sourdough bread", "price": 4.80 },
-    { "type": "line_item", "name": "Avocados x3", "price": 3.60 },
-    { "type": "total", "amount": 10.89 },
+    { "divider": "dashed" },
+    { "text": " NEWS ", "bold": true, "invert": true },
+    { "markdown": "- Scientists discover high-temp superconductor\n- City council approves new bike lanes\n- Local bakery wins national award" },
+    { "qr_code": "https://calendar.google.com" },
 
-    { "type": "divider", "style": "double" },
-    {
-      "type": "text",
-      "content": "\u00ab Have a great day, {{name}}! \u00bb",
-      "center": true,
-      "bold": true
-    },
-    { "type": "spacer", "mm": 2 },
-    { "type": "qr_code", "data": "https://calendar.google.com" },
-    { "type": "spacer", "mm": 2 },
-    { "type": "image", "url": "https://upload.wikimedia.org/wikipedia/en/6/61/Attempted_restoration_of_Ecce_Homo.jpg" },
-    { "type": "spacer", "mm": 3 }
+
+    { "divider": "dashed" },
+    { "text": " GROCERIES ", "bold": true, "invert": true },
+    { "spacer_mm": 1 },
+    { "line_item": "Oat milk", "price": 2.49 },
+    { "line_item": "Sourdough bread", "price": 4.80 },
+    { "line_item": "Avocados x3", "price": 3.60 },
+    { "total": 10.89 },
+
+    { "divider": "dashed" },
+    { "text": "xkcd: Early Arthropods", "bold": true, "center": true },
+    { "image": "https://imgs.xkcd.com/comics/early_arthropods.png" },
+    { "text": "\u0027Ugh, I\u0027m never going to be like spiders. My descendants will all just be normal arthropods who mind their own busines and don\u0027t do anything weird.\u0027 --The ancestor of a bunch of eusocial insects", "size": 0, "center": true},
+    { "spacer_mm": 3 },
+
+    { "divider": "double" },
+    { "text": "\u00ab Have a great day, {{name}}! \u00bb", "center": true, "bold": true },
+    { "spacer_mm": 2 }
   ],
   "cut": true
 }
