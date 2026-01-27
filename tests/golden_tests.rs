@@ -17,6 +17,7 @@
 //! ```
 
 use estrella::document::{self, Component, Divider, Document, Text};
+use estrella::document::types::{Chart, ChartStyle};
 use estrella::ir::{Op, Program};
 use estrella::receipt;
 use estrella::render::dither::{self, DitheringAlgorithm};
@@ -165,6 +166,37 @@ fn generate_weave_png_with_dither(
     png_bytes
 }
 
+/// Chart styles used for golden tests
+const CHART_STYLES: &[(&str, ChartStyle)] = &[
+    ("line", ChartStyle::Line),
+    ("area", ChartStyle::Area),
+    ("bar", ChartStyle::Bar),
+    ("dot", ChartStyle::Dot),
+];
+
+/// Build a Document showcasing a chart style with sample temperature data.
+fn build_chart_document(style: ChartStyle) -> Document {
+    Document {
+        document: vec![
+            Component::Chart(Chart {
+                style,
+                labels: vec![
+                    "09:00".into(), "10:00".into(), "11:00".into(), "12:00".into(),
+                    "13:00".into(), "14:00".into(), "15:00".into(), "16:00".into(),
+                ],
+                values: vec![-16.0, -14.0, -13.0, -13.0, -12.0, -12.0, -11.0, -11.0],
+                height: Some(200),
+                y_suffix: Some("\u{00B0}C".into()),
+                title: Some("Temperature".into()),
+                ..Default::default()
+            }),
+        ],
+        cut: true,
+        interpolate: false,
+        ..Default::default()
+    }
+}
+
 /// Patterns used for dithering algorithm comparison tests
 const DITHER_TEST_PATTERNS: &[&str] = &["plasma", "rings", "ripple", "topography"];
 const DITHER_TEST_HEIGHT: usize = 1200;
@@ -236,6 +268,10 @@ fn generate_golden_files() {
 
     // Preview PNGs for all patterns
     for &name in patterns::list_patterns() {
+        if PLATFORM_DEPENDENT_PATTERNS.contains(&name) {
+            continue;
+        }
+
         let pattern = patterns::by_name(name).unwrap();
         let (_width, height) = pattern.default_dimensions();
 
@@ -264,6 +300,13 @@ fn generate_golden_files() {
     // Use 3 distinct patterns, 800px height (~100mm), 160px crossfade (~20mm)
     let weave_png = generate_weave_png(&["riley", "plasma", "waves"], 800, 160);
     write_golden("weave_crossfade", "png", &weave_png);
+
+    // Chart styles
+    for &(name, style) in CHART_STYLES {
+        let program = build_chart_document(style).compile();
+        let png = generate_preview_png(&program);
+        write_golden(&format!("chart_{}", name), "png", &png);
+    }
 
     // Dithering algorithm comparison
     // Use 4 patterns (plasma, ring, ripple, topography) to show each algorithm's characteristics
@@ -450,6 +493,20 @@ fn test_dither_jarvis() {
         DitheringAlgorithm::Jarvis,
     );
     check_golden("dither_jarvis", "png", &png);
+}
+
+// ============================================================================
+// CHART TESTS
+// ============================================================================
+
+/// Test that all chart style previews match their golden PNGs
+#[test]
+fn test_preview_chart_styles() {
+    for &(name, style) in CHART_STYLES {
+        let program = build_chart_document(style).compile();
+        let png = generate_preview_png(&program);
+        check_golden(&format!("chart_{}", name), "png", &png);
+    }
 }
 
 // ============================================================================

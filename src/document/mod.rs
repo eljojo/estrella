@@ -156,6 +156,7 @@ pub enum Component {
     Image(Image),
     Pattern(Pattern),
     NvLogo(NvLogo),
+    Chart(Chart),
 }
 
 impl Component {
@@ -179,6 +180,7 @@ impl Component {
             Component::Image(c) => c.emit(ops),
             Component::Pattern(c) => c.emit(ops),
             Component::NvLogo(c) => c.emit(ops),
+            Component::Chart(c) => c.emit(ops),
         }
     }
 
@@ -202,6 +204,7 @@ impl Component {
             Component::Image(c) => c.interpolate(vars),
             Component::Pattern(c) => c.interpolate(vars),
             Component::NvLogo(c) => c.interpolate(vars),
+            Component::Chart(c) => c.interpolate(vars),
         }
     }
 }

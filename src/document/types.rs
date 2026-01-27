@@ -532,6 +532,85 @@ pub struct Barcode {
 }
 
 // ============================================================================
+// CHART COMPONENT
+// ============================================================================
+
+/// Chart visual style.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ChartStyle {
+    /// Line chart with thick connected lines and filled markers.
+    #[default]
+    Line,
+    /// Area chart: filled region below the data line with line on top.
+    Area,
+    /// Bar chart: vertical bars for each data point.
+    Bar,
+    /// Dot chart: scatter plot with filled circles.
+    Dot,
+}
+
+/// Chart component: renders data as a visual graph image.
+///
+/// Produces a raster image with axes, labels, grid lines, and data
+/// visualization. Designed for thermal printing with thick lines, small
+/// bitmap fonts, and high-contrast fills that dither well.
+///
+/// ## Example (JSON)
+///
+/// ```json
+/// {
+///   "type": "chart",
+///   "style": "line",
+///   "labels": ["09:00", "10:00", "11:00", "12:00"],
+///   "values": [-16, -14, -13, -12],
+///   "height": 200,
+///   "y_suffix": "°C"
+/// }
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Chart {
+    /// Visual style of the chart.
+    #[serde(default)]
+    pub style: ChartStyle,
+    /// X-axis labels (one per data point).
+    #[serde(default)]
+    pub labels: Vec<String>,
+    /// Data values (one per data point).
+    pub values: Vec<f64>,
+    /// Total chart height in pixels (default: 200).
+    #[serde(default)]
+    pub height: Option<usize>,
+    /// Suffix appended to Y-axis tick labels (e.g., "°C", "%").
+    #[serde(default)]
+    pub y_suffix: Option<String>,
+    /// Prefix prepended to Y-axis tick labels (e.g., "$", "€").
+    #[serde(default)]
+    pub y_prefix: Option<String>,
+    /// Optional title rendered above the chart.
+    #[serde(default)]
+    pub title: Option<String>,
+    /// Dithering algorithm: "bayer" (default), "floyd-steinberg", "atkinson", "jarvis", "none".
+    #[serde(default)]
+    pub dither: Option<String>,
+}
+
+impl Default for Chart {
+    fn default() -> Self {
+        Self {
+            style: ChartStyle::Line,
+            labels: Vec::new(),
+            values: Vec::new(),
+            height: None,
+            y_suffix: None,
+            y_prefix: None,
+            title: None,
+            dither: None,
+        }
+    }
+}
+
+// ============================================================================
 // GRAPHICS COMPONENTS
 // ============================================================================
 
@@ -697,6 +776,22 @@ impl Interpolatable for BlankLine {
 }
 impl Interpolatable for Image {
     fn interpolate(&mut self, _vars: &HashMap<String, String>) {}
+}
+impl Interpolatable for Chart {
+    fn interpolate(&mut self, vars: &HashMap<String, String>) {
+        for label in &mut self.labels {
+            interpolate_string(label, vars);
+        }
+        if let Some(ref mut title) = self.title {
+            interpolate_string(title, vars);
+        }
+        if let Some(ref mut suffix) = self.y_suffix {
+            interpolate_string(suffix, vars);
+        }
+        if let Some(ref mut prefix) = self.y_prefix {
+            interpolate_string(prefix, vars);
+        }
+    }
 }
 impl Interpolatable for Pattern {
     fn interpolate(&mut self, _vars: &HashMap<String, String>) {}

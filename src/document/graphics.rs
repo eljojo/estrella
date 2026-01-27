@@ -1,8 +1,8 @@
 //! Emit logic for graphics components: Image, Pattern, NvLogo.
 
-use super::types::{Image, NvLogo, Pattern};
+use super::types::{Chart, Image, NvLogo, Pattern};
 use crate::ir::Op;
-use crate::render::{dither, patterns};
+use crate::render::{chart, dither, patterns};
 
 /// Parse a dithering algorithm string.
 pub(crate) fn parse_dither_algorithm(s: &str) -> Option<dither::DitheringAlgorithm> {
@@ -75,6 +75,33 @@ impl Pattern {
             height: height as u16,
             data,
         });
+    }
+}
+
+impl Chart {
+    /// Emit IR ops for this chart component.
+    pub fn emit(&self, ops: &mut Vec<Op>) {
+        if self.values.is_empty() {
+            return;
+        }
+
+        let width = 576; // default printer width
+
+        let dithering = self
+            .dither
+            .as_deref()
+            .and_then(parse_dither_algorithm)
+            .unwrap_or(dither::DitheringAlgorithm::Bayer);
+
+        let (data, w, h) = chart::render(self, width, dithering);
+
+        if !data.is_empty() {
+            ops.push(Op::Raster {
+                width: w,
+                height: h,
+                data,
+            });
+        }
     }
 }
 

@@ -26,6 +26,7 @@
 use image::{GrayImage, Luma};
 use std::io::Cursor;
 
+pub mod chart;
 pub mod composer;
 pub mod context;
 pub mod dither;
