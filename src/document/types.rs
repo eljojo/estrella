@@ -186,7 +186,7 @@ fn default_banner_bold() -> bool {
 }
 
 fn default_banner_padding() -> u8 {
-    1
+    0
 }
 
 /// Framed banner component with auto-sizing.
@@ -216,7 +216,7 @@ pub struct Banner {
     /// Whether the content text is bold. Default: true.
     #[serde(default = "default_banner_bold")]
     pub bold: bool,
-    /// Blank lines of padding above and below the content inside the frame. Default: 1.
+    /// Blank lines of padding above and below the content inside the frame. Default: 0.
     #[serde(default = "default_banner_padding")]
     pub padding: u8,
 }
@@ -228,7 +228,7 @@ impl Default for Banner {
             size: 3,
             border: BorderStyle::Single,
             bold: true,
-            padding: 1,
+            padding: 0,
         }
     }
 }
