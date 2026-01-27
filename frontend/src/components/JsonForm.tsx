@@ -13,9 +13,13 @@ const DEFAULT_JSON = JSON.stringify(
       { type: 'spacer', mm: 1 },
       { type: 'text', content: 'GOOD MORNING, {{name}}', center: true, bold: true, size: 2 },
       { type: 'text', content: '{{day}}, {{date_short}}', center: true, font: 'B' },
-      { type: 'divider', style: 'double' },
+      {
+        type: 'text',
+        content:
+          '\u2591\u2591\u2592\u2592\u2593\u2593\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2593\u2593\u2592\u2592\u2591\u2591',
+      },
 
-      { type: 'text', content: ' WEATHER ', bold: true, invert: true },
+      { type: 'banner', content: 'WEATHER', border: 'shade', size: 2 },
       { type: 'spacer', mm: 1 },
       { type: 'columns', left: 'Now', right: '{{weather}}' },
       { type: 'columns', left: 'High / Low', right: '{{high_low}}' },
@@ -23,7 +27,7 @@ const DEFAULT_JSON = JSON.stringify(
       { type: 'text', content: 'Rain expected after 3pm', bold: true },
 
       { type: 'divider' },
-      { type: 'text', content: ' BIRTHDAYS ', bold: true, invert: true },
+      { type: 'banner', content: 'BIRTHDAYS', border: 'shadow', size: 2 },
       { type: 'spacer', mm: 1 },
       { type: 'text', content: 'Ana turns 30 today!', size: 2 },
       { type: 'text', content: 'Carlos on Wednesday', font: 'B' },
@@ -35,7 +39,7 @@ const DEFAULT_JSON = JSON.stringify(
       { type: 'columns', left: 'Thursday', right: 'General waste' },
 
       { type: 'divider' },
-      { type: 'text', content: ' CALENDAR ', bold: true, invert: true },
+      { type: 'banner', content: 'CALENDAR', border: 'heavy', size: 2 },
       { type: 'spacer', mm: 1 },
       { type: 'columns', left: '9:00', right: 'Standup' },
       { type: 'columns', left: '11:30', right: 'Dentist', bold: true },
@@ -60,7 +64,12 @@ const DEFAULT_JSON = JSON.stringify(
       { type: 'total', amount: 10.89 },
 
       { type: 'divider', style: 'double' },
-      { type: 'text', content: 'Have a great day, {{name}}!', center: true, bold: true },
+      {
+        type: 'text',
+        content: '\u00ab Have a great day, {{name}}! \u00bb',
+        center: true,
+        bold: true,
+      },
       { type: 'spacer', mm: 2 },
       { type: 'qr_code', data: 'https://calendar.google.com' },
       { type: 'spacer', mm: 2 },

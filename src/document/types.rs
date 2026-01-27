@@ -164,6 +164,9 @@ pub enum BorderStyle {
     #[default]
     Single,
     Double,
+    Heavy,
+    Shade,
+    Shadow,
 }
 
 fn default_banner_size() -> u8 {
@@ -199,7 +202,7 @@ pub struct Banner {
     /// Max size (0–3). The banner picks the largest width that fits. Default: 3.
     #[serde(default = "default_banner_size")]
     pub size: u8,
-    /// Border style: "single" (default) or "double".
+    /// Border style: "single" (default), "double", "heavy", "shade", or "shadow".
     #[serde(default)]
     pub border: BorderStyle,
     /// Whether the content text is bold. Default: true.

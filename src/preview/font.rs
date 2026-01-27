@@ -216,4 +216,15 @@ mod tests {
         // Should have some black pixels
         assert!(glyph.iter().any(|&p| p != 0));
     }
+
+    #[test]
+    fn test_spleen_char_coverage() {
+        let mut font = PSF2Font::new(FONT_12X24).unwrap();
+        let chars = ['«', '»', '░', '▒', '▓', '█', '─', '│', '┌', '°', '■'];
+        for ch in &chars {
+            let s = ch.to_string();
+            let found = font.glyph_for_utf8(s.as_bytes()).is_some();
+            eprintln!("{} (U+{:04X}): {}", ch, *ch as u32, if found { "FOUND" } else { "MISSING" });
+        }
+    }
 }
