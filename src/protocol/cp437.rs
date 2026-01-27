@@ -2,6 +2,9 @@
 //!
 //! Converts Unicode strings to CP437 single-byte encoding for StarPRNT printers.
 //!
+//! **Command:** ESC GS t n (n=1 selects CP437)
+//! **Spec Reference:** Section 2.3.1 "Font Style and Character Set", page 22
+//!
 //! The printer must be set to Code Page 437 (`ESC GS t 1`) for these bytes
 //! to render correctly. ASCII (U+0000–U+007F) passes through unchanged.
 //! Characters not in CP437 are replaced with `?` and a warning is printed.
