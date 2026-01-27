@@ -56,6 +56,11 @@ pub async fn print(
             .into_response();
     }
 
+    match serde_json::to_string_pretty(&doc) {
+        Ok(json) => eprintln!("=== JSON Print ===\n{}\n==================", json),
+        Err(e) => eprintln!("(failed to serialize document for logging: {})", e),
+    }
+
     let print_data = doc.build();
     let device_path = state.config.device_path.clone();
 
