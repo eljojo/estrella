@@ -13,7 +13,7 @@ use std::{collections::HashMap, io::Cursor, sync::Arc};
 use crate::{
     art::ParamSpec,
     printer::PrinterConfig,
-    render::{dither, patterns},
+    render::{context::RenderContext, dither, patterns},
     transport::BluetoothTransport,
 };
 
@@ -114,17 +114,19 @@ pub async fn randomize(Path(name): Path<String>) -> Result<Json<PatternInfo>, St
 
 /// GET /api/patterns/:name/preview - Generate PNG preview.
 pub async fn preview(
+    State(state): State<Arc<AppState>>,
     Path(name): Path<String>,
     Query(query): Query<PreviewQuery>,
-) -> Result<impl IntoResponse, StatusCode> {
-    let mut pattern = patterns::by_name_golden(&name).ok_or(StatusCode::NOT_FOUND)?;
+) -> Result<impl IntoResponse, (StatusCode, String)> {
+    let mut pattern = patterns::by_name_golden(&name)
+        .ok_or((StatusCode::NOT_FOUND, format!("Pattern '{}' not found", name)))?;
 
     // Apply custom params (skip the known query params)
     for (param_name, param_value) in &query.params {
         if param_name != "length_mm" && param_name != "dither" && param_name != "mode" {
             pattern
                 .set_param(param_name, param_value)
-                .map_err(|_| StatusCode::BAD_REQUEST)?;
+                .map_err(|e| (StatusCode::BAD_REQUEST, format!("Invalid param: {}", e)))?;
         }
     }
 
@@ -132,6 +134,19 @@ pub async fn preview(
     let config = PrinterConfig::TSP650II;
     let width = config.width_dots as usize;
     let height = config.mm_to_dots(query.length_mm) as usize;
+
+    // Prepare pattern (async — handles I/O like image downloads)
+    let ctx = RenderContext::new(
+        reqwest::Client::builder()
+            .user_agent("estrella/0.1")
+            .build()
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("HTTP client error: {}", e)))?,
+        state.photo_sessions.clone(),
+        state.intensity_cache.clone(),
+    );
+    pattern.prepare(width, height, &ctx).await.map_err(|e| {
+        (StatusCode::BAD_REQUEST, format!("Prepare failed: {}", e))
+    })?;
 
     // Parse dithering algorithm
     let dither_algo = match query.dither.to_lowercase().as_str() {
@@ -160,7 +175,7 @@ pub async fn preview(
 
     let mut png_bytes = Vec::new();
     img.write_to(&mut Cursor::new(&mut png_bytes), image::ImageFormat::Png)
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("PNG encoding failed: {}", e)))?;
 
     Ok(([(header::CONTENT_TYPE, "image/png")], png_bytes))
 }
@@ -192,6 +207,25 @@ pub async fn print(
     let config = PrinterConfig::TSP650II;
     let width = config.width_dots as usize;
     let height = config.mm_to_dots(form.length_mm) as usize;
+
+    // Prepare pattern (async — handles I/O like image downloads)
+    let ctx = RenderContext::new(
+        reqwest::Client::builder()
+            .user_agent("estrella/0.1")
+            .build()
+            .map_err(|e| (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"success": false, "error": format!("HTTP client error: {}", e)})),
+            ))?,
+        state.photo_sessions.clone(),
+        state.intensity_cache.clone(),
+    );
+    pattern.prepare(width, height, &ctx).await.map_err(|e| {
+        (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"success": false, "error": format!("Prepare failed: {}", e)})),
+        )
+    })?;
 
     // Parse dithering algorithm
     let dither_algo = match form.dither.to_lowercase().as_str() {

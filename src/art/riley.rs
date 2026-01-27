@@ -10,6 +10,7 @@
 
 use crate::shader::*;
 use rand::Rng;
+use async_trait::async_trait;
 use std::fmt;
 
 /// Parameters for the Riley pattern.
@@ -120,6 +121,7 @@ impl Riley {
     }
 }
 
+#[async_trait]
 impl super::Pattern for Riley {
     fn name(&self) -> &'static str {
         "riley"

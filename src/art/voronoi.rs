@@ -10,6 +10,7 @@
 
 use crate::shader::*;
 use rand::Rng;
+use async_trait::async_trait;
 use std::fmt;
 
 /// Rendering mode for Voronoi cells.
@@ -268,6 +269,7 @@ impl Voronoi {
     }
 }
 
+#[async_trait]
 impl super::Pattern for Voronoi {
     fn name(&self) -> &'static str {
         "voronoi"

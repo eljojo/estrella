@@ -10,6 +10,7 @@
 
 use crate::shader::*;
 use rand::Rng;
+use async_trait::async_trait;
 use std::fmt;
 
 /// Parameters for the Riley curve pattern.
@@ -131,6 +132,7 @@ impl RileyCurve {
     }
 }
 
+#[async_trait]
 impl super::Pattern for RileyCurve {
     fn name(&self) -> &'static str {
         "riley_curve"

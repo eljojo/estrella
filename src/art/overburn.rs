@@ -20,6 +20,7 @@
 
 use crate::shader::*;
 use rand::Rng;
+use async_trait::async_trait;
 use std::fmt;
 
 /// Parameters for the overburn effect.
@@ -130,6 +131,7 @@ impl Overburn {
     }
 }
 
+#[async_trait]
 impl super::Pattern for Overburn {
     fn name(&self) -> &'static str {
         "overburn"

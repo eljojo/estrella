@@ -13,6 +13,7 @@
 
 use crate::shader::{center_coords, clamp01, dist, gamma, wave_cos, wave_sin};
 use rand::Rng;
+use async_trait::async_trait;
 use std::fmt;
 
 /// Parameters for the rings effect.
@@ -121,6 +122,7 @@ impl Rings {
     }
 }
 
+#[async_trait]
 impl super::Pattern for Rings {
     fn name(&self) -> &'static str {
         "rings"

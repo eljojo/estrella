@@ -15,6 +15,7 @@
 
 use crate::shader::*;
 use rand::Rng;
+use async_trait::async_trait;
 use std::fmt;
 
 /// Parameters for the density comparison pattern.
@@ -123,6 +124,7 @@ impl Density {
     }
 }
 
+#[async_trait]
 impl super::Pattern for Density {
     fn name(&self) -> &'static str {
         "density"

@@ -32,7 +32,7 @@ mod markdown;
 pub mod resolve;
 mod text;
 
-pub use resolve::ImageResolver;
+pub use resolve::{fetch_image, fetch_image_with_ctx, ImageResolver};
 pub use types::*;
 
 use crate::ir::{Op, Program};

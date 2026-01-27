@@ -10,6 +10,7 @@
 
 use crate::shader::*;
 use rand::Rng;
+use async_trait::async_trait;
 use std::fmt;
 
 /// Parameters for wood grain pattern.
@@ -180,6 +181,7 @@ impl Woodgrain {
     }
 }
 
+#[async_trait]
 impl super::Pattern for Woodgrain {
     fn name(&self) -> &'static str {
         "woodgrain"

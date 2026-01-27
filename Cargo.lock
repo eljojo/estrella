@@ -627,6 +627,7 @@ dependencies = [
 name = "estrella"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "axum",
  "barcoders",
  "chrono",

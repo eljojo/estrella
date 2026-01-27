@@ -321,19 +321,11 @@ export interface ComposerSpec {
   layers: ComposerLayer[]
 }
 
-/// Fetch available blend modes.
 export async function fetchBlendModes(): Promise<string[]> {
   const response = await fetch('/api/composer/blend-modes')
   if (!response.ok) throw new Error('Failed to fetch blend modes')
   const modes: { name: string }[] = await response.json()
   return modes.map((m) => m.name)
-}
-
-/// Fetch pattern params for composer.
-export async function fetchComposerPatternParams(name: string): Promise<PatternInfo> {
-  const response = await fetch(`/api/composer/pattern/${name}/params`)
-  if (!response.ok) throw new Error('Failed to fetch pattern params')
-  return response.json()
 }
 
 /// Fetch composer preview as a blob URL.

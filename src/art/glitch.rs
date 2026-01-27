@@ -14,6 +14,7 @@
 
 use crate::shader::*;
 use rand::Rng;
+use async_trait::async_trait;
 use std::fmt;
 
 /// Parameters for the glitch effect.
@@ -132,6 +133,7 @@ impl Glitch {
     }
 }
 
+#[async_trait]
 impl super::Pattern for Glitch {
     fn name(&self) -> &'static str {
         "glitch"

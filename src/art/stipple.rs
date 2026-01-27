@@ -10,6 +10,7 @@
 
 use crate::shader::*;
 use rand::Rng;
+use async_trait::async_trait;
 use std::fmt;
 
 /// Parameters for stipple pattern.
@@ -143,6 +144,7 @@ impl Stipple {
     }
 }
 
+#[async_trait]
 impl super::Pattern for Stipple {
     fn name(&self) -> &'static str {
         "stipple"

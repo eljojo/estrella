@@ -10,6 +10,7 @@
 
 use crate::shader::*;
 use rand::Rng;
+use async_trait::async_trait;
 use std::fmt;
 
 /// Parameters for the crystal growth pattern.
@@ -177,6 +178,7 @@ impl Crystal {
     }
 }
 
+#[async_trait]
 impl super::Pattern for Crystal {
     fn name(&self) -> &'static str {
         "crystal"

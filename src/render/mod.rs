@@ -27,6 +27,7 @@ use image::{GrayImage, Luma};
 use std::io::Cursor;
 
 pub mod composer;
+pub mod context;
 pub mod dither;
 pub mod patterns;
 pub mod weave;

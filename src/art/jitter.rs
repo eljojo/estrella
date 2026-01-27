@@ -22,6 +22,7 @@
 
 use crate::shader::*;
 use rand::Rng;
+use async_trait::async_trait;
 use std::fmt;
 
 /// Parameters for the jitter/banding effect.
@@ -154,6 +155,7 @@ impl Jitter {
     }
 }
 
+#[async_trait]
 impl super::Pattern for Jitter {
     fn name(&self) -> &'static str {
         "jitter"

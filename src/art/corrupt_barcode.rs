@@ -10,6 +10,7 @@
 
 use crate::shader::*;
 use rand::Rng;
+use async_trait::async_trait;
 use std::fmt;
 
 /// Parameters for corrupt barcode pattern.
@@ -145,6 +146,7 @@ impl CorruptBarcode {
     }
 }
 
+#[async_trait]
 impl super::Pattern for CorruptBarcode {
     fn name(&self) -> &'static str {
         "corrupt_barcode"

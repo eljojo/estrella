@@ -11,6 +11,7 @@
 //! - Blush marks on cheeks
 //! - Shine highlights
 
+use async_trait::async_trait;
 use super::ParamSpec;
 use crate::shader::*;
 use rand::Rng;
@@ -396,6 +397,7 @@ impl Estrella {
     }
 }
 
+#[async_trait]
 impl super::Pattern for Estrella {
     fn name(&self) -> &'static str {
         "estrella"

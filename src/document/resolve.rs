@@ -12,6 +12,7 @@ use image::{imageops::FilterType, DynamicImage};
 use super::graphics::parse_dither_algorithm;
 use super::types::ResolvedImage;
 use super::{Component, Document};
+use crate::render::context::RenderContext;
 use crate::render::dither::{self, DitheringAlgorithm};
 use crate::server::PhotoSession;
 use crate::EstrellaError;
@@ -38,7 +39,7 @@ impl ImageResolver {
         for component in &mut doc.document {
             if let Component::Image(img) = component {
                 if !img.url.is_empty() && img.resolved_data.is_none() {
-                    let source = self.fetch_image(&img.url).await?;
+                    let source = fetch_image(&img.url, &self.sessions).await?;
                     let resolved = process_image(
                         source,
                         img.width.unwrap_or(576),
@@ -51,53 +52,72 @@ impl ImageResolver {
         }
         Ok(())
     }
+}
 
-    /// Fetch an image, using the session cache when available.
-    async fn fetch_image(&self, url: &str) -> Result<DynamicImage, EstrellaError> {
-        // Check cache
-        {
-            let mut sessions: tokio::sync::RwLockWriteGuard<'_, HashMap<String, PhotoSession>> =
-                self.sessions.write().await;
-            if let Some(session) = sessions.get_mut(url) {
-                session.touch();
-                return Ok(session.image.clone());
-            }
+/// Fetch an image from a URL using the render context's shared resources.
+///
+/// Uses the context's HTTP client and image cache. Downloads the image if
+/// not cached, stores it in the cache, and returns the decoded image.
+pub async fn fetch_image_with_ctx(
+    url: &str,
+    ctx: &RenderContext,
+) -> Result<DynamicImage, EstrellaError> {
+    // Check cache
+    {
+        let mut sessions = ctx.image_cache.write().await;
+        if let Some(session) = sessions.get_mut(url) {
+            session.touch();
+            return Ok(session.image.clone());
         }
+    }
 
-        // Download
-        let client = reqwest::Client::builder()
+    // Download using the context's HTTP client
+    let response = ctx
+        .http_client
+        .get(url)
+        .send()
+        .await
+        .map_err(|e| EstrellaError::Image(format!("Failed to download {}: {}", url, e)))?;
+    if !response.status().is_success() {
+        return Err(EstrellaError::Image(format!(
+            "Failed to download {}: HTTP {}",
+            url,
+            response.status()
+        )));
+    }
+    let bytes = response
+        .bytes()
+        .await
+        .map_err(|e| EstrellaError::Image(format!("Failed to read image data: {}", e)))?;
+
+    let image = image::load_from_memory(&bytes)
+        .map_err(|e| EstrellaError::Image(format!("Failed to decode image: {}", e)))?;
+
+    // Store in cache
+    {
+        let mut sessions = ctx.image_cache.write().await;
+        sessions.insert(url.to_string(), PhotoSession::new(image.clone()));
+    }
+
+    Ok(image)
+}
+
+/// Fetch an image from a URL, using the session cache when available.
+///
+/// Convenience wrapper for callers that don't have a RenderContext.
+pub async fn fetch_image(
+    url: &str,
+    sessions: &Arc<RwLock<HashMap<String, PhotoSession>>>,
+) -> Result<DynamicImage, EstrellaError> {
+    let ctx = RenderContext::new(
+        reqwest::Client::builder()
             .user_agent("estrella/0.1")
             .build()
-            .map_err(|e| EstrellaError::Image(format!("HTTP client error: {}", e)))?;
-        let response = client
-            .get(url)
-            .send()
-            .await
-            .map_err(|e| EstrellaError::Image(format!("Failed to download {}: {}", url, e)))?;
-        if !response.status().is_success() {
-            return Err(EstrellaError::Image(format!(
-                "Failed to download {}: HTTP {}",
-                url,
-                response.status()
-            )));
-        }
-        let bytes = response
-            .bytes()
-            .await
-            .map_err(|e| EstrellaError::Image(format!("Failed to read image data: {}", e)))?;
-
-        let image = image::load_from_memory(&bytes)
-            .map_err(|e| EstrellaError::Image(format!("Failed to decode image: {}", e)))?;
-
-        // Store in cache
-        {
-            let mut sessions: tokio::sync::RwLockWriteGuard<'_, HashMap<String, PhotoSession>> =
-                self.sessions.write().await;
-            sessions.insert(url.to_string(), PhotoSession::new(image.clone()));
-        }
-
-        Ok(image)
-    }
+            .map_err(|e| EstrellaError::Image(format!("HTTP client error: {}", e)))?,
+        sessions.clone(),
+        Arc::new(RwLock::new(HashMap::new())),
+    );
+    fetch_image_with_ctx(url, &ctx).await
 }
 
 /// Process a downloaded image for printing.

@@ -8,6 +8,7 @@
 //! the image, reminiscent of both Riley's op art and natural zebra patterns.
 //! Multiple wave components create organic, almost liquid movement.
 
+use async_trait::async_trait;
 use crate::shader::*;
 use rand::Rng;
 use std::f32::consts::PI;
@@ -128,6 +129,7 @@ impl Zebra {
     }
 }
 
+#[async_trait]
 impl super::Pattern for Zebra {
     fn name(&self) -> &'static str {
         "zebra"

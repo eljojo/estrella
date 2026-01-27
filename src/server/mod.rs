@@ -14,7 +14,7 @@ mod handlers;
 mod state;
 mod static_files;
 
-pub use state::{PhotoSession, ServerConfig};
+pub use state::{CachedIntensity, IntensityCacheKey, PhotoSession, ServerConfig};
 
 use axum::{
     extract::DefaultBodyLimit,
@@ -79,14 +79,9 @@ pub async fn serve(config: ServerConfig) -> Result<(), EstrellaError> {
         .route("/api/weave/preview", post(handlers::weave::preview))
         .route("/api/weave/print", post(handlers::weave::print))
         // Composer API
-        .route("/api/composer/patterns", get(handlers::composer::patterns))
         .route(
             "/api/composer/blend-modes",
             get(handlers::composer::blend_modes),
-        )
-        .route(
-            "/api/composer/pattern/:name/params",
-            get(handlers::composer::pattern_params),
         )
         .route("/api/composer/preview", post(handlers::composer::preview))
         .route("/api/composer/print", post(handlers::composer::print))
@@ -131,15 +126,15 @@ async fn cleanup_caches(state: Arc<AppState>) {
         interval.tick().await;
         let now = Instant::now();
 
-        // Clean up layer cache
+        // Clean up intensity cache
         {
-            let mut cache = state.layer_cache.write().await;
+            let mut cache = state.intensity_cache.write().await;
             let before = cache.len();
             cache.retain(|_, v| now.duration_since(v.last_accessed) < expiration);
             let after = cache.len();
             if before != after {
                 println!(
-                    "[cache] Cleaned up {} expired layer cache entries ({} remaining)",
+                    "[cache] Cleaned up {} expired intensity cache entries ({} remaining)",
                     before - after,
                     after
                 );

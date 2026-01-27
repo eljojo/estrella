@@ -8,6 +8,7 @@
 //! The chaotic but deterministic trajectories create intricate, flowing
 //! patterns that reveal the underlying mathematical structure.
 
+use async_trait::async_trait;
 use crate::shader::*;
 use rand::Rng;
 use std::fmt;
@@ -354,6 +355,7 @@ impl Attractor {
     }
 }
 
+#[async_trait]
 impl super::Pattern for Attractor {
     fn name(&self) -> &'static str {
         "attractor"

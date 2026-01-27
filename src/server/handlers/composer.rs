@@ -9,25 +9,22 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use std::collections::HashMap;
-use tokio::sync::RwLock;
-
 use crate::{
-    art::{self, PATTERNS},
+    art,
     render::{
         self,
         composer::{
             render_layer_intensity, render_with_cached_layers, BlendMode, CachedLayerRef,
-            Composer, ComposerSpec, LayerSpec,
+            ComposerSpec, LayerSpec,
         },
+        context::RenderContext,
         dither::DitheringAlgorithm,
     },
+    server::IntensityCacheKey,
     transport::BluetoothTransport,
 };
 
-use super::super::state::{AppState, CachedLayer, LayerCacheKey};
-
-type LayerCache = Arc<RwLock<HashMap<LayerCacheKey, CachedLayer>>>;
+use super::super::state::AppState;
 
 fn default_dither() -> String {
     "floyd-steinberg".to_string()
@@ -61,25 +58,10 @@ pub struct ComposerPrintRequest {
     pub cut: bool,
 }
 
-/// Response info about available patterns for composer.
-#[derive(Debug, Serialize)]
-pub struct ComposerPatternInfo {
-    pub name: &'static str,
-}
-
 /// Response info about blend modes.
 #[derive(Debug, Serialize)]
 pub struct BlendModeInfo {
     pub name: &'static str,
-}
-
-/// GET /api/composer/patterns - List available patterns for layering.
-pub async fn patterns() -> Json<Vec<ComposerPatternInfo>> {
-    let patterns: Vec<ComposerPatternInfo> = PATTERNS
-        .iter()
-        .map(|&name| ComposerPatternInfo { name })
-        .collect();
-    Json(patterns)
 }
 
 /// GET /api/composer/blend-modes - List available blend modes.
@@ -103,84 +85,44 @@ fn parse_dither(s: &str) -> DitheringAlgorithm {
     }
 }
 
-/// Get or render a layer's intensity buffer, using cache when available.
-fn get_or_render_layer(
-    layer_spec: &LayerSpec,
-    cache: &LayerCache,
-) -> Result<Vec<f32>, String> {
-    let cache_key = LayerCacheKey::new(
-        &layer_spec.pattern,
-        &layer_spec.params,
-        layer_spec.width,
-        layer_spec.height,
-    );
+/// Create and prepare all patterns for a composition's layers.
+///
+/// Each layer becomes a pattern: create via `by_name()`, configure via `set_param()`,
+/// and `prepare()` in the async context (handles I/O like image downloads).
+/// Returns prepared patterns and their pre-rendered intensity buffers.
+async fn prepare_layers(
+    layers: &[LayerSpec],
+    ctx: &RenderContext,
+) -> Result<Vec<Vec<f32>>, String> {
+    let mut buffers = Vec::with_capacity(layers.len());
 
-    let mut cache_guard = cache.blocking_write();
+    for (i, layer) in layers.iter().enumerate() {
+        let mut pattern = art::by_name(&layer.pattern)
+            .ok_or_else(|| format!("Layer {}: unknown pattern '{}'", i, layer.pattern))?;
 
-    if let Some(cached) = cache_guard.get_mut(&cache_key) {
-        cached.touch();
-        return Ok(cached.intensity());
+        for (k, v) in &layer.params {
+            pattern
+                .set_param(k, v)
+                .map_err(|e| format!("Layer {}: param error: {}", i, e))?;
+        }
+
+        // Async prepare — handles I/O (image downloads, etc.)
+        pattern
+            .prepare(layer.width, layer.height, ctx)
+            .await
+            .map_err(|e| format!("Layer {}: prepare failed: {}", i, e))?;
+
+        // Pre-render intensity buffer (cached across requests)
+        let key = IntensityCacheKey::new(&layer.pattern, &layer.params, layer.width, layer.height);
+        let buffer = ctx
+            .get_or_render_intensity(key, || {
+                render_layer_intensity(pattern.as_ref(), layer.width, layer.height)
+            })
+            .await;
+        buffers.push(buffer);
     }
 
-    // Cache miss - render the layer
-    let mut pattern = art::by_name(&layer_spec.pattern)
-        .ok_or_else(|| format!("Unknown pattern: {}", layer_spec.pattern))?;
-
-    for (k, v) in &layer_spec.params {
-        pattern.set_param(k, v).map_err(|e| format!("Param error: {}", e))?;
-    }
-
-    let buffer = render_layer_intensity(pattern.as_ref(), layer_spec.width, layer_spec.height);
-
-    // Cache the result
-    let cached = CachedLayer::new(buffer.clone());
-    println!(
-        "[cache] Cached '{}' {}x{}: {} -> {} bytes ({:.1}%)",
-        layer_spec.pattern,
-        layer_spec.width,
-        layer_spec.height,
-        cached.uncompressed_size(),
-        cached.compressed_size(),
-        cached.compressed_size() as f32 / cached.uncompressed_size() as f32 * 100.0
-    );
-    cache_guard.insert(cache_key, cached);
-
-    Ok(buffer)
-}
-
-/// Render a composition to PNG bytes using cached layers.
-fn render_composition_to_png(
-    spec: &ComposerSpec,
-    layer_specs: &[LayerSpec],
-    cache: &LayerCache,
-    dither_algo: DitheringAlgorithm,
-) -> Result<Vec<u8>, String> {
-    // Get intensity buffers for all layers
-    let intensity_buffers: Vec<Vec<f32>> = layer_specs
-        .iter()
-        .map(|spec| get_or_render_layer(spec, cache))
-        .collect::<Result<_, _>>()?;
-
-    // Build references for compositing
-    let cached_refs: Vec<CachedLayerRef<'_>> = layer_specs
-        .iter()
-        .zip(intensity_buffers.iter())
-        .map(|(spec, intensity)| CachedLayerRef {
-            spec,
-            intensity: intensity.as_slice(),
-        })
-        .collect();
-
-    // Composite and dither
-    let raster_data = render_with_cached_layers(
-        spec.width,
-        spec.height,
-        spec.background,
-        &cached_refs,
-        dither_algo,
-    );
-
-    render::raster_to_png(spec.width, spec.height, &raster_data)
+    Ok(buffers)
 }
 
 /// POST /api/composer/preview - Generate PNG preview of composition.
@@ -192,13 +134,45 @@ pub async fn preview(
         return Err((StatusCode::BAD_REQUEST, "Width and height must be positive".into()));
     }
 
+    let ctx = RenderContext::new(
+        reqwest::Client::builder()
+            .user_agent("estrella/0.1")
+            .build()
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("HTTP client error: {}", e)))?,
+        state.photo_sessions.clone(),
+        state.intensity_cache.clone(),
+    );
+
+    // Prepare all layers (async — handles image downloads, etc.)
+    let intensity_buffers = prepare_layers(&req.spec.layers, &ctx)
+        .await
+        .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
+
     let dither_algo = parse_dither(&req.dither);
-    let spec = req.spec.clone();
-    let layer_specs = req.spec.layers;
-    let cache = state.layer_cache.clone();
+    let spec = req.spec;
 
     let png_bytes = tokio::task::spawn_blocking(move || {
-        render_composition_to_png(&spec, &layer_specs, &cache, dither_algo)
+        // Build references for compositing
+        let cached_refs: Vec<CachedLayerRef<'_>> = spec
+            .layers
+            .iter()
+            .zip(intensity_buffers.iter())
+            .map(|(layer_spec, intensity)| CachedLayerRef {
+                spec: layer_spec,
+                intensity: intensity.as_slice(),
+            })
+            .collect();
+
+        // Composite and dither
+        let raster_data = render_with_cached_layers(
+            spec.width,
+            spec.height,
+            spec.background,
+            &cached_refs,
+            dither_algo,
+        );
+
+        render::raster_to_png(spec.width, spec.height, &raster_data)
     })
     .await
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Task error: {}", e)))?
@@ -212,66 +186,88 @@ pub async fn print(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ComposerPrintRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    let err_json = |msg: String| (
+        StatusCode::BAD_REQUEST,
+        Json(serde_json::json!({"success": false, "error": msg})),
+    );
+
     // Validate spec
     if req.spec.width == 0 || req.spec.height == 0 {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({"success": false, "error": "Width and height must be positive"})),
-        ));
+        return Err(err_json("Width and height must be positive".into()));
     }
 
-    // Create composer from spec
-    let composer = Composer::from_spec(&req.spec).map_err(|e| {
-        (
-            StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({"success": false, "error": e})),
-        )
-    })?;
+    let ctx = RenderContext::new(
+        reqwest::Client::builder()
+            .user_agent("estrella/0.1")
+            .build()
+            .map_err(|e| err_json(format!("HTTP client error: {}", e)))?,
+        state.photo_sessions.clone(),
+        state.intensity_cache.clone(),
+    );
 
-    // Parse dithering algorithm
+    // Prepare all layers (async — handles image downloads, etc.)
+    let intensity_buffers = prepare_layers(&req.spec.layers, &ctx)
+        .await
+        .map_err(|e| err_json(e))?;
+
     let dither_algo = parse_dither(&req.dither);
-
-    // Render the composition
-    let raster_data = composer.render(dither_algo);
-
-    // Build print command
-    use crate::ir::{Op, Program};
-
-    let mut program = Program::new();
-    program.push(Op::Init);
-
     let width = req.spec.width;
     let height = req.spec.height;
-
-    if req.mode == "band" {
-        program.push(Op::Band {
-            width_bytes: (width / 8) as u8,
-            data: raster_data,
-        });
-    } else {
-        program.push(Op::Raster {
-            width: width as u16,
-            height: height as u16,
-            data: raster_data,
-        });
-    }
-
-    program.push(Op::Feed { units: 24 }); // 6mm
-
-    if req.cut {
-        program.push(Op::Cut { partial: false });
-    }
-
-    // Split for long print and send to printer
-    let device_path = state.config.device_path.clone();
     let layer_count = req.spec.layers.len();
+    let mode = req.mode.clone();
+    let cut = req.cut;
+    let device_path = state.config.device_path.clone();
+    let spec = req.spec;
 
     println!(
         "[composer] Print request: {}x{} pixels, {} layers, mode={}",
-        width, height, layer_count, req.mode
+        width, height, layer_count, mode
     );
 
     let print_result = tokio::task::spawn_blocking(move || {
+        let cached_refs: Vec<CachedLayerRef<'_>> = spec
+            .layers
+            .iter()
+            .zip(intensity_buffers.iter())
+            .map(|(layer_spec, intensity)| CachedLayerRef {
+                spec: layer_spec,
+                intensity: intensity.as_slice(),
+            })
+            .collect();
+
+        let raster_data = render_with_cached_layers(
+            spec.width,
+            spec.height,
+            spec.background,
+            &cached_refs,
+            dither_algo,
+        );
+
+        // Build print command
+        use crate::ir::{Op, Program};
+
+        let mut program = Program::new();
+        program.push(Op::Init);
+
+        if mode == "band" {
+            program.push(Op::Band {
+                width_bytes: (width / 8) as u8,
+                data: raster_data,
+            });
+        } else {
+            program.push(Op::Raster {
+                width: width as u16,
+                height: height as u16,
+                data: raster_data,
+            });
+        }
+
+        program.push(Op::Feed { units: 24 }); // 6mm
+
+        if cut {
+            program.push(Op::Cut { partial: false });
+        }
+
         let programs = program.split_for_long_print();
         println!(
             "[composer] Split into {} program(s)",
@@ -297,25 +293,4 @@ pub async fn print(
             Json(serde_json::json!({"success": false, "error": format!("Task error: {}", e)})),
         )),
     }
-}
-
-/// GET /api/composer/pattern/:name/params - Get params for a specific pattern.
-pub async fn pattern_params(
-    axum::extract::Path(name): axum::extract::Path<String>,
-) -> Result<Json<serde_json::Value>, StatusCode> {
-    let pattern = art::by_name(&name).ok_or(StatusCode::NOT_FOUND)?;
-
-    let params: std::collections::HashMap<String, String> = pattern
-        .list_params()
-        .into_iter()
-        .map(|(k, v)| (k.to_string(), v))
-        .collect();
-
-    let specs = pattern.param_specs();
-
-    Ok(Json(serde_json::json!({
-        "name": pattern.name(),
-        "params": params,
-        "specs": specs
-    })))
 }

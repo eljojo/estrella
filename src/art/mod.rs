@@ -10,7 +10,10 @@
 //! 3. Add to [`PATTERNS`] array
 //! 4. Run `make golden` to generate test files
 
+use async_trait::async_trait;
 use serde::Serialize;
+
+use crate::render::context::RenderContext;
 
 pub mod attractor;
 pub mod automata;
@@ -24,6 +27,7 @@ pub mod erosion;
 pub mod estrella;
 pub mod flowfield;
 pub mod glitch;
+pub mod image;
 pub mod jitter;
 pub mod microfeed;
 pub mod moire;
@@ -97,6 +101,8 @@ pub const PATTERNS: &[&str] = &[
     "overburn",
     "jitter",
     "calibration",
+    // External
+    "image",
 ];
 
 /// Input type for a pattern parameter.
@@ -126,6 +132,8 @@ pub enum ParamType {
     Select {
         options: Vec<&'static str>,
     },
+    /// Free-form text input (e.g., URLs).
+    Text,
 }
 
 /// Specification for a pattern parameter.
@@ -201,12 +209,41 @@ impl ParamSpec {
 }
 
 /// Trait for pattern generators.
+///
+/// Patterns are renderable objects that produce visual output. They may be
+/// pure math (ripple, waves) or backed by external resources (images).
+///
+/// ## Lifecycle
+///
+/// 1. Create via `by_name()` + `set_param()`
+/// 2. Call `prepare()` — resolves external resources (downloads, caching).
+///    Most patterns use the default no-op. The caller passes a `RenderContext`
+///    with shared infrastructure; patterns use what they need and ignore the rest.
+/// 3. Call `intensity()` per-pixel — pure computation, no I/O.
+#[async_trait]
 pub trait Pattern: Send + Sync {
     /// Pattern name (lowercase, e.g., "ripple").
     fn name(&self) -> &'static str;
 
     /// Compute intensity at a pixel position. Returns 0.0 (white) to 1.0 (black).
     fn intensity(&self, x: usize, y: usize, width: usize, height: usize) -> f32;
+
+    /// Prepare for rendering at the given dimensions.
+    ///
+    /// Called once before rendering begins. Patterns that need external resources
+    /// (downloading images, fetching data) do their I/O here. Math patterns
+    /// use the default no-op.
+    ///
+    /// The `RenderContext` provides shared infrastructure (HTTP client, caches).
+    /// Patterns use what they need and ignore the rest.
+    async fn prepare(
+        &mut self,
+        _width: usize,
+        _height: usize,
+        _ctx: &RenderContext,
+    ) -> Result<(), String> {
+        Ok(())
+    }
 
     /// Default dimensions (width, height) for this pattern.
     fn default_dimensions(&self) -> (usize, usize) {
@@ -285,6 +322,8 @@ pub fn by_name_golden(name: &str) -> Option<Box<dyn Pattern>> {
         "overburn" => Some(Box::new(overburn::Overburn::golden())),
         "jitter" => Some(Box::new(jitter::Jitter::golden())),
         "calibration" | "demo" => Some(Box::new(calibration::Calibration::golden())),
+        // External
+        "image" => Some(Box::new(image::ImagePattern::golden())),
         _ => None,
     }
 }
@@ -334,6 +373,8 @@ pub fn by_name_random(name: &str) -> Option<Box<dyn Pattern>> {
         "overburn" => Some(Box::new(overburn::Overburn::random())),
         "jitter" => Some(Box::new(jitter::Jitter::random())),
         "calibration" | "demo" => Some(Box::new(calibration::Calibration::random())),
+        // External
+        "image" => Some(Box::new(image::ImagePattern::random())),
         _ => None,
     }
 }

@@ -8,6 +8,7 @@
 //! appear to undulate and breathe. Inspired by Riley's "Movement in Squares"
 //! and similar pieces where rigid geometry seems to gain organic life.
 
+use async_trait::async_trait;
 use crate::shader::*;
 use rand::Rng;
 use std::f32::consts::PI;
@@ -126,6 +127,7 @@ impl RileyCheck {
     }
 }
 
+#[async_trait]
 impl super::Pattern for RileyCheck {
     fn name(&self) -> &'static str {
         "riley_check"

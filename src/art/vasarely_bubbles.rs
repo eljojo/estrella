@@ -10,6 +10,7 @@
 
 use crate::shader::*;
 use rand::Rng;
+use async_trait::async_trait;
 use std::fmt;
 
 /// A single bubble/sphere distortion.
@@ -172,6 +173,7 @@ impl VasarelyBubbles {
     }
 }
 
+#[async_trait]
 impl super::Pattern for VasarelyBubbles {
     fn name(&self) -> &'static str {
         "vasarely_bubbles"

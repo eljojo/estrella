@@ -10,6 +10,7 @@
 
 use crate::shader::*;
 use rand::Rng;
+use async_trait::async_trait;
 use std::fmt;
 
 /// Parameters for cross-hatch pattern.
@@ -158,6 +159,7 @@ impl Crosshatch {
     }
 }
 
+#[async_trait]
 impl super::Pattern for Crosshatch {
     fn name(&self) -> &'static str {
         "crosshatch"

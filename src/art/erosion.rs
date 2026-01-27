@@ -10,6 +10,7 @@
 
 use crate::shader::*;
 use rand::Rng;
+use async_trait::async_trait;
 use std::fmt;
 
 /// Parameters for the erosion pattern.
@@ -146,6 +147,7 @@ pub fn shade(x: usize, y: usize, _width: usize, _height: usize, params: &Params)
     gamma(clamp01(enhanced), params.contrast)
 }
 
+#[async_trait]
 impl super::Pattern for Erosion {
     fn name(&self) -> &'static str {
         "erosion"

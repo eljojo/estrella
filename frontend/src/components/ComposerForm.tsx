@@ -2,7 +2,7 @@ import { signal, effect } from '@preact/signals'
 import { useEffect, useState, useCallback } from 'preact/hooks'
 import {
   fetchPatterns,
-  fetchComposerPatternParams,
+  fetchParams,
   fetchComposerPreview,
   printComposer,
   BlendMode,
@@ -87,7 +87,7 @@ let patternsFetched = false
 const fetchLayerSpecs = async (patternName: string) => {
   if (layerSpecs.value[patternName]) return
   try {
-    const info = await fetchComposerPatternParams(patternName)
+    const info = await fetchParams(patternName)
     layerSpecs.value = { ...layerSpecs.value, [patternName]: info.specs }
   } catch (e) {
     console.error('Failed to fetch specs for', patternName, e)
@@ -197,7 +197,17 @@ function LayerEditor({
         </div>
       </div>
 
-      {specs.length > 0 && (
+      {layer.pattern === 'image' ? (
+        <div class="form-group">
+          <label>Image URL</label>
+          <input
+            type="text"
+            placeholder="https://example.com/photo.jpg"
+            value={layer.params.url || ''}
+            onInput={(e) => onUpdateParam(index, 'url', (e.target as HTMLInputElement).value)}
+          />
+        </div>
+      ) : specs.length > 0 ? (
         <div class="layer-params">
           <label>Pattern Parameters</label>
           <div class="params-grid">
@@ -211,7 +221,7 @@ function LayerEditor({
             ))}
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   )
 }

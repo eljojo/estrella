@@ -10,6 +10,7 @@
 
 use crate::shader::*;
 use rand::Rng;
+use async_trait::async_trait;
 use std::fmt;
 
 /// Parameters for the tunnel pattern.
@@ -141,6 +142,7 @@ impl Tunnel {
     }
 }
 
+#[async_trait]
 impl super::Pattern for Tunnel {
     fn name(&self) -> &'static str {
         "tunnel"

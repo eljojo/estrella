@@ -13,6 +13,7 @@
 
 use crate::shader::*;
 use rand::Rng;
+use async_trait::async_trait;
 use std::fmt;
 
 /// Parameters for the topography effect.
@@ -101,6 +102,7 @@ impl Topography {
     }
 }
 
+#[async_trait]
 impl super::Pattern for Topography {
     fn name(&self) -> &'static str {
         "topography"

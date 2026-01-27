@@ -8,6 +8,7 @@
 //! at different angles. The slight angular offset creates the characteristic
 //! shimmering, wave-like optical illusion.
 
+use async_trait::async_trait;
 use crate::shader::*;
 use rand::Rng;
 use std::f32::consts::PI;
@@ -141,6 +142,7 @@ impl Moire {
     }
 }
 
+#[async_trait]
 impl super::Pattern for Moire {
     fn name(&self) -> &'static str {
         "moire"

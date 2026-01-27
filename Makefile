@@ -103,14 +103,9 @@ dev-frontend:
 	cd frontend && npm install && npm run dev
 
 # Start backend server (for development)
-.PHONY: dev-backend
-dev-backend: frontend
-	nix develop --command cargo run -- serve
-
-# Serve with hot reload (requires cargo-watch)
-.PHONY: serve
-serve: frontend
-	nix develop --command cargo run -- serve
+.PHONY: dev
+dev: frontend
+	cargo run -- serve
 
 .PHONY: help
 help:
@@ -121,8 +116,7 @@ help:
 	@echo "  build-debug   Build debug binary (faster)"
 	@echo "  frontend      Build frontend only"
 	@echo "  dev-frontend  Start frontend dev server (port 5173)"
-	@echo "  dev-backend   Start backend server (port 8080)"
-	@echo "  serve         Build and run HTTP server"
+	@echo "  dev           Start backend server (port 8080)"
 	@echo "  format        Format code with rustfmt"
 	@echo "  format-check  Check formatting without changes"
 	@echo "  test          Run all tests (backend + frontend build)"

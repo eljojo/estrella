@@ -34,6 +34,7 @@ const GOLDEN_DIR: &str = "tests/golden";
 /// We still generate golden files for visual inspection, but skip byte-exact comparison.
 const PLATFORM_DEPENDENT_PATTERNS: &[&str] = &[
     "attractor", // Strange attractors: 100k+ iterations of chaotic systems
+    "image",     // Requires external URL — cannot run in offline golden tests
 ];
 
 // ============================================================================

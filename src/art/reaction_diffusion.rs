@@ -10,6 +10,7 @@
 
 use crate::shader::*;
 use rand::Rng;
+use async_trait::async_trait;
 use std::fmt;
 
 /// Parameters for reaction-diffusion pattern.
@@ -136,6 +137,7 @@ impl ReactionDiffusion {
     }
 }
 
+#[async_trait]
 impl super::Pattern for ReactionDiffusion {
     fn name(&self) -> &'static str {
         "reaction_diffusion"

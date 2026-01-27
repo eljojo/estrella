@@ -13,6 +13,7 @@ use std::{collections::HashMap, io::Cursor, sync::Arc};
 use crate::{
     printer::PrinterConfig,
     render::{
+        context::RenderContext,
         dither,
         patterns::{self, Pattern},
         weave::{BlendCurve, Weave},
@@ -73,7 +74,10 @@ fn default_mode() -> String {
 }
 
 /// POST /api/weave/preview - Generate PNG preview of blended patterns.
-pub async fn preview(Json(req): Json<WeaveRequest>) -> Result<impl IntoResponse, (StatusCode, String)> {
+pub async fn preview(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<WeaveRequest>,
+) -> Result<impl IntoResponse, (StatusCode, String)> {
     if req.patterns.len() < 2 {
         return Err((
             StatusCode::BAD_REQUEST,
@@ -81,7 +85,21 @@ pub async fn preview(Json(req): Json<WeaveRequest>) -> Result<impl IntoResponse,
         ));
     }
 
-    // Load and configure patterns
+    let ctx = RenderContext::new(
+        reqwest::Client::builder()
+            .user_agent("estrella/0.1")
+            .build()
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("HTTP client error: {}", e)))?,
+        state.photo_sessions.clone(),
+        state.intensity_cache.clone(),
+    );
+
+    // Calculate dimensions (needed for prepare)
+    let config = PrinterConfig::TSP650II;
+    let width = config.width_dots as usize;
+    let height = config.mm_to_dots(req.length_mm) as usize;
+
+    // Load, configure, and prepare patterns
     let mut pattern_impls: Vec<Box<dyn Pattern>> = Vec::new();
     for entry in &req.patterns {
         let mut pattern = patterns::by_name_golden(&entry.name).ok_or_else(|| {
@@ -91,20 +109,19 @@ pub async fn preview(Json(req): Json<WeaveRequest>) -> Result<impl IntoResponse,
             )
         })?;
 
-        // Apply custom params
         for (param_name, param_value) in &entry.params {
             pattern.set_param(param_name, param_value).map_err(|e| {
                 (StatusCode::BAD_REQUEST, format!("Invalid param: {}", e))
             })?;
         }
 
+        pattern.prepare(width, height, &ctx).await.map_err(|e| {
+            (StatusCode::BAD_REQUEST, format!("Prepare failed: {}", e))
+        })?;
+
         pattern_impls.push(pattern);
     }
 
-    // Calculate dimensions
-    let config = PrinterConfig::TSP650II;
-    let width = config.width_dots as usize;
-    let height = config.mm_to_dots(req.length_mm) as usize;
     let crossfade_pixels = config.mm_to_dots(req.crossfade_mm) as usize;
 
     // Parse curve
@@ -165,7 +182,25 @@ pub async fn print(
         ));
     }
 
-    // Load and configure patterns
+    let ctx = RenderContext::new(
+        reqwest::Client::builder()
+            .user_agent("estrella/0.1")
+            .build()
+            .map_err(|e| (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"success": false, "error": format!("HTTP client error: {}", e)})),
+            ))?,
+        state.photo_sessions.clone(),
+        state.intensity_cache.clone(),
+    );
+
+    // Calculate dimensions (needed for prepare)
+    let config = PrinterConfig::TSP650II;
+    let width = config.width_dots as usize;
+    let height = config.mm_to_dots(req.length_mm) as usize;
+    let crossfade_pixels = config.mm_to_dots(req.crossfade_mm) as usize;
+
+    // Load, configure, and prepare patterns
     let mut pattern_impls: Vec<Box<dyn Pattern>> = Vec::new();
     for entry in &req.patterns {
         let mut pattern = patterns::by_name_golden(&entry.name).ok_or_else(|| {
@@ -175,7 +210,6 @@ pub async fn print(
             )
         })?;
 
-        // Apply custom params
         for (param_name, param_value) in &entry.params {
             pattern.set_param(param_name, param_value).map_err(|e| {
                 (
@@ -185,14 +219,15 @@ pub async fn print(
             })?;
         }
 
+        pattern.prepare(width, height, &ctx).await.map_err(|e| {
+            (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({"success": false, "error": format!("Prepare failed: {}", e)})),
+            )
+        })?;
+
         pattern_impls.push(pattern);
     }
-
-    // Calculate dimensions
-    let config = PrinterConfig::TSP650II;
-    let width = config.width_dots as usize;
-    let height = config.mm_to_dots(req.length_mm) as usize;
-    let crossfade_pixels = config.mm_to_dots(req.crossfade_mm) as usize;
 
     // Parse curve
     let blend_curve = BlendCurve::from_str(&req.curve).unwrap_or(BlendCurve::Smooth);

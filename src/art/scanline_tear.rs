@@ -10,6 +10,7 @@
 
 use crate::shader::*;
 use rand::Rng;
+use async_trait::async_trait;
 use std::fmt;
 
 /// Parameters for scanline tear pattern.
@@ -175,6 +176,7 @@ impl ScanlineTear {
     }
 }
 
+#[async_trait]
 impl super::Pattern for ScanlineTear {
     fn name(&self) -> &'static str {
         "scanline_tear"

@@ -11,6 +11,7 @@
 
 use crate::shader::*;
 use rand::Rng;
+use async_trait::async_trait;
 use std::fmt;
 
 /// Parameters for the scintillating grid pattern.
@@ -139,6 +140,7 @@ impl Scintillate {
     }
 }
 
+#[async_trait]
 impl super::Pattern for Scintillate {
     fn name(&self) -> &'static str {
         "scintillate"

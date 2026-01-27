@@ -11,6 +11,7 @@
 
 use crate::shader::{clamp01, dist, gamma};
 use rand::Rng;
+use async_trait::async_trait;
 use std::fmt;
 
 /// Parameters for the plasma effect.
@@ -120,6 +121,7 @@ impl Plasma {
     }
 }
 
+#[async_trait]
 impl super::Pattern for Plasma {
     fn name(&self) -> &'static str {
         "plasma"

@@ -11,6 +11,7 @@
 
 use crate::shader::*;
 use rand::Rng;
+use async_trait::async_trait;
 use std::fmt;
 
 /// Parameters for the Vasarely hex pattern.
@@ -137,6 +138,7 @@ impl VasarelyHex {
     }
 }
 
+#[async_trait]
 impl super::Pattern for VasarelyHex {
     fn name(&self) -> &'static str {
         "vasarely_hex"

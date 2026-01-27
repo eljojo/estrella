@@ -10,6 +10,7 @@
 
 use crate::shader::*;
 use rand::Rng;
+use async_trait::async_trait;
 use std::fmt;
 
 /// Parameters for the flow field pattern.
@@ -137,6 +138,7 @@ impl Flowfield {
     }
 }
 
+#[async_trait]
 impl super::Pattern for Flowfield {
     fn name(&self) -> &'static str {
         "flowfield"

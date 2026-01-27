@@ -9,6 +9,8 @@
 //! - X-shaped diagonals testing diagonal accuracy
 //! - Vertical bars that increase in width, testing dot precision
 
+use async_trait::async_trait;
+
 /// Parameters for the calibration pattern.
 #[derive(Debug, Clone)]
 pub struct Params {
@@ -94,6 +96,7 @@ impl Calibration {
     }
 }
 
+#[async_trait]
 impl super::Pattern for Calibration {
     fn name(&self) -> &'static str {
         "calibration"

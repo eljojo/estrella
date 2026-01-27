@@ -8,6 +8,8 @@
 //! more spacing than the previous one. Creates a gradient effect from dense
 //! to sparse lines. Useful for testing printer feed accuracy at different spacings.
 
+use async_trait::async_trait;
+
 /// Parameters for the micro-feed test pattern.
 #[derive(Debug, Clone)]
 pub struct Params {
@@ -74,6 +76,7 @@ impl Microfeed {
     }
 }
 
+#[async_trait]
 impl super::Pattern for Microfeed {
     fn name(&self) -> &'static str {
         "microfeed"

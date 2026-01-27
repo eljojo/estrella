@@ -13,6 +13,7 @@
 
 use crate::shader::{clamp01, dist, gamma, normalize};
 use rand::Rng;
+use async_trait::async_trait;
 use std::fmt;
 
 /// Parameters for the waves effect.
@@ -133,6 +134,7 @@ impl Waves {
     }
 }
 
+#[async_trait]
 impl super::Pattern for Waves {
     fn name(&self) -> &'static str {
         "waves"

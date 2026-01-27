@@ -13,6 +13,7 @@
 
 use crate::shader::{clamp01, dist, gamma, lerp, wave_cos, wave_sin};
 use rand::Rng;
+use async_trait::async_trait;
 use std::fmt;
 
 /// Parameters for the ripple effect.
@@ -149,6 +150,7 @@ impl Ripple {
     }
 }
 
+#[async_trait]
 impl super::Pattern for Ripple {
     fn name(&self) -> &'static str {
         "ripple"

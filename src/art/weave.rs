@@ -10,6 +10,7 @@
 
 use crate::shader::*;
 use rand::Rng;
+use async_trait::async_trait;
 use std::fmt;
 
 /// Weave pattern type.
@@ -230,6 +231,7 @@ impl Weave {
     }
 }
 
+#[async_trait]
 impl super::Pattern for Weave {
     fn name(&self) -> &'static str {
         "weave"

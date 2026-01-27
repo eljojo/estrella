@@ -90,7 +90,7 @@ mod tests {
         assert!(patterns.contains(&"corrupt_barcode"));
         assert!(patterns.contains(&"voronoi"));
         assert!(patterns.contains(&"weave"));
-        assert_eq!(patterns.len(), 37);
+        assert_eq!(patterns.len(), 38);
     }
 
     #[test]

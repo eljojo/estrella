@@ -11,6 +11,7 @@
 
 use crate::shader::*;
 use rand::Rng;
+use async_trait::async_trait;
 use std::fmt;
 
 /// Parameters for cellular automata pattern.
@@ -225,6 +226,7 @@ impl Automata {
     }
 }
 
+#[async_trait]
 impl super::Pattern for Automata {
     fn name(&self) -> &'static str {
         "automata"

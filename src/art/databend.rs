@@ -10,6 +10,7 @@
 
 use crate::shader::*;
 use rand::Rng;
+use async_trait::async_trait;
 use std::fmt;
 
 /// Parameters for databend pattern.
@@ -162,6 +163,7 @@ impl Databend {
     }
 }
 
+#[async_trait]
 impl super::Pattern for Databend {
     fn name(&self) -> &'static str {
         "databend"
