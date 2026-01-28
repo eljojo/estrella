@@ -130,16 +130,16 @@ test.describe('Canvas Overlay - Resize', () => {
     await page.click('summary:has-text("Advanced")')
     const textarea = page.locator('.json-editor textarea')
 
-    // Read initial estrella height
+    // Read initial estrella height (element index 3, topmost in SVG)
     const initialJson = JSON.parse(await textarea.inputValue())
-    const initialHeight = initialJson.document[2].elements[2].height
-    expect(initialHeight).toBe(80)
+    const initialHeight = initialJson.document[2].elements[3].height
+    expect(initialHeight).toBe(357)
 
     // Hover to reveal boxes
     await hoverOverlay(page, overlay)
 
-    // Select estrella (index 2) — force through overlapping elements
-    await overlay.locator('.layer-box').nth(2).click({ force: true })
+    // Select estrella (index 3, topmost) — receives mouse events directly
+    await overlay.locator('.layer-box').nth(3).click()
 
     // Wait for handles
     const handles = overlay.locator('.resize-handle')
@@ -162,7 +162,7 @@ test.describe('Canvas Overlay - Resize', () => {
 
     // Height must NOT have shrunk
     const afterJson = JSON.parse(await textarea.inputValue())
-    const afterHeight = afterJson.document[2].elements[2].height
+    const afterHeight = afterJson.document[2].elements[3].height
     expect(afterHeight).toBeGreaterThanOrEqual(initialHeight)
   })
 

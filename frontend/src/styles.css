@@ -585,7 +585,7 @@ button:disabled {
     }
 }
 
-/* Composer Styles */
+/* Editor Styles */
 .layers-list {
     display: flex;
     flex-direction: column;
@@ -698,39 +698,6 @@ button:disabled {
     margin-top: 8px;
 }
 
-.layer-position-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
-    margin-bottom: 12px;
-}
-
-.layer-position-grid .form-group {
-    margin-bottom: 0;
-}
-
-.layer-position-grid input {
-    padding: 8px 12px;
-    font-size: 14px;
-}
-
-.layer-blend-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    margin-bottom: 12px;
-}
-
-.layer-blend-grid .form-group {
-    margin-bottom: 0;
-}
-
-.layer-blend-grid input[type="range"] {
-    width: calc(100% - 50px);
-    display: inline-block;
-    vertical-align: middle;
-}
-
 .opacity-value {
     display: inline-block;
     width: 45px;
@@ -738,16 +705,6 @@ button:disabled {
     font-family: 'SF Mono', Monaco, monospace;
     font-weight: 600;
     color: #667eea;
-}
-
-.layer-params {
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px solid #e2e8f0;
-}
-
-.layer-params > label {
-    margin-bottom: 12px;
 }
 
 .selected-layer-editor {
@@ -795,16 +752,6 @@ button:disabled {
 
 .json-editor .hint {
     margin-top: 8px;
-}
-
-@media (max-width: 640px) {
-    .layer-position-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-
-    .layer-blend-grid {
-        grid-template-columns: 1fr;
-    }
 }
 
 /* Layer Canvas Overlay */
