@@ -57,6 +57,7 @@ pub async fn serve(config: ServerConfig) -> Result<(), EstrellaError> {
         // JSON API
         .route("/api/json/preview", post(handlers::json_api::preview))
         .route("/api/json/print", post(handlers::json_api::print))
+        .route("/api/json/canvas-layout", post(handlers::json_api::canvas_layout))
         // Receipt API
         .route("/api/receipt/print", post(handlers::receipt::print))
         .route("/api/receipt/preview", post(handlers::receipt::preview))

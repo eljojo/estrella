@@ -142,6 +142,35 @@ export async function fetchJsonPreview(jsonBody: string): Promise<string> {
   return URL.createObjectURL(blob)
 }
 
+/// Canvas layout response from the backend.
+export interface CanvasLayoutResponse {
+  width: number
+  height: number
+  y_offset: number
+  document_height: number
+  elements: Array<{ x: number; y: number; width: number; height: number }>
+}
+
+/// Fetch canvas layout metadata (element bounding boxes + document positioning).
+export async function fetchCanvasLayout(
+  document: any[],
+  canvasIndex: number,
+  cut: boolean = false
+): Promise<CanvasLayoutResponse> {
+  const response = await fetch('/api/json/canvas-layout', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ document, canvas_index: canvasIndex, cut }),
+  })
+
+  if (!response.ok) {
+    const text = await response.text()
+    throw new Error(text || 'Failed to fetch canvas layout')
+  }
+
+  return response.json()
+}
+
 /// Print a JSON document.
 export async function printJson(jsonBody: string): Promise<PrintResult> {
   const response = await fetch('/api/json/print', {

@@ -147,9 +147,11 @@ export function getComponentSummary(comp: any): string {
 interface ComponentEditorProps {
   component: any
   onUpdate: (updates: any) => void
+  canvasElementIndex?: number | null
+  onCanvasElementSelect?: (index: number | null) => void
 }
 
-export function ComponentEditor({ component, onUpdate }: ComponentEditorProps) {
+export function ComponentEditor({ component, onUpdate, canvasElementIndex, onCanvasElementSelect }: ComponentEditorProps) {
   switch (component?.type) {
     case 'text':
       return <TextEditor comp={component} onUpdate={onUpdate} />
@@ -186,7 +188,7 @@ export function ComponentEditor({ component, onUpdate }: ComponentEditorProps) {
     case 'image':
       return <ImageEditor comp={component} onUpdate={onUpdate} />
     case 'canvas':
-      return <CanvasEditor comp={component} onUpdate={onUpdate} />
+      return <CanvasEditor comp={component} onUpdate={onUpdate} expandedElement={canvasElementIndex} onElementSelect={onCanvasElementSelect} />
     case 'nv_logo':
       return <NvLogoEditor comp={component} onUpdate={onUpdate} />
     default:
@@ -818,8 +820,15 @@ function NvLogoEditor({ comp, onUpdate }: EditorProps) {
 // Canvas editor (nested elements)
 // ============================================================================
 
-function CanvasEditor({ comp, onUpdate }: EditorProps) {
+function CanvasEditor({ comp, onUpdate, expandedElement, onElementSelect }: EditorProps & {
+  expandedElement?: number | null
+  onElementSelect?: (index: number | null) => void
+}) {
   const elements: any[] = comp.elements || []
+  // Use external expansion control when provided, otherwise local state
+  const [localExpanded, setLocalExpanded] = useState<number | null>(null)
+  const expandedIdx = onElementSelect ? expandedElement : localExpanded
+  const setExpandedIdx = onElementSelect || setLocalExpanded
 
   const updateElement = (index: number, updates: any) => {
     const newElements = [...elements]
@@ -829,6 +838,7 @@ function CanvasEditor({ comp, onUpdate }: EditorProps) {
 
   const removeElement = (index: number) => {
     onUpdate({ elements: elements.filter((_: any, i: number) => i !== index) })
+    if (expandedIdx === index) setExpandedIdx(null)
   }
 
   const addElement = (type: string) => {
@@ -841,6 +851,7 @@ function CanvasEditor({ comp, onUpdate }: EditorProps) {
     const newElements = [...elements]
     ;[newElements[index], newElements[newIndex]] = [newElements[newIndex], newElements[index]]
     onUpdate({ elements: newElements })
+    if (expandedIdx === index) setExpandedIdx(newIndex)
   }
 
   return (
@@ -882,6 +893,8 @@ function CanvasEditor({ comp, onUpdate }: EditorProps) {
               element={el}
               index={i}
               total={elements.length}
+              isExpanded={expandedIdx === i}
+              onToggleExpand={() => setExpandedIdx(expandedIdx === i ? null : i)}
               onUpdate={(updates: any) => updateElement(i, updates)}
               onRemove={() => removeElement(i)}
               onMove={(dir: 'up' | 'down') => moveElement(i, dir)}
@@ -915,6 +928,8 @@ function CanvasElementItem({
   element,
   index,
   total,
+  isExpanded,
+  onToggleExpand,
   onUpdate,
   onRemove,
   onMove,
@@ -922,18 +937,19 @@ function CanvasElementItem({
   element: any
   index: number
   total: number
+  isExpanded: boolean
+  onToggleExpand: () => void
   onUpdate: (updates: any) => void
   onRemove: () => void
   onMove: (dir: 'up' | 'down') => void
 }) {
-  const [expanded, setExpanded] = useState(false)
   const hasPosition = element.position != null
 
   return (
-    <div class={`layer-item ${expanded ? 'selected' : ''}`} style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+    <div class={`layer-item ${isExpanded ? 'selected' : ''}`} style={{ flexDirection: 'column', alignItems: 'stretch' }}>
       <div
         style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
-        onClick={() => setExpanded(!expanded)}
+        onClick={onToggleExpand}
       >
         <span class="layer-name">
           {index + 1}. {getComponentLabel(element.type)}
@@ -984,7 +1000,7 @@ function CanvasElementItem({
           </button>
         </div>
       </div>
-      {expanded && (
+      {isExpanded && (
         <div class="layer-editor" style={{ marginTop: '8px' }}>
           {hasPosition ? (
             <div class="editor-row">

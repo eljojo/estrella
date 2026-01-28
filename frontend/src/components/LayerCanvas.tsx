@@ -1,13 +1,20 @@
 import { useRef, useState, useCallback } from 'preact/hooks'
-import { ComposerLayer } from '../api'
+
+export interface OverlayLayer {
+  x: number
+  y: number
+  width: number
+  height: number
+}
 
 interface LayerCanvasProps {
-  layers: ComposerLayer[]
+  layers: OverlayLayer[]
   selectedIndex: number | null
   canvasWidth: number
   canvasHeight: number
   onSelect: (index: number | null) => void
-  onUpdate: (index: number, updates: Partial<ComposerLayer>) => void
+  onUpdate: (index: number, updates: Partial<OverlayLayer>) => void
+  onDoubleClick?: (index: number) => void
 }
 
 type DragState = {
@@ -16,7 +23,7 @@ type DragState = {
   corner?: 'nw' | 'ne' | 'sw' | 'se'
   startX: number
   startY: number
-  startLayer: ComposerLayer
+  startLayer: OverlayLayer
 } | null
 
 const HANDLE_SIZE = 12
@@ -29,11 +36,14 @@ export function LayerCanvas({
   canvasHeight,
   onSelect,
   onUpdate,
+  onDoubleClick,
 }: LayerCanvasProps) {
   const svgRef = useRef<SVGSVGElement>(null)
   const [dragState, setDragState] = useState<DragState>(null)
   const [hoverIndex, setHoverIndex] = useState<number | null>(null)
   const [isMouseOver, setIsMouseOver] = useState(false)
+  // Suppress background click after a drag ends (click fires with stale overlay positions)
+  const justDraggedRef = useRef(false)
 
   // Convert mouse event to SVG coordinates
   const getSvgPoint = useCallback((e: MouseEvent): { x: number; y: number } | null => {
@@ -50,9 +60,17 @@ export function LayerCanvas({
     }
   }, [canvasWidth, canvasHeight])
 
-  // Find topmost layer at point
+  // Find layer at point, preferring the currently selected layer
   const findLayerAtPoint = useCallback((x: number, y: number): number | null => {
-    // Iterate in reverse (topmost layer is last in array)
+    // If the currently selected layer is under the cursor, keep it selected
+    // (prevents accidentally switching to a layer on top while dragging)
+    if (selectedIndex !== null) {
+      const sel = layers[selectedIndex]
+      if (sel && x >= sel.x && x <= sel.x + sel.width && y >= sel.y && y <= sel.y + sel.height) {
+        return selectedIndex
+      }
+    }
+    // Otherwise pick topmost (last in array = topmost)
     for (let i = layers.length - 1; i >= 0; i--) {
       const layer = layers[i]
       if (
@@ -65,7 +83,7 @@ export function LayerCanvas({
       }
     }
     return null
-  }, [layers])
+  }, [layers, selectedIndex])
 
   const handleMouseDown = useCallback((e: MouseEvent, layerIndex: number, corner?: 'nw' | 'ne' | 'sw' | 'se') => {
     e.preventDefault()
@@ -108,8 +126,8 @@ export function LayerCanvas({
       let newWidth = startLayer.width
       let newHeight = startLayer.height
 
-      // Default = proportional scaling, Shift key = free resize
-      if (!e.shiftKey) {
+      // Default = free resize, Shift key = proportional scaling
+      if (e.shiftKey) {
         const aspectRatio = startLayer.width / startLayer.height
         // Use the larger delta to determine scale
         const absDx = Math.abs(dx)
@@ -186,8 +204,11 @@ export function LayerCanvas({
   }, [dragState, getSvgPoint, onUpdate])
 
   const handleMouseUp = useCallback(() => {
+    if (dragState) {
+      justDraggedRef.current = true
+    }
     setDragState(null)
-  }, [])
+  }, [dragState])
 
   const handleMouseEnter = useCallback(() => {
     setIsMouseOver(true)
@@ -202,6 +223,13 @@ export function LayerCanvas({
   }, [dragState])
 
   const handleBackgroundClick = useCallback((e: MouseEvent) => {
+    // After a drag, the click event fires with stale overlay positions
+    // (layout hasn't refreshed from backend yet), so suppress it
+    if (justDraggedRef.current) {
+      justDraggedRef.current = false
+      return
+    }
+
     const point = getSvgPoint(e)
     if (!point) return
 
@@ -235,7 +263,7 @@ export function LayerCanvas({
   }
 
   // Render handles for selected layer
-  const renderHandles = (layer: ComposerLayer, index: number) => {
+  const renderHandles = (layer: OverlayLayer, index: number) => {
     const corners: Array<{ id: 'nw' | 'ne' | 'sw' | 'se'; cx: number; cy: number }> = [
       { id: 'nw', cx: layer.x, cy: layer.y },
       { id: 'ne', cx: layer.x + layer.width, cy: layer.y },
@@ -264,12 +292,20 @@ export function LayerCanvas({
   // Show overlay only when mouse is over the preview (or actively dragging)
   const showOverlay = isMouseOver || dragState !== null
 
+  // Cursor depends on drag state
+  const svgCursor = dragState
+    ? dragState.type === 'move'
+      ? 'grabbing'
+      : getHandleCursor(dragState.corner!)
+    : undefined
+
   return (
     <svg
       ref={svgRef}
       class={`layer-overlay ${showOverlay ? 'visible' : 'hidden'}`}
       viewBox={`0 0 ${canvasWidth} ${canvasHeight}`}
       preserveAspectRatio="xMidYMid meet"
+      style={svgCursor ? { cursor: svgCursor } : undefined}
       onMouseMove={handleMouseMove as unknown as (e: Event) => void}
       onMouseUp={handleMouseUp}
       onMouseEnter={handleMouseEnter}
@@ -292,7 +328,13 @@ export function LayerCanvas({
               y={layer.y}
               width={layer.width}
               height={layer.height}
+              style={{ cursor: 'grab' }}
               onMouseDown={(e) => handleMouseDown(e as unknown as MouseEvent, index)}
+              onDblClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                onDoubleClick?.(index)
+              }}
               onMouseEnter={() => handleLayerMouseEnter(index)}
               onMouseLeave={handleLayerMouseLeave}
             />

@@ -8,9 +8,13 @@ use axum::{
     response::{Html, IntoResponse, Response},
     Json,
 };
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use crate::document::{Document, ImageResolver};
+use crate::document::{Component, Document, ImageResolver};
+use crate::document::canvas::ElementLayout;
+use crate::ir::{Op, Program};
+use crate::preview::{measure_cursor_y, measure_preview};
 use crate::transport::BluetoothTransport;
 
 use super::super::state::AppState;
@@ -36,6 +40,73 @@ pub async fn preview(
     })?;
 
     Ok(([(header::CONTENT_TYPE, "image/png")], png_bytes))
+}
+
+/// Request body for canvas-layout endpoint.
+#[derive(Deserialize)]
+pub struct CanvasLayoutRequest {
+    document: Vec<Component>,
+    canvas_index: usize,
+    #[serde(default)]
+    cut: bool,
+}
+
+/// Response for canvas-layout: element bounding boxes + document positioning.
+#[derive(Serialize)]
+pub struct CanvasLayoutResponse {
+    pub width: usize,
+    pub height: usize,
+    pub y_offset: usize,
+    pub document_height: usize,
+    pub elements: Vec<ElementLayout>,
+}
+
+/// Handle POST /api/json/canvas-layout - compute element bounding boxes for canvas overlay.
+pub async fn canvas_layout(
+    Json(req): Json<CanvasLayoutRequest>,
+) -> Result<Json<CanvasLayoutResponse>, (StatusCode, String)> {
+    let canvas_component = req.document.get(req.canvas_index).ok_or((
+        StatusCode::BAD_REQUEST,
+        format!("Invalid canvas_index: {}", req.canvas_index),
+    ))?;
+
+    let canvas = match canvas_component {
+        Component::Canvas(c) => c,
+        _ => {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                "Component at canvas_index is not a canvas".to_string(),
+            ))
+        }
+    };
+
+    let layout = canvas.compute_layout();
+
+    // Compute Y offset using cursor position (where the canvas starts in the
+    // preview image), and document height using trimmed buffer height (matching
+    // the actual preview PNG dimensions).
+    let mut prefix_ops = vec![Op::Init, Op::SetCodepage(1)];
+    for comp in &req.document[..req.canvas_index] {
+        comp.emit(&mut prefix_ops);
+    }
+    let y_offset = measure_cursor_y(&Program { ops: prefix_ops }).unwrap_or(0);
+
+    let mut all_ops = vec![Op::Init, Op::SetCodepage(1)];
+    for comp in &req.document {
+        comp.emit(&mut all_ops);
+    }
+    if req.cut {
+        all_ops.push(Op::Cut { partial: true });
+    }
+    let document_height = measure_preview(&Program { ops: all_ops }).unwrap_or(0);
+
+    Ok(Json(CanvasLayoutResponse {
+        width: layout.width,
+        height: layout.height,
+        y_offset,
+        document_height,
+        elements: layout.elements,
+    }))
 }
 
 /// Handle POST /api/json/print - print JSON document to device.

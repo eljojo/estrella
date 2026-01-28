@@ -26,7 +26,7 @@
 pub mod types;
 
 mod barcode;
-mod canvas;
+pub mod canvas;
 mod graphics;
 mod layout;
 mod markdown;

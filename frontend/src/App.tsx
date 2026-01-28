@@ -30,10 +30,16 @@ import {
   editorCanPrint,
   loading as editorLoading,
   triggerEditorPrint,
+  editorCanvasOverlay,
+  editorCanvasElementIndex,
+  handleCanvasOverlaySelect,
+  handleCanvasOverlayUpdate,
+  handleCanvasOverlayDoubleClick,
 } from './components/EditorForm'
 import { PhotoForm, photoPreviewUrl, photoGrayscaleActive, handlePhotoDrop } from './components/PhotoForm'
 import { JsonForm, jsonPreviewUrl, jsonCustomized } from './components/JsonForm'
 import { PrintOptions } from './components/PrintOptions'
+import { LayerCanvas } from './components/LayerCanvas'
 
 export const activeTab = signal<'receipt' | 'patterns' | 'weave' | 'composer' | 'photos' | 'json'>('photos')
 
@@ -144,6 +150,28 @@ export function App() {
               ) : (
                 <div class="preview-placeholder">
                   <div class="preview-placeholder-text">{placeholderText}</div>
+                </div>
+              )}
+              {activeTab.value === 'composer' && editorCanvasOverlay.value && editorCanvasOverlay.value.documentHeight > 0 && (
+                <div
+                  class="canvas-overlay-wrapper"
+                  style={{
+                    position: 'absolute',
+                    left: '5%',
+                    width: '90%',
+                    top: `${(editorCanvasOverlay.value.yOffset / editorCanvasOverlay.value.documentHeight) * 100}%`,
+                    height: `${(editorCanvasOverlay.value.canvasHeight / editorCanvasOverlay.value.documentHeight) * 100}%`,
+                  }}
+                >
+                  <LayerCanvas
+                    layers={editorCanvasOverlay.value.layers}
+                    selectedIndex={editorCanvasElementIndex.value}
+                    canvasWidth={editorCanvasOverlay.value.canvasWidth}
+                    canvasHeight={editorCanvasOverlay.value.canvasHeight}
+                    onSelect={handleCanvasOverlaySelect}
+                    onUpdate={handleCanvasOverlayUpdate}
+                    onDoubleClick={handleCanvasOverlayDoubleClick}
+                  />
                 </div>
               )}
             </div>

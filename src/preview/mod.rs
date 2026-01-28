@@ -612,26 +612,28 @@ impl PreviewRenderer {
         self.state.x = 0;
     }
 
-    /// Convert buffer to PNG bytes.
-    fn to_png(&self) -> Result<Vec<u8>, PreviewError> {
-        use image::ImageEncoder;
-
-        // Trim trailing empty rows
-        let mut actual_height = self.height;
-        while actual_height > 0 {
-            let row_start = (actual_height - 1) * self.paper_width;
+    /// Compute the height after trimming trailing empty rows.
+    fn trimmed_height(&self, min: usize) -> usize {
+        let mut h = self.height;
+        while h > 0 {
+            let row_start = (h - 1) * self.paper_width;
             let row_empty = self.buffer[row_start..row_start + self.paper_width]
                 .iter()
                 .all(|&p| p == 0);
             if row_empty {
-                actual_height -= 1;
+                h -= 1;
             } else {
                 break;
             }
         }
+        h.max(min)
+    }
 
-        // Ensure at least some height
-        actual_height = actual_height.max(10);
+    /// Convert buffer to PNG bytes.
+    fn to_png(&self) -> Result<Vec<u8>, PreviewError> {
+        use image::ImageEncoder;
+
+        let actual_height = self.trimmed_height(10);
 
         let mut img = GrayImage::new(self.paper_width as u32, actual_height as u32);
 
@@ -665,6 +667,32 @@ pub fn render_preview(program: &Program) -> Result<Vec<u8>, PreviewError> {
     renderer.render(program)
 }
 
+/// Measure the rendered height of a program using TSP650II preview parameters.
+///
+/// Returns the same height that `to_preview_png()` would produce, without
+/// generating the PNG. Useful for computing the total preview image height.
+pub fn measure_preview(program: &Program) -> Result<usize, PreviewError> {
+    let mut renderer = PreviewRenderer::tsp650ii();
+    for op in &program.ops {
+        renderer.process_op(op)?;
+    }
+    Ok(renderer.trimmed_height(10))
+}
+
+/// Measure the Y cursor position after processing a program with TSP650II
+/// preview parameters.
+///
+/// Returns the pixel Y offset where the next component would be rendered.
+/// Unlike `measure_preview`, this returns the cursor position (not the trimmed
+/// buffer height), so it correctly accounts for whitespace/spacers.
+pub fn measure_cursor_y(program: &Program) -> Result<usize, PreviewError> {
+    let mut renderer = PreviewRenderer::tsp650ii();
+    for op in &program.ops {
+        renderer.process_op(op)?;
+    }
+    Ok(renderer.state.y)
+}
+
 /// Raw raster output for printing.
 pub struct RawRaster {
     /// Width in pixels (576 for TSP650II)
@@ -691,22 +719,7 @@ pub fn render_raw(program: &Program) -> Result<RawRaster, PreviewError> {
         renderer.process_op(op)?;
     }
 
-    // Trim trailing empty rows
-    let mut actual_height = renderer.height;
-    while actual_height > 0 {
-        let row_start = (actual_height - 1) * renderer.paper_width;
-        let row_empty = renderer.buffer[row_start..row_start + renderer.paper_width]
-            .iter()
-            .all(|&p| p == 0);
-        if row_empty {
-            actual_height -= 1;
-        } else {
-            break;
-        }
-    }
-
-    // Ensure at least some height
-    actual_height = actual_height.max(1);
+    let actual_height = renderer.trimmed_height(1);
 
     // Pack into 1-bit format
     let width = renderer.paper_width;

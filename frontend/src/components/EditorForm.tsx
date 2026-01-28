@@ -1,6 +1,7 @@
 import { signal, effect, computed } from '@preact/signals'
 import { useEffect } from 'preact/hooks'
-import { fetchJsonPreview, printJson } from '../api'
+import { fetchJsonPreview, fetchCanvasLayout, printJson } from '../api'
+import type { OverlayLayer } from './LayerCanvas'
 import {
   ComponentEditor,
   COMPONENT_TYPES,
@@ -31,6 +32,16 @@ export const editorPreviewUrl = signal<string>('')
 export const editorCustomized = computed(() => editorComponents.value.length > 0)
 export const editorCanPrint = computed(() => editorComponents.value.length > 0 && !loading.value)
 
+// Canvas overlay state (for interactive element manipulation)
+export const editorCanvasOverlay = signal<{
+  layers: OverlayLayer[]
+  canvasWidth: number
+  canvasHeight: number
+  yOffset: number
+  documentHeight: number
+} | null>(null)
+export const editorCanvasElementIndex = signal<number | null>(null)
+
 // Build document JSON from current state
 function buildDocumentJson(): string {
   return JSON.stringify({
@@ -39,8 +50,10 @@ function buildDocumentJson(): string {
   })
 }
 
-// Debounced preview refresh
+// Throttled preview refresh (fires every 500ms during continuous changes, not just after idle)
 let previewTimeout: number | null = null
+let lastPreviewTime = 0
+const PREVIEW_THROTTLE = 500
 
 effect(() => {
   const components = editorComponents.value
@@ -53,7 +66,11 @@ effect(() => {
     return
   }
 
+  const elapsed = Date.now() - lastPreviewTime
+  const delay = elapsed >= PREVIEW_THROTTLE ? 0 : PREVIEW_THROTTLE - elapsed
+
   previewTimeout = window.setTimeout(async () => {
+    lastPreviewTime = Date.now()
     try {
       const url = await fetchJsonPreview(buildDocumentJson())
       const prev = editorPreviewUrl.value
@@ -62,8 +79,102 @@ effect(() => {
     } catch (err) {
       console.error('Preview error:', err)
     }
-  }, 300)
+  }, delay)
 })
+
+// Throttled canvas overlay layout fetch (fires every 500ms during continuous changes)
+let layoutTimeout: number | null = null
+let lastLayoutTime = 0
+
+effect(() => {
+  const components = editorComponents.value
+  const selectedIdx = editorSelectedIndex.value
+  const cutValue = cut.value
+
+  if (layoutTimeout) clearTimeout(layoutTimeout)
+
+  if (selectedIdx === null || !components[selectedIdx] || components[selectedIdx].type !== 'canvas') {
+    editorCanvasOverlay.value = null
+    editorCanvasElementIndex.value = null
+    return
+  }
+
+  const elapsed = Date.now() - lastLayoutTime
+  const delay = elapsed >= PREVIEW_THROTTLE ? 0 : PREVIEW_THROTTLE - elapsed
+
+  layoutTimeout = window.setTimeout(async () => {
+    lastLayoutTime = Date.now()
+    try {
+      const layout = await fetchCanvasLayout(components, selectedIdx, cutValue)
+      editorCanvasOverlay.value = {
+        layers: layout.elements,
+        canvasWidth: layout.width,
+        canvasHeight: layout.height,
+        yOffset: layout.y_offset,
+        documentHeight: layout.document_height,
+      }
+    } catch {
+      editorCanvasOverlay.value = null
+    }
+  }, delay)
+})
+
+// Canvas overlay handlers (exported for App.tsx)
+export function handleCanvasOverlaySelect(index: number | null) {
+  editorCanvasElementIndex.value = index
+}
+
+export function handleCanvasOverlayUpdate(elementIndex: number, updates: Partial<OverlayLayer>) {
+  const selectedIdx = editorSelectedIndex.value
+  if (selectedIdx === null) return
+
+  const comp = editorComponents.value[selectedIdx]
+  if (!comp || comp.type !== 'canvas') return
+
+  const elements = [...(comp.elements || [])]
+  const el = { ...elements[elementIndex] }
+  if (!el) return
+
+  // Update position
+  if ('x' in updates || 'y' in updates) {
+    el.position = {
+      x: updates.x ?? el.position?.x ?? 0,
+      y: updates.y ?? el.position?.y ?? 0,
+    }
+  }
+
+  // Map width/height to element-specific size params
+  if ('height' in updates) {
+    switch (el.type) {
+      case 'pattern':
+      case 'canvas':
+        el.height = updates.height
+        break
+    }
+  }
+  if ('width' in updates) {
+    switch (el.type) {
+      case 'image':
+      case 'canvas':
+        el.width = updates.width
+        break
+    }
+  }
+
+  elements[elementIndex] = el
+  updateComponent(selectedIdx, { elements })
+}
+
+export function handleCanvasOverlayDoubleClick(elementIndex: number) {
+  editorCanvasElementIndex.value = elementIndex
+  // Focus content textarea after DOM update
+  setTimeout(() => {
+    const textarea = document.querySelector(
+      '.selected-layer-editor .layer-editor .component-textarea'
+    ) as HTMLTextAreaElement
+    textarea?.focus()
+  }, 50)
+}
 
 // Print handler
 async function handlePrint() {
@@ -244,6 +355,8 @@ export function EditorForm() {
           <ComponentEditor
             component={selectedComponent}
             onUpdate={(updates) => updateComponent(selectedIdx, updates)}
+            canvasElementIndex={selectedComponent?.type === 'canvas' ? editorCanvasElementIndex.value : undefined}
+            onCanvasElementSelect={selectedComponent?.type === 'canvas' ? (i) => { editorCanvasElementIndex.value = i } : undefined}
           />
         </div>
       )}

@@ -3,6 +3,8 @@
 //! Renders elements onto an f32 intensity buffer using the same compositing
 //! model as `render::composer`, then dithers to 1-bit and emits `Op::Raster`.
 
+use serde::Serialize;
+
 use super::types::Canvas;
 use super::Component;
 use crate::ir::{Op, Program};
@@ -13,6 +15,23 @@ use crate::shader::lerp;
 
 use super::graphics::parse_dither_algorithm;
 use super::types::CanvasElement;
+
+/// Bounding box of a rendered canvas element.
+#[derive(Debug, Clone, Serialize)]
+pub struct ElementLayout {
+    pub x: i32,
+    pub y: i32,
+    pub width: usize,
+    pub height: usize,
+}
+
+/// Layout metadata for a canvas: overall dimensions and per-element bounding boxes.
+#[derive(Debug, Clone, Serialize)]
+pub struct CanvasLayout {
+    pub width: usize,
+    pub height: usize,
+    pub elements: Vec<ElementLayout>,
+}
 
 impl Canvas {
     /// Emit IR ops for this canvas component.
@@ -97,6 +116,54 @@ impl Canvas {
         });
     }
 
+    /// Compute the layout of all elements without compositing.
+    ///
+    /// Returns the canvas dimensions and each element's bounding box, using
+    /// the same emit → render_raw → measure pipeline as `emit()`.
+    pub fn compute_layout(&self) -> CanvasLayout {
+        let canvas_width = self.width.unwrap_or(576);
+        let mut layouts = Vec::new();
+        let mut flow_y: i32 = 0;
+
+        for el in &self.elements {
+            if let Some((mut x, mut y, w, h)) = measure_element(el) {
+                if el.position.is_none() {
+                    x = 0;
+                    y = flow_y;
+                    flow_y += h as i32;
+                }
+                layouts.push(ElementLayout {
+                    x,
+                    y,
+                    width: w,
+                    height: h,
+                });
+            } else {
+                // Element produced no output — zero-size placeholder
+                layouts.push(ElementLayout {
+                    x: 0,
+                    y: 0,
+                    width: 0,
+                    height: 0,
+                });
+            }
+        }
+
+        let canvas_height = self.height.unwrap_or_else(|| {
+            layouts
+                .iter()
+                .map(|l| (l.y + l.height as i32).max(0) as usize)
+                .max()
+                .unwrap_or(1)
+        });
+
+        CanvasLayout {
+            width: canvas_width,
+            height: canvas_height,
+            elements: layouts,
+        }
+    }
+
     /// Resolve the dithering algorithm for this canvas.
     fn resolve_dither(&self) -> DitheringAlgorithm {
         let dither_str = self.dither.as_deref().unwrap_or("auto");
@@ -133,6 +200,20 @@ struct RenderedElement {
     intensity: Vec<f32>,
     blend_mode: BlendMode,
     opacity: f32,
+}
+
+/// Measure a single canvas element: emit → render_raw → return (x, y, width, height).
+/// Lightweight version of `render_element` that skips the intensity buffer.
+fn measure_element(element: &CanvasElement) -> Option<(i32, i32, usize, usize)> {
+    let mut sub_ops = Vec::new();
+    element.component.emit(&mut sub_ops);
+    if sub_ops.is_empty() {
+        return None;
+    }
+    let program = Program { ops: sub_ops };
+    let raw = render_raw(&program).ok()?;
+    let (x, y) = element.position.map(|p| (p.x, p.y)).unwrap_or((0, 0));
+    Some((x, y, raw.width, raw.height))
 }
 
 /// Render a single canvas element to an f32 intensity buffer.
