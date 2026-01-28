@@ -448,3 +448,10 @@ transport.send_programs(&programs)?;
 | Band mode alignment | 24-row boundaries |
 
 </details>
+
+## Fonts
+
+The preview renderer embeds bitmap fonts for receipt rendering:
+
+- **[Spleen](https://github.com/fcambus/spleen)** 12×24 — Font A (48 chars/line). Copyright (c) 2018-2024 Frederic Cambus. BSD 2-Clause license.
+- **[UW ttyp0](https://people.mpi-inf.mpg.de/~uwe/misc/uw-ttyp0/)** 9×18 — Font B/C (64 chars/line, scaled vertically to 9×24 / 9×17). Copyright (c) 2012-2015 Uwe Waldmann. ttyp0 license (MIT-like).

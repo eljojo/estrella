@@ -4,7 +4,12 @@
 
 use crate::ir::StyleState;
 use crate::protocol::text::Font;
-use spleen_font::{PSF2Font, FONT_12X24, FONT_6X12};
+use spleen_font::{PSF2Font, FONT_12X24};
+
+/// UW ttyp0 9×18 bitmap font (PSF2 format).
+/// Native 9-pixel width — no horizontal scaling needed for Font B/C.
+/// License: ttyp0 License (MIT-like), Copyright (C) 2012-2015 Uwe Waldmann.
+const TTYP0_9X18: &[u8] = include_bytes!("fonts/t0-9x18.psf");
 
 /// Font dimensions for each font type.
 #[derive(Debug, Clone, Copy)]
@@ -113,8 +118,8 @@ pub fn generate_glyph(font: Font, ch: char) -> Vec<u8> {
 
     // Select appropriate Spleen font based on target font
     // Font A: 12×24 → use Spleen 12x24 directly (exact match)
-    // Font B: 9×24 → use Spleen 6x12 scaled 1.5x ≈ 9×18, then vertically stretched to 24
-    // Font C: 9×17 → use Spleen 6x12 scaled 1.5x ≈ 9×18, then cropped to 17
+    // Font B: 9×24 → use ttyp0 9×18 scaled vertically to 24 (every 3rd row doubled)
+    // Font C: 9×17 → use ttyp0 9×18 cropped to 17 rows
     match font {
         Font::A => {
             // Use Spleen 12x24 directly (exact match)
@@ -138,23 +143,28 @@ pub fn generate_glyph(font: Font, ch: char) -> Vec<u8> {
             }
         }
         Font::B | Font::C => {
-            // Use Spleen 6x12 and scale to target size
-            let mut spleen = PSF2Font::new(FONT_6X12).unwrap();
+            // Use ttyp0 9×18 (native 9-pixel width, no horizontal scaling)
+            let mut ttyp0 = PSF2Font::new(TTYP0_9X18).unwrap();
             let utf8_bytes = ch.to_string();
 
-            if let Some(spleen_glyph) = spleen.glyph_for_utf8(utf8_bytes.as_bytes()) {
-                // Collect the 6x12 bitmap
-                let mut src_bitmap = vec![0u8; 6 * 12];
-                for (row_y, row) in spleen_glyph.enumerate() {
+            if let Some(ttyp0_glyph) = ttyp0.glyph_for_utf8(utf8_bytes.as_bytes()) {
+                // Collect the 9×18 bitmap
+                let mut src_bitmap = vec![0u8; 9 * 18];
+                for (row_y, row) in ttyp0_glyph.enumerate() {
                     for (col_x, on) in row.enumerate() {
-                        if row_y < 12 && col_x < 6 {
-                            src_bitmap[row_y * 6 + col_x] = if on { 1 } else { 0 };
+                        if row_y < 18 && col_x < 9 {
+                            src_bitmap[row_y * 9 + col_x] = if on { 1 } else { 0 };
                         }
                     }
                 }
 
-                // Scale from 6x12 to target size using nearest neighbor
-                scale_bitmap(&src_bitmap, 6, 12, &mut glyph, metrics.char_width, metrics.char_height);
+                if font == Font::B {
+                    // Scale 9×18 → 9×24: duplicate every 3rd row
+                    scale_vertical_18_to_24(&src_bitmap, 9, &mut glyph);
+                } else {
+                    // Font C: 9×17 — crop bottom row from 9×18
+                    glyph[..9 * 17].copy_from_slice(&src_bitmap[..9 * 17]);
+                }
             } else if let Some(fb) = fallback_glyph(ch, metrics.char_width, metrics.char_height) {
                 glyph = fb;
             } else {
@@ -167,24 +177,19 @@ pub fn generate_glyph(font: Font, ch: char) -> Vec<u8> {
     glyph
 }
 
-/// Scale a bitmap from src dimensions to dst dimensions using nearest neighbor.
-fn scale_bitmap(
-    src: &[u8],
-    src_w: usize,
-    src_h: usize,
-    dst: &mut [u8],
-    dst_w: usize,
-    dst_h: usize,
-) {
-    for dy in 0..dst_h {
-        for dx in 0..dst_w {
-            let sx = dx * src_w / dst_w;
-            let sy = dy * src_h / dst_h;
-            let src_idx = sy * src_w + sx;
-            let dst_idx = dy * dst_w + dx;
-            if src_idx < src.len() && dst_idx < dst.len() {
-                dst[dst_idx] = src[src_idx];
-            }
+/// Scale 9×18 → 9×24 by duplicating every 3rd row.
+///
+/// Distributes 6 extra rows evenly: rows 2, 5, 8, 11, 14, 17 get doubled.
+/// No horizontal scaling — preserves native 9-pixel glyph width.
+fn scale_vertical_18_to_24(src: &[u8], width: usize, dst: &mut [u8]) {
+    let mut dst_y = 0;
+    for src_y in 0..18 {
+        let src_row = &src[src_y * width..(src_y + 1) * width];
+        dst[dst_y * width..(dst_y + 1) * width].copy_from_slice(src_row);
+        dst_y += 1;
+        if src_y % 3 == 2 {
+            dst[dst_y * width..(dst_y + 1) * width].copy_from_slice(src_row);
+            dst_y += 1;
         }
     }
 }
