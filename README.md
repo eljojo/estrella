@@ -204,6 +204,22 @@ curl -X POST http://localhost:8080/api/json/print \
 
 The web UI includes a JSON API tab with a live preview editor and a sample daily briefing template.
 
+Canvas components support absolute-positioned compositing with blend modes:
+
+```json
+{
+  "type": "canvas",
+  "height": 100,
+  "elements": [
+    {"type": "pattern", "name": "estrella", "height": 80, "position": {"x": -43, "y": 0}, "blend_mode": "add"},
+    {"type": "text", "content": "Hello World", "center": true, "position": {"x": 7, "y": 16}, "blend_mode": "add"},
+    {"type": "total", "amount": 0, "position": {"x": 0, "y": 34}, "blend_mode": "add"}
+  ]
+}
+```
+
+Elements without `position` stack top-to-bottom (flow mode). Dithering defaults to `"auto"` — Atkinson when continuous-tone content is detected, none otherwise.
+
 **Endpoints:**
 - `POST /api/json/preview` — returns a PNG preview
 - `POST /api/json/print` — sends to printer

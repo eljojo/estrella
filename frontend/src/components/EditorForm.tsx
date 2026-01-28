@@ -9,9 +9,12 @@ import {
   getComponentSummary,
   ensurePatternsFetched,
 } from './ComponentEditor'
+import DEFAULT_JSON from '../../../src/fixtures/canvas-showcase.json?raw'
+
+const defaultDoc = JSON.parse(DEFAULT_JSON)
 
 // Document state
-const editorComponents = signal<any[]>([])
+const editorComponents = signal<any[]>(defaultDoc.document ?? [])
 const editorSelectedIndex = signal<number | null>(null)
 
 // Print options
