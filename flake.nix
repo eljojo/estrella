@@ -60,6 +60,7 @@
           buildPhase = ''
             mkdir -p ../src/fixtures
             cp ${./src/fixtures/morning-briefing.json} ../src/fixtures/morning-briefing.json
+            cp ${./src/fixtures/canvas-showcase.json} ../src/fixtures/canvas-showcase.json
             npm run build
           '';
           installPhase = "cp -r dist $out";
