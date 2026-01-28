@@ -3,7 +3,7 @@
 //! Accepts JSON documents using the unified Document model.
 
 use axum::{
-    extract::State,
+    extract::{Path, State},
     http::{header, StatusCode},
     response::{Html, IntoResponse, Response},
     Json,
@@ -11,7 +11,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use crate::document::{Component, Document, ImageResolver};
+use crate::document::{self, Component, Document, ImageResolver};
 use crate::document::canvas::ElementLayout;
 use crate::ir::{Op, Program};
 use crate::preview::{measure_cursor_y, measure_preview};
@@ -165,4 +165,13 @@ pub async fn print(
         )
             .into_response(),
     }
+}
+
+/// Handle GET /api/json/component/:type/default - return a default component by type name.
+pub async fn component_default(
+    Path(type_name): Path<String>,
+) -> Result<Json<Component>, StatusCode> {
+    document::default_component(&type_name)
+        .map(Json)
+        .ok_or(StatusCode::NOT_FOUND)
 }

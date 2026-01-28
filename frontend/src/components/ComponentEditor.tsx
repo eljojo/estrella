@@ -1,6 +1,6 @@
 import { signal } from '@preact/signals'
 import { useState, useEffect } from 'preact/hooks'
-import { fetchPatterns, fetchParams, fetchRandomParams, ParamSpec } from '../api'
+import { fetchPatterns, fetchParams, fetchRandomParams, fetchDefaultComponent, ParamSpec } from '../api'
 import { ParamInput } from './PatternForm'
 
 // Pattern list (shared across editors)
@@ -18,76 +18,16 @@ export function ensurePatternsFetched() {
   }
 }
 
-// Component type registry
-export const COMPONENT_TYPES = [
-  { type: 'text', label: 'Text' },
-  { type: 'header', label: 'Header' },
-  { type: 'banner', label: 'Banner' },
-  { type: 'divider', label: 'Divider' },
-  { type: 'spacer', label: 'Spacer' },
-  { type: 'blank_line', label: 'Blank Line' },
-  { type: 'columns', label: 'Columns' },
-  { type: 'line_item', label: 'Line Item' },
-  { type: 'total', label: 'Total' },
-  { type: 'table', label: 'Table' },
-  { type: 'markdown', label: 'Markdown' },
-  { type: 'chart', label: 'Chart' },
-  { type: 'qr_code', label: 'QR Code' },
-  { type: 'pdf417', label: 'PDF417' },
-  { type: 'barcode', label: 'Barcode' },
-  { type: 'pattern', label: 'Pattern' },
-  { type: 'image', label: 'Image' },
-  { type: 'canvas', label: 'Canvas' },
-  { type: 'nv_logo', label: 'NV Logo' },
-] as const
+// Component type registry — injected by the backend into index.html
+export const COMPONENT_TYPES: ReadonlyArray<{ type: string; label: string }> =
+  (window as any).__COMPONENT_TYPES ?? []
 
 export function getComponentLabel(type: string): string {
   return COMPONENT_TYPES.find((t) => t.type === type)?.label || type
 }
 
-export function createDefaultComponent(type: string): any {
-  switch (type) {
-    case 'text':
-      return { type: 'text', content: 'Hello World' }
-    case 'header':
-      return { type: 'header', content: 'HEADER' }
-    case 'banner':
-      return { type: 'banner', content: 'BANNER', border: 'single', size: 2 }
-    case 'divider':
-      return { type: 'divider' }
-    case 'spacer':
-      return { type: 'spacer', mm: 2.0 }
-    case 'blank_line':
-      return { type: 'blank_line' }
-    case 'columns':
-      return { type: 'columns', left: 'Left', right: 'Right' }
-    case 'line_item':
-      return { type: 'line_item', name: 'Item', price: 0 }
-    case 'total':
-      return { type: 'total', amount: 0 }
-    case 'table':
-      return { type: 'table', headers: ['Col 1', 'Col 2'], rows: [['A', 'B']], border: 'single' }
-    case 'markdown':
-      return { type: 'markdown', content: '## Heading\n\nParagraph text.' }
-    case 'chart':
-      return { type: 'chart', style: 'bar', labels: ['A', 'B', 'C'], values: [1, 2, 3], height: 100 }
-    case 'qr_code':
-      return { type: 'qr_code', data: 'https://example.com' }
-    case 'pdf417':
-      return { type: 'pdf417', data: 'PDF417-DATA' }
-    case 'barcode':
-      return { type: 'barcode', format: 'code128', data: 'ABC-123', height: 60 }
-    case 'pattern':
-      return { type: 'pattern', name: 'estrella', height: 80 }
-    case 'image':
-      return { type: 'image', url: '' }
-    case 'canvas':
-      return { type: 'canvas', height: 100, elements: [] }
-    case 'nv_logo':
-      return { type: 'nv_logo', key: 'A1', center: true }
-    default:
-      return { type }
-  }
+export async function createDefaultComponent(type: string): Promise<any> {
+  return fetchDefaultComponent(type)
 }
 
 function truncate(s: string | undefined, max: number): string {
@@ -913,8 +853,9 @@ function CanvasEditor({ comp, onUpdate, expandedElement, onElementSelect }: Edit
     if (expandedIdx === index) setExpandedIdx(null)
   }
 
-  const addElement = (type: string) => {
-    onUpdate({ elements: [...elements, createDefaultComponent(type)] })
+  const addElement = async (type: string) => {
+    const comp = await createDefaultComponent(type)
+    onUpdate({ elements: [...elements, comp] })
   }
 
   const moveElement = (index: number, direction: 'up' | 'down') => {

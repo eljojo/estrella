@@ -2,11 +2,31 @@
 //!
 //! All types derive `Serialize + Deserialize` so the same types work for
 //! both Rust API construction and JSON deserialization.
+//!
+//! Each component implements [`ComponentMeta`] to declare its display label
+//! and editor default. This metadata is used by the web editor and API.
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use crate::render::composer::BlendMode;
+
+/// Metadata that every component struct must provide.
+///
+/// The label and editor default live next to each struct definition,
+/// so adding a new component type is self-contained — implement this
+/// trait and the compiler will guide you to the remaining exhaustive
+/// matches in `Component`.
+pub trait ComponentMeta: Sized {
+    /// Human-readable display label (e.g. "QR Code", "Line Item").
+    fn label() -> &'static str;
+
+    /// Sensible starter value for the web editor.
+    ///
+    /// Distinct from `Default` — editor defaults have example content
+    /// so new components are immediately useful, not empty.
+    fn editor_default() -> Self;
+}
 
 /// Custom deserializer for optional size/scale: accepts a single number (uniform) or [h, w] array.
 pub(crate) fn deserialize_size_or_scale<'de, D>(deserializer: D) -> Result<Option<[u8; 2]>, D::Error>
@@ -136,6 +156,13 @@ impl Default for Text {
     }
 }
 
+impl ComponentMeta for Text {
+    fn label() -> &'static str { "Text" }
+    fn editor_default() -> Self {
+        Self { content: "Hello World".into(), ..Default::default() }
+    }
+}
+
 impl Text {
     pub fn new(content: impl Into<String>) -> Self {
         Self {
@@ -152,6 +179,13 @@ pub struct Header {
     /// "normal" (default, 2x2) or "small" (1x1).
     #[serde(default)]
     pub variant: Option<String>,
+}
+
+impl ComponentMeta for Header {
+    fn label() -> &'static str { "Header" }
+    fn editor_default() -> Self {
+        Self { content: "HEADER".into(), ..Default::default() }
+    }
 }
 
 impl Header {
@@ -243,6 +277,13 @@ impl Default for Banner {
     }
 }
 
+impl ComponentMeta for Banner {
+    fn label() -> &'static str { "Banner" }
+    fn editor_default() -> Self {
+        Self { content: "BANNER".into(), size: 2, ..Default::default() }
+    }
+}
+
 impl Banner {
     pub fn new(content: impl Into<String>) -> Self {
         Self {
@@ -265,6 +306,13 @@ pub struct LineItem {
     pub price: f64,
     #[serde(default)]
     pub width: Option<usize>,
+}
+
+impl ComponentMeta for LineItem {
+    fn label() -> &'static str { "Line Item" }
+    fn editor_default() -> Self {
+        Self { name: "Item".into(), ..Default::default() }
+    }
 }
 
 impl LineItem {
@@ -290,6 +338,11 @@ pub struct Total {
     /// "right" (default) or "left".
     #[serde(default)]
     pub align: Option<String>,
+}
+
+impl ComponentMeta for Total {
+    fn label() -> &'static str { "Total" }
+    fn editor_default() -> Self { Self::default() }
 }
 
 impl Total {
@@ -343,6 +396,11 @@ impl Default for Divider {
     }
 }
 
+impl ComponentMeta for Divider {
+    fn label() -> &'static str { "Divider" }
+    fn editor_default() -> Self { Self::default() }
+}
+
 /// Vertical spacer.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Spacer {
@@ -355,6 +413,13 @@ pub struct Spacer {
     /// Space in raw 1/4mm units.
     #[serde(default)]
     pub units: Option<u8>,
+}
+
+impl ComponentMeta for Spacer {
+    fn label() -> &'static str { "Spacer" }
+    fn editor_default() -> Self {
+        Self { mm: Some(2.0), ..Default::default() }
+    }
 }
 
 impl Spacer {
@@ -377,6 +442,11 @@ impl Spacer {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct BlankLine {}
 
+impl ComponentMeta for BlankLine {
+    fn label() -> &'static str { "Blank Line" }
+    fn editor_default() -> Self { Self {} }
+}
+
 /// Two-column layout.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Columns {
@@ -390,6 +460,13 @@ pub struct Columns {
     pub underline: bool,
     #[serde(default)]
     pub invert: bool,
+}
+
+impl ComponentMeta for Columns {
+    fn label() -> &'static str { "Columns" }
+    fn editor_default() -> Self {
+        Self { left: "Left".into(), right: "Right".into(), ..Default::default() }
+    }
 }
 
 impl Columns {
@@ -457,6 +534,17 @@ impl Default for Table {
     }
 }
 
+impl ComponentMeta for Table {
+    fn label() -> &'static str { "Table" }
+    fn editor_default() -> Self {
+        Self {
+            headers: Some(vec!["Col 1".into(), "Col 2".into()]),
+            rows: vec![vec!["A".into(), "B".into()]],
+            ..Default::default()
+        }
+    }
+}
+
 impl Table {
     pub fn new(rows: Vec<Vec<String>>) -> Self {
         Self {
@@ -476,6 +564,13 @@ pub struct Markdown {
     pub content: String,
     #[serde(default)]
     pub show_urls: bool,
+}
+
+impl ComponentMeta for Markdown {
+    fn label() -> &'static str { "Markdown" }
+    fn editor_default() -> Self {
+        Self { content: "## Heading\n\nParagraph text.".into(), ..Default::default() }
+    }
 }
 
 impl Markdown {
@@ -505,6 +600,13 @@ pub struct QrCode {
     pub align: Option<String>,
 }
 
+impl ComponentMeta for QrCode {
+    fn label() -> &'static str { "QR Code" }
+    fn editor_default() -> Self {
+        Self { data: "https://example.com".into(), ..Default::default() }
+    }
+}
+
 impl QrCode {
     pub fn new(data: impl Into<String>) -> Self {
         Self {
@@ -527,6 +629,13 @@ pub struct Pdf417 {
     pub align: Option<String>,
 }
 
+impl ComponentMeta for Pdf417 {
+    fn label() -> &'static str { "PDF417" }
+    fn editor_default() -> Self {
+        Self { data: "PDF417-DATA".into(), ..Default::default() }
+    }
+}
+
 impl Pdf417 {
     pub fn new(data: impl Into<String>) -> Self {
         Self {
@@ -545,6 +654,13 @@ pub struct Barcode {
     pub data: String,
     #[serde(default)]
     pub height: Option<u8>,
+}
+
+impl ComponentMeta for Barcode {
+    fn label() -> &'static str { "Barcode" }
+    fn editor_default() -> Self {
+        Self { format: "code128".into(), data: "ABC-123".into(), height: Some(60) }
+    }
 }
 
 // ============================================================================
@@ -626,9 +742,27 @@ impl Default for Chart {
     }
 }
 
+impl ComponentMeta for Chart {
+    fn label() -> &'static str { "Chart" }
+    fn editor_default() -> Self {
+        Self {
+            style: ChartStyle::Bar,
+            labels: vec!["A".into(), "B".into(), "C".into()],
+            values: vec![1.0, 2.0, 3.0],
+            height: Some(100),
+            ..Default::default()
+        }
+    }
+}
+
 // ============================================================================
 // GRAPHICS COMPONENTS
 // ============================================================================
+
+impl ComponentMeta for Image {
+    fn label() -> &'static str { "Image" }
+    fn editor_default() -> Self { Self::default() }
+}
 
 /// Image from URL (resolved at compile time).
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -659,6 +793,13 @@ pub struct ResolvedImage {
     pub height: u16,
 }
 
+impl ComponentMeta for Pattern {
+    fn label() -> &'static str { "Pattern" }
+    fn editor_default() -> Self {
+        Self { name: "estrella".into(), height: Some(80), ..Default::default() }
+    }
+}
+
 /// Pattern (generative art).
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Pattern {
@@ -671,6 +812,13 @@ pub struct Pattern {
     /// Dithering algorithm: "bayer" (default), "floyd-steinberg", "atkinson", "jarvis", "none".
     #[serde(default)]
     pub dither: Option<String>,
+}
+
+impl ComponentMeta for NvLogo {
+    fn label() -> &'static str { "NV Logo" }
+    fn editor_default() -> Self {
+        Self { key: "A1".into(), center: true, ..Default::default() }
+    }
 }
 
 /// NV (non-volatile) logo stored in printer memory.
@@ -764,6 +912,13 @@ impl Default for Canvas {
             dither: None,
             elements: Vec::new(),
         }
+    }
+}
+
+impl ComponentMeta for Canvas {
+    fn label() -> &'static str { "Canvas" }
+    fn editor_default() -> Self {
+        Self { height: Some(100), ..Default::default() }
     }
 }
 

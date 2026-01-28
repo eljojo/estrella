@@ -309,13 +309,50 @@ impl Document {
     }
 }
 
-/// The unified component enum.
+/// Define the Component enum and all dispatch methods from a single list.
 ///
-/// Each variant corresponds to a document component type. The `#[serde(tag = "type")]`
-/// attribute enables JSON like `{"type": "text", "content": "Hello"}`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
-pub enum Component {
+/// Adding a new component: add one line here, then define the struct in
+/// `types.rs` with `impl ComponentMeta`. That's it.
+macro_rules! define_components {
+    ($($variant:ident($inner:ty)),+ $(,)?) => {
+        /// The unified component enum.
+        ///
+        /// Each variant corresponds to a document component type. The `#[serde(tag = "type")]`
+        /// attribute enables JSON like `{"type": "text", "content": "Hello"}`.
+        #[derive(Debug, Clone, Serialize, Deserialize)]
+        #[serde(tag = "type", rename_all = "snake_case")]
+        pub enum Component {
+            $($variant($inner),)+
+        }
+
+        impl Component {
+            /// Emit IR ops for this component.
+            pub fn emit(&self, ops: &mut Vec<Op>) {
+                match self { $(Component::$variant(c) => c.emit(ops),)+ }
+            }
+
+            /// Interpolate template variables in this component's text fields.
+            pub fn interpolate(&mut self, vars: &HashMap<String, String>) {
+                match self { $(Component::$variant(c) => c.interpolate(vars),)+ }
+            }
+
+            /// Human-readable display label (from [`ComponentMeta::label`]).
+            pub fn label(&self) -> &'static str {
+                match self { $(Component::$variant(_) => <$inner>::label(),)+ }
+            }
+
+            /// Editor defaults for every component type (from [`ComponentMeta::editor_default`]).
+            ///
+            /// Single source of truth — [`component_types`] and [`default_component`]
+            /// both derive from this.
+            pub fn all_editor_defaults() -> Vec<Self> {
+                vec![$(Component::$variant(<$inner>::editor_default()),)+]
+            }
+        }
+    };
+}
+
+define_components! {
     Text(Text),
     Header(Header),
     Banner(Banner),
@@ -337,58 +374,6 @@ pub enum Component {
     Canvas(Canvas),
 }
 
-impl Component {
-    /// Emit IR ops for this component.
-    pub fn emit(&self, ops: &mut Vec<Op>) {
-        match self {
-            Component::Text(c) => c.emit(ops),
-            Component::Header(c) => c.emit(ops),
-            Component::Banner(c) => c.emit(ops),
-            Component::LineItem(c) => c.emit(ops),
-            Component::Total(c) => c.emit(ops),
-            Component::Divider(c) => c.emit(ops),
-            Component::Spacer(c) => c.emit(ops),
-            Component::BlankLine(c) => c.emit(ops),
-            Component::Columns(c) => c.emit(ops),
-            Component::Table(c) => c.emit(ops),
-            Component::Markdown(c) => c.emit(ops),
-            Component::QrCode(c) => c.emit(ops),
-            Component::Pdf417(c) => c.emit(ops),
-            Component::Barcode(c) => c.emit(ops),
-            Component::Image(c) => c.emit(ops),
-            Component::Pattern(c) => c.emit(ops),
-            Component::NvLogo(c) => c.emit(ops),
-            Component::Chart(c) => c.emit(ops),
-            Component::Canvas(c) => c.emit(ops),
-        }
-    }
-
-    /// Interpolate template variables in this component's text fields.
-    pub fn interpolate(&mut self, vars: &HashMap<String, String>) {
-        match self {
-            Component::Text(c) => c.interpolate(vars),
-            Component::Header(c) => c.interpolate(vars),
-            Component::Banner(c) => c.interpolate(vars),
-            Component::LineItem(c) => c.interpolate(vars),
-            Component::Total(c) => c.interpolate(vars),
-            Component::Divider(c) => c.interpolate(vars),
-            Component::Spacer(c) => c.interpolate(vars),
-            Component::BlankLine(c) => c.interpolate(vars),
-            Component::Columns(c) => c.interpolate(vars),
-            Component::Table(c) => c.interpolate(vars),
-            Component::Markdown(c) => c.interpolate(vars),
-            Component::QrCode(c) => c.interpolate(vars),
-            Component::Pdf417(c) => c.interpolate(vars),
-            Component::Barcode(c) => c.interpolate(vars),
-            Component::Image(c) => c.interpolate(vars),
-            Component::Pattern(c) => c.interpolate(vars),
-            Component::NvLogo(c) => c.interpolate(vars),
-            Component::Chart(c) => c.interpolate(vars),
-            Component::Canvas(c) => c.interpolate(vars),
-        }
-    }
-}
-
 /// Generate built-in datetime template variables.
 fn builtin_variables() -> HashMap<String, String> {
     use chrono::Local;
@@ -406,6 +391,47 @@ fn builtin_variables() -> HashMap<String, String> {
     vars.insert("iso_date".into(), now.format("%Y-%m-%d").to_string());      // 2026-01-27
 
     vars
+}
+
+/// Component type metadata for the frontend.
+#[derive(Debug, Clone, Serialize)]
+pub struct ComponentTypeMeta {
+    #[serde(rename = "type")]
+    pub type_name: String,
+    pub label: String,
+}
+
+/// Extract the serde type tag from a Component (the `"type"` field).
+fn serde_type_name(comp: &Component) -> String {
+    serde_json::to_value(comp).unwrap()["type"]
+        .as_str()
+        .unwrap()
+        .to_string()
+}
+
+/// Component type metadata for the frontend.
+///
+/// Derived from [`Component::all_editor_defaults`] — type names come from
+/// serde serialization, labels from [`Component::label`]. Both are
+/// exhaustive matches on the enum, so the compiler catches new variants.
+pub fn component_types() -> Vec<ComponentTypeMeta> {
+    Component::all_editor_defaults()
+        .iter()
+        .map(|c| ComponentTypeMeta {
+            type_name: serde_type_name(c),
+            label: c.label().to_string(),
+        })
+        .collect()
+}
+
+/// Create a component with sensible editor defaults by type name.
+///
+/// Returns `None` for unknown type names. These defaults are tuned for the
+/// web editor — each component is immediately useful when added, not empty.
+pub fn default_component(type_name: &str) -> Option<Component> {
+    Component::all_editor_defaults()
+        .into_iter()
+        .find(|c| serde_type_name(c) == type_name)
 }
 
 #[cfg(test)]
@@ -834,5 +860,30 @@ mod tests {
         ]}"#;
         let doc: Document = serde_json::from_str(json).unwrap();
         assert_eq!(doc.document.len(), 4);
+    }
+
+    #[test]
+    fn test_editor_defaults_complete() {
+        let types = component_types();
+        let defaults = Component::all_editor_defaults();
+
+        // Same count
+        assert_eq!(types.len(), defaults.len());
+
+        // All type names are unique
+        let mut seen = std::collections::HashSet::new();
+        for meta in &types {
+            assert!(seen.insert(&meta.type_name), "Duplicate type: {}", meta.type_name);
+        }
+
+        // Every type name round-trips through default_component
+        for meta in &types {
+            let comp = default_component(&meta.type_name);
+            assert!(comp.is_some(), "No default for type: {}", meta.type_name);
+
+            // Serialized type tag matches
+            let json = serde_json::to_value(comp.unwrap()).unwrap();
+            assert_eq!(json["type"].as_str().unwrap(), meta.type_name);
+        }
     }
 }

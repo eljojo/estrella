@@ -8,12 +8,14 @@ use axum::{
 use include_dir::{include_dir, Dir};
 use std::sync::Arc;
 
+use crate::document;
+
 use super::state::AppState;
 
 /// Embedded frontend distribution files.
 static FRONTEND_DIST: Dir = include_dir!("$CARGO_MANIFEST_DIR/frontend/dist");
 
-/// Serve the index.html file with cache-busting parameter.
+/// Serve the index.html file with cache-busting parameter and injected component types.
 pub async fn index_handler(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     match FRONTEND_DIST.get_file("index.html") {
         Some(file) => {
@@ -23,6 +25,15 @@ pub async fn index_handler(State(state): State<Arc<AppState>>) -> impl IntoRespo
             let busted = contents
                 .replace(".js\"", &format!(".js{}\"", cache_bust))
                 .replace(".css\"", &format!(".css{}\"", cache_bust));
+
+            // Inject component types as static data (avoids an API round-trip)
+            let types_json = serde_json::to_string(&document::component_types()).unwrap();
+            let script = format!(
+                "<script>window.__COMPONENT_TYPES={}</script></head>",
+                types_json
+            );
+            let busted = busted.replace("</head>", &script);
+
             Html(busted).into_response()
         }
         None => (StatusCode::NOT_FOUND, "Frontend not built").into_response(),

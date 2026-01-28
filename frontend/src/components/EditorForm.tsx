@@ -262,8 +262,8 @@ export function triggerEditorPrint() {
 }
 
 // Component operations
-function addComponent(type: string) {
-  const comp = createDefaultComponent(type)
+async function addComponent(type: string) {
+  const comp = await createDefaultComponent(type)
   editorComponents.value = [...editorComponents.value, comp]
   editorSelectedIndex.value = editorComponents.value.length - 1
 }

@@ -123,6 +123,15 @@ export async function fetchReceiptPreview(
   return URL.createObjectURL(blob)
 }
 
+// ===== Component Defaults =====
+
+/// Fetch a default component by type name from the backend.
+export async function fetchDefaultComponent(type: string): Promise<any> {
+  const response = await fetch(`/api/json/component/${type}/default`)
+  if (!response.ok) throw new Error(`Unknown component type: ${type}`)
+  return response.json()
+}
+
 // ===== JSON API =====
 
 /// Fetch JSON API preview as a blob URL.
