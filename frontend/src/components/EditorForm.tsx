@@ -35,12 +35,23 @@ export const editorCanPrint = computed(() => editorComponents.value.length > 0 &
 // Canvas overlay state (for interactive element manipulation)
 export const editorCanvasOverlay = signal<{
   layers: OverlayLayer[]
+  offsets: Array<{ x: number; y: number }>
+  fullSizes: Array<{ width: number; height: number }>
   canvasWidth: number
   canvasHeight: number
   yOffset: number
   documentHeight: number
 } | null>(null)
 export const editorCanvasElementIndex = signal<number | null>(null)
+
+// Snapshot of element state at drag start (frozen reference for resize computation)
+const canvasDragSnapshot = signal<{
+  elementIndex: number
+  elHeight: number | undefined
+  elWidth: number | undefined
+  contentHeight: number
+  contentWidth: number
+} | null>(null)
 
 // Build document JSON from current state
 function buildDocumentJson(): string {
@@ -90,6 +101,7 @@ effect(() => {
   const components = editorComponents.value
   const selectedIdx = editorSelectedIndex.value
   const cutValue = cut.value
+  const dragging = canvasDragSnapshot.value
 
   if (layoutTimeout) clearTimeout(layoutTimeout)
 
@@ -98,6 +110,9 @@ effect(() => {
     editorCanvasElementIndex.value = null
     return
   }
+
+  // Freeze overlay during drag to prevent handle jumps and stale-reference bugs
+  if (dragging) return
 
   const elapsed = Date.now() - lastLayoutTime
   const delay = elapsed >= PREVIEW_THROTTLE ? 0 : PREVIEW_THROTTLE - elapsed
@@ -108,6 +123,8 @@ effect(() => {
       const layout = await fetchCanvasLayout(components, selectedIdx, cutValue)
       editorCanvasOverlay.value = {
         layers: layout.elements,
+        offsets: layout.elements.map(e => ({ x: e.content_offset_x, y: e.content_offset_y })),
+        fullSizes: layout.elements.map(e => ({ width: e.full_width, height: e.full_height })),
         canvasWidth: layout.width,
         canvasHeight: layout.height,
         yOffset: layout.y_offset,
@@ -124,6 +141,30 @@ export function handleCanvasOverlaySelect(index: number | null) {
   editorCanvasElementIndex.value = index
 }
 
+export function handleCanvasOverlayDragStart(elementIndex: number) {
+  const selectedIdx = editorSelectedIndex.value
+  if (selectedIdx === null) return
+  const comp = editorComponents.value[selectedIdx]
+  if (!comp || comp.type !== 'canvas') return
+
+  const el = comp.elements?.[elementIndex]
+  const overlay = editorCanvasOverlay.value
+  const layer = overlay?.layers?.[elementIndex]
+  if (!el || !layer) return
+
+  canvasDragSnapshot.value = {
+    elementIndex,
+    elHeight: el.height,
+    elWidth: el.width,
+    contentHeight: layer.height,
+    contentWidth: layer.width,
+  }
+}
+
+export function handleCanvasOverlayDragEnd() {
+  canvasDragSnapshot.value = null
+}
+
 export function handleCanvasOverlayUpdate(elementIndex: number, updates: Partial<OverlayLayer>) {
   const selectedIdx = editorSelectedIndex.value
   if (selectedIdx === null) return
@@ -135,28 +176,44 @@ export function handleCanvasOverlayUpdate(elementIndex: number, updates: Partial
   const el = { ...elements[elementIndex] }
   if (!el) return
 
-  // Update position
+  // Get content offset for position mapping
+  const overlay = editorCanvasOverlay.value
+  const offset = overlay?.offsets?.[elementIndex] ?? { x: 0, y: 0 }
+  const currentLayer = overlay?.layers?.[elementIndex]
+
+  // Use drag snapshot for stable resize base (frozen at drag start)
+  const snapshot = canvasDragSnapshot.value
+
+  // Update position: subtract content offset to get element position
   if ('x' in updates || 'y' in updates) {
     el.position = {
-      x: updates.x ?? el.position?.x ?? 0,
-      y: updates.y ?? el.position?.y ?? 0,
+      x: (updates.x ?? currentLayer?.x ?? 0) - offset.x,
+      y: (updates.y ?? currentLayer?.y ?? 0) - offset.y,
     }
   }
 
-  // Map width/height to element-specific size params
+  // Resize: use snapshot for stable base values.
+  // new_el_height = el_height_at_drag_start + (new_content_height - content_height_at_drag_start)
+  // Both base values are frozen at drag start, so no accumulation or mid-drag drift.
   if ('height' in updates) {
+    const baseHeight = snapshot?.elHeight ?? overlay?.fullSizes?.[elementIndex]?.height ?? 0
+    const baseContentHeight = snapshot?.contentHeight ?? currentLayer?.height ?? 0
+    const newElementHeight = baseHeight + ((updates.height ?? 0) - baseContentHeight)
     switch (el.type) {
       case 'pattern':
       case 'canvas':
-        el.height = updates.height
+        el.height = newElementHeight
         break
     }
   }
   if ('width' in updates) {
+    const baseWidth = snapshot?.elWidth ?? overlay?.fullSizes?.[elementIndex]?.width ?? 0
+    const baseContentWidth = snapshot?.contentWidth ?? currentLayer?.width ?? 0
+    const newElementWidth = baseWidth + ((updates.width ?? 0) - baseContentWidth)
     switch (el.type) {
       case 'image':
       case 'canvas':
-        el.width = updates.width
+        el.width = newElementWidth
         break
     }
   }

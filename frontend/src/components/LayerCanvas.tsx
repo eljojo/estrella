@@ -15,6 +15,8 @@ interface LayerCanvasProps {
   onSelect: (index: number | null) => void
   onUpdate: (index: number, updates: Partial<OverlayLayer>) => void
   onDoubleClick?: (index: number) => void
+  onDragStart?: (elementIndex: number) => void
+  onDragEnd?: () => void
 }
 
 type DragState = {
@@ -37,6 +39,8 @@ export function LayerCanvas({
   onSelect,
   onUpdate,
   onDoubleClick,
+  onDragStart,
+  onDragEnd,
 }: LayerCanvasProps) {
   const svgRef = useRef<SVGSVGElement>(null)
   const [dragState, setDragState] = useState<DragState>(null)
@@ -95,6 +99,8 @@ export function LayerCanvas({
     const layer = layers[layerIndex]
     onSelect(layerIndex)
 
+    onDragStart?.(layerIndex)
+
     setDragState({
       type: corner ? 'resize' : 'move',
       layerIndex,
@@ -103,7 +109,7 @@ export function LayerCanvas({
       startY: point.y,
       startLayer: { ...layer },
     })
-  }, [layers, getSvgPoint, onSelect])
+  }, [layers, getSvgPoint, onSelect, onDragStart])
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!dragState) return
@@ -206,9 +212,10 @@ export function LayerCanvas({
   const handleMouseUp = useCallback(() => {
     if (dragState) {
       justDraggedRef.current = true
+      onDragEnd?.()
     }
     setDragState(null)
-  }, [dragState])
+  }, [dragState, onDragEnd])
 
   const handleMouseEnter = useCallback(() => {
     setIsMouseOver(true)

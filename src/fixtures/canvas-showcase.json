@@ -2,7 +2,7 @@
   "document": [
     {
       "type": "text",
-      "content": "Hello World",
+      "content": "Hello {{time}}",
       "bold": true,
       "size": 3
     },
@@ -13,17 +13,12 @@
       "size": 2
     },
     {
-      "type": "pattern",
-      "name": "flowfield",
-      "height": 150
-    },
-    {
       "type": "canvas",
-      "height": 100,
+      "height": 500,
       "elements": [
         {
           "type": "total",
-          "amount": 0,
+          "amount": 6.7,
           "position": {
             "x": 0,
             "y": 34
@@ -49,6 +44,11 @@
             "y": 0
           },
           "blend_mode": "add"
+        },
+        {
+          "type": "pattern",
+          "name": "flowfield",
+          "height": 150
         }
       ]
     }

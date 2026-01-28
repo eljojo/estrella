@@ -148,7 +148,11 @@ export interface CanvasLayoutResponse {
   height: number
   y_offset: number
   document_height: number
-  elements: Array<{ x: number; y: number; width: number; height: number }>
+  elements: Array<{
+    x: number; y: number; width: number; height: number
+    content_offset_x: number; content_offset_y: number
+    full_width: number; full_height: number
+  }>
 }
 
 /// Fetch canvas layout metadata (element bounding boxes + document positioning).

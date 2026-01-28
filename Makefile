@@ -57,10 +57,10 @@ test:
 test-verbose:
 	nix develop --command cargo test -- --nocapture
 
-# Run frontend e2e tests (requires server running on port 3000)
+# Run frontend e2e tests (auto-starts server on port 8090)
 .PHONY: test-e2e
 test-e2e:
-	cd frontend && npm install --silent && npm run test
+	cd frontend && npm install --silent && npx playwright install --with-deps chromium && npm run test
 
 # Run clippy lints
 .PHONY: lint
@@ -121,7 +121,7 @@ help:
 	@echo "  format-check  Check formatting without changes"
 	@echo "  test          Run all tests (backend + frontend build)"
 	@echo "  test-verbose  Run backend tests with output"
-	@echo "  test-e2e      Run frontend e2e tests (needs server on :3000)"
+	@echo "  test-e2e      Run frontend e2e tests (auto-starts server on :8090)"
 	@echo "  lint          Run clippy lints"
 	@echo "  golden        Regenerate golden test files"
 	@echo "  clean         Clean build artifacts"

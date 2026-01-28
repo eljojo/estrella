@@ -35,6 +35,8 @@ import {
   handleCanvasOverlaySelect,
   handleCanvasOverlayUpdate,
   handleCanvasOverlayDoubleClick,
+  handleCanvasOverlayDragStart,
+  handleCanvasOverlayDragEnd,
 } from './components/EditorForm'
 import { PhotoForm, photoPreviewUrl, photoGrayscaleActive, handlePhotoDrop } from './components/PhotoForm'
 import { JsonForm, jsonPreviewUrl, jsonCustomized } from './components/JsonForm'
@@ -171,6 +173,8 @@ export function App() {
                     onSelect={handleCanvasOverlaySelect}
                     onUpdate={handleCanvasOverlayUpdate}
                     onDoubleClick={handleCanvasOverlayDoubleClick}
+                    onDragStart={handleCanvasOverlayDragStart}
+                    onDragEnd={handleCanvasOverlayDragEnd}
                   />
                 </div>
               )}
