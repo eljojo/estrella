@@ -17,11 +17,29 @@
       "height": 500,
       "elements": [
         {
+          "type": "pattern",
+          "name": "flowfield",
+          "height": 295,
+          "params": {
+            "gamma": "1.20",
+            "noise_scale": "0.0080",
+            "line_freq": "0.15",
+            "octaves": "4",
+            "turbulence": "0.50",
+            "sharpness": "3.5",
+            "seed": "42"
+          },
+          "position": {
+            "x": -3,
+            "y": 181
+          }
+        },
+        {
           "type": "total",
           "amount": 6.7,
           "position": {
-            "x": 0,
-            "y": 34
+            "x": -130,
+            "y": 75
           },
           "blend_mode": "add"
         },
@@ -30,25 +48,32 @@
           "content": "Hello World",
           "center": true,
           "position": {
-            "x": 7,
-            "y": 16
+            "x": -187,
+            "y": 36
           },
           "blend_mode": "add"
         },
         {
           "type": "pattern",
           "name": "estrella",
-          "height": 80,
+          "height": 357,
           "position": {
-            "x": -43,
-            "y": 0
+            "x": -53,
+            "y": 7
           },
-          "blend_mode": "add"
-        },
-        {
-          "type": "pattern",
-          "name": "flowfield",
-          "height": 150
+          "blend_mode": "add",
+          "params": {
+            "inner_ratio": "0.50",
+            "eye_size": "0.12",
+            "center_y": "0.52",
+            "gamma": "1.00",
+            "outline": "0.04",
+            "size": "0.42",
+            "center_x": "0.50",
+            "points": "5",
+            "roundness": "0.75",
+            "show_face": "true"
+          }
         }
       ]
     }

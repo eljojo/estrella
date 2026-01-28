@@ -1,6 +1,7 @@
 import { signal } from '@preact/signals'
-import { useState } from 'preact/hooks'
-import { fetchPatterns } from '../api'
+import { useState, useEffect } from 'preact/hooks'
+import { fetchPatterns, fetchParams, fetchRandomParams, ParamSpec } from '../api'
+import { ParamInput } from './PatternForm'
 
 // Pattern list (shared across editors)
 const patternsList = signal<string[]>([])
@@ -707,6 +708,37 @@ function BarcodeEditor({ comp, onUpdate }: EditorProps) {
 
 function PatternEditor({ comp, onUpdate }: EditorProps) {
   ensurePatternsFetched()
+  const [specs, setSpecs] = useState<ParamSpec[]>([])
+
+  // Fetch param specs when pattern name changes
+  useEffect(() => {
+    if (!comp.name) return
+    fetchParams(comp.name)
+      .then((info) => {
+        setSpecs(info.specs)
+        // Initialize defaults if component has no params yet
+        if (!comp.params || Object.keys(comp.params).length === 0) {
+          onUpdate({ params: info.params })
+        }
+      })
+      .catch(console.error)
+  }, [comp.name])
+
+  const handleParamChange = (name: string, value: string) => {
+    onUpdate({ params: { ...(comp.params || {}), [name]: value } })
+  }
+
+  const handleRandomize = async () => {
+    if (!comp.name) return
+    try {
+      const info = await fetchRandomParams(comp.name)
+      onUpdate({ params: info.params })
+      setSpecs(info.specs)
+    } catch (err) {
+      console.error('Failed to randomize:', err)
+    }
+  }
+
   return (
     <div class="component-editor">
       <div class="editor-row">
@@ -714,7 +746,7 @@ function PatternEditor({ comp, onUpdate }: EditorProps) {
           <label>Pattern</label>
           <select
             value={comp.name || ''}
-            onChange={(e) => onUpdate({ name: (e.target as HTMLSelectElement).value })}
+            onChange={(e) => onUpdate({ name: (e.target as HTMLSelectElement).value, params: {} })}
           >
             {patternsList.value.length === 0 ? (
               <option value={comp.name}>{comp.name}</option>
@@ -736,6 +768,46 @@ function PatternEditor({ comp, onUpdate }: EditorProps) {
             onInput={(e) => onUpdate({ height: parseInt((e.target as HTMLInputElement).value) || 80 })}
           />
         </div>
+        <div class="form-group">
+          <label>Dither</label>
+          <select
+            value={comp.dither || ''}
+            onChange={(e) => onUpdate({ dither: (e.target as HTMLSelectElement).value || undefined })}
+          >
+            <option value="">Default</option>
+            <option value="jarvis">Jarvis</option>
+            <option value="atkinson">Atkinson</option>
+            <option value="bayer">Bayer</option>
+            <option value="floyd-steinberg">Floyd-Steinberg</option>
+          </select>
+        </div>
+      </div>
+
+      {specs.length > 0 && (
+        <div class="form-group">
+          <label>Parameters</label>
+          <div class="params-grid">
+            {specs.map((spec) => (
+              <ParamInput
+                key={spec.name}
+                spec={spec}
+                value={(comp.params || {})[spec.name] || ''}
+                onChange={(v) => handleParamChange(spec.name, v)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div class="button-row">
+        <button
+          type="button"
+          class="button-secondary"
+          onClick={handleRandomize}
+          disabled={!comp.name}
+        >
+          Randomize
+        </button>
       </div>
     </div>
   )
