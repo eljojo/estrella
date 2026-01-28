@@ -1,0 +1,78 @@
+{
+  "document": [
+    {"type": "header", "content": "EMOJI SHOWCASE"},
+    {"type": "divider"},
+
+    {"type": "text", "content": "Faces", "bold": true},
+    {"type": "text", "content": "😃 😁 😆 😅 😉 😍 😋 😜 😏 😒"},
+    {"type": "text", "content": "😌 😔 😵 😢 😭 😱 😖 😣 😞 😓 😡 😠"},
+    {"type": "spacer", "lines": 1},
+
+    {"type": "text", "content": "Hands & People", "bold": true},
+    {"type": "text", "content": "✋ ✌ 👍 ✊ 👊 👂 👀 🏃 🏂 👤 👣"},
+    {"type": "spacer", "lines": 1},
+
+    {"type": "text", "content": "Animals & Nature", "bold": true},
+    {"type": "text", "content": "🐶 🐱 🐴 🐷 🐤 🐧 🐟 🐌"},
+    {"type": "text", "content": "🌸 🌷 🌱 🍀 🍁 🌑 🌓 🌔 🌕 🌙"},
+    {"type": "spacer", "lines": 1},
+
+    {"type": "text", "content": "Weather", "bold": true},
+    {"type": "text", "content": "☀ ☁ 🌀 🌂 ☔ ⚡ ⛄ 💧 🌊"},
+    {"type": "spacer", "lines": 1},
+
+    {"type": "text", "content": "Food & Drink", "bold": true},
+    {"type": "text", "content": "🍌 🍎 🍒 🍞 🍔 🍙 🍜 🎂 🍰"},
+    {"type": "text", "content": "☕ 🍵 🍶 🍷 🍸 🍺 🍴"},
+    {"type": "spacer", "lines": 1},
+
+    {"type": "text", "content": "Sports & Games", "bold": true},
+    {"type": "text", "content": "⚽ ⚾ 🏀 🎾 ⛳ 🎽 🎿 🎮 🎨"},
+    {"type": "text", "content": "♠ ♥ ♦ ♣"},
+    {"type": "spacer", "lines": 1},
+
+    {"type": "text", "content": "Places & Transport", "bold": true},
+    {"type": "text", "content": "🗻 🏠 🏢 🏥 🏦 🏨 🏪"},
+    {"type": "text", "content": "🚃 🚄 🚌 🚗 🚙 🚲 ⛽ ⛵ 🚢 ✈"},
+    {"type": "spacer", "lines": 1},
+
+    {"type": "text", "content": "Objects", "bold": true},
+    {"type": "text", "content": "⏳ ⌚ ⏰ 👓 👕 👟 👠 👑 🎩 💄 💍"},
+    {"type": "text", "content": "🔔 🎵 🎶 🎤 🎧 📱 ☎ 📺 📷 🔍 💡"},
+    {"type": "spacer", "lines": 1},
+
+    {"type": "text", "content": "Hearts & Symbols", "bold": true},
+    {"type": "text", "content": "💌 💓 💕 💔 ❤ 💋 💢 💥 💦 💨 💤"},
+    {"type": "text", "content": "↗ ↘ ↙ ↖ ↕ ↔ ↩"},
+    {"type": "spacer", "lines": 1},
+
+    {"type": "text", "content": "Zodiac", "bold": true},
+    {"type": "text", "content": "♈ ♉ ♊ ♋ ♌ ♍ ♎ ♏ ♐ ♑ ♒ ♓"},
+    {"type": "spacer", "lines": 1},
+
+    {"type": "text", "content": "Signs & Marks", "bold": true},
+    {"type": "text", "content": "‼ ⁉ ❗ © ® ™ ♻"},
+    {"type": "text", "content": "🆑 🆓 🆔 🆕 🆖 🆗 🅿"},
+    {"type": "spacer", "lines": 1},
+
+    {"type": "text", "content": "Keycaps", "bold": true},
+    {"type": "text", "content": "#️⃣ 0️⃣ 1️⃣ 2️⃣ 3️⃣ 4️⃣ 5️⃣ 6️⃣ 7️⃣ 8️⃣ 9️⃣"},
+
+    {"type": "divider", "style": "double"},
+    {"type": "text", "content": "SIZE COMPARISON", "bold": true, "center": true},
+    {"type": "divider"},
+
+    {"type": "text", "content": "Size 0: Hello 😃 World ❤", "size": 0},
+    {"type": "text", "content": "Size 1: Hello 😃 World ❤"},
+    {"type": "text", "content": "Size 2: 😃 ❤ ☀", "size": 2, "center": true},
+    {"type": "text", "content": "Size 3: 😃❤", "size": 3, "center": true},
+
+    {"type": "divider", "style": "double"},
+    {"type": "text", "content": "WITH CUSTOM FONT", "bold": true, "center": true},
+    {"type": "divider"},
+
+    {"type": "text", "content": "IBM Plex + Emoji: Hello 😃 World ❤", "font": "ibm"},
+    {"type": "text", "content": "Bold IBM: Coffee ☕ Time!", "font": "ibm", "bold": true}
+  ],
+  "cut": true
+}

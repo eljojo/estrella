@@ -183,6 +183,14 @@ fn build_canvas_demo_document() -> Document {
     serde_json::from_str(CANVAS_DEMO_JSON).expect("Invalid canvas-demo fixture JSON")
 }
 
+/// JSON fixture showcasing all supported DoCoMo emoji with normal text.
+const EMOJI_SHOWCASE_JSON: &str = include_str!("../src/fixtures/emoji-showcase.json");
+
+/// Load the emoji-showcase Document from its JSON fixture.
+fn build_emoji_showcase_document() -> Document {
+    serde_json::from_str(EMOJI_SHOWCASE_JSON).expect("Invalid emoji-showcase fixture JSON")
+}
+
 /// Patterns used for dithering algorithm comparison tests
 const DITHER_TEST_PATTERNS: &[&str] = &["plasma", "rings", "ripple", "topography"];
 const DITHER_TEST_HEIGHT: usize = 1200;
@@ -294,6 +302,10 @@ fn generate_golden_files() {
     // Canvas demo: absolute positioning, flow mode, auto-dithering, IBM Plex Sans
     let canvas_demo_program = build_canvas_demo_document().compile();
     write_golden("canvas_demo", "png", &generate_preview_png(&canvas_demo_program));
+
+    // Emoji showcase: all supported DoCoMo emoji with normal text
+    let emoji_showcase_program = build_emoji_showcase_document().compile();
+    write_golden("emoji_showcase", "png", &generate_preview_png(&emoji_showcase_program));
 
     // Dithering algorithm comparison
     // Use 4 patterns (plasma, ring, ripple, topography) to show each algorithm's characteristics
@@ -500,6 +512,14 @@ fn test_preview_canvas_demo() {
     let program = build_canvas_demo_document().compile();
     let png = generate_preview_png(&program);
     check_golden("canvas_demo", "png", &png);
+}
+
+/// Test that the emoji-showcase document matches its golden PNG
+#[test]
+fn test_preview_emoji_showcase() {
+    let program = build_emoji_showcase_document().compile();
+    let png = generate_preview_png(&program);
+    check_golden("emoji_showcase", "png", &png);
 }
 
 /// Test that the raster round-trip produces identical output to text-mode rendering.

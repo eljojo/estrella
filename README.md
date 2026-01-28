@@ -474,3 +474,7 @@ The preview renderer embeds bitmap fonts for receipt rendering:
 - **[Spleen](https://github.com/fcambus/spleen)** 12×24 — Font A (48 chars/line). Copyright (c) 2018-2024 Frederic Cambus. BSD 2-Clause license.
 - **[UW ttyp0](https://people.mpi-inf.mpg.de/~uwe/misc/uw-ttyp0/)** 9×18 — Font B/C (64 chars/line, scaled vertically to 9×24 / 9×17). Copyright (c) 2012-2015 Uwe Waldmann. ttyp0 license (MIT-like).
 - **[IBM Plex Sans](https://github.com/IBM/plex)** — Optional TTF font for Text and Banner components (`"font": "ibm"`). Anti-aliased rendering via `ab_glyph`, dithered to 1-bit. Copyright (c) IBM Corp. Apache 2.0 license.
+
+## Emojis
+
+Emojis obtained from [Emojipedia](https://emojipedia.org/docomo/2006).

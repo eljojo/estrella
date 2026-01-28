@@ -27,11 +27,12 @@
 //! ```
 
 mod barcode;
+pub mod emoji;
 mod font;
 mod text;
 pub mod ttf_font;
 
-pub use font::FontMetrics;
+pub use font::{generate_glyph, FontMetrics};
 
 use crate::ir::{BarcodeKind, Op, Program, StyleState};
 use crate::protocol::barcode::qr::QrErrorLevel;

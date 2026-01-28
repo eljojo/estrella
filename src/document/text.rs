@@ -2,17 +2,31 @@
 
 use super::types::{Header, LineItem, Text, Total};
 use crate::ir::Op;
-use crate::preview::ttf_font;
+use crate::preview::{emoji, generate_glyph, ttf_font, FontMetrics};
 use crate::protocol::text::{Alignment, Font};
 use crate::render::dither;
 
 impl Text {
     /// Emit IR ops for this text component.
     pub fn emit(&self, ops: &mut Vec<Op>) {
+        // Priority 1: Custom font specified → TTF rendering
         if let Some(ref font_name) = self.font {
-            self.emit_with_custom_font(font_name, ops);
+            // With custom font, also handle emoji if present
+            if emoji::contains_emoji(&self.content) {
+                self.emit_with_font_and_emoji(font_name, ops);
+            } else {
+                self.emit_with_custom_font(font_name, ops);
+            }
             return;
         }
+
+        // Priority 2: Contains emoji (no custom font) → bitmap font + emoji sprites
+        if emoji::contains_emoji(&self.content) {
+            self.emit_with_emoji(ops);
+            return;
+        }
+
+        // Default: standard text ops (no graphics rendering)
 
         // Resolve alignment: explicit `align` field > `center` bool > `right` bool
         let alignment = if let Some(ref align) = self.align {
@@ -194,6 +208,351 @@ impl Text {
             data: raster_data,
         });
     }
+
+    /// Emit text with emoji using bitmap fonts (no custom font specified).
+    ///
+    /// Uses the standard bitmap font system (Spleen) for regular characters
+    /// and emoji sprites for supported emoji. Both are 1-bit, so no dithering needed.
+    fn emit_with_emoji(&self, ops: &mut Vec<Op>) {
+        let print_width: usize = 576;
+
+        // Determine font based on size field
+        let [h, _w] = self.size;
+        let font = if h == 0 { Font::B } else { Font::A };
+        let metrics = FontMetrics::for_font(font);
+
+        // Calculate size multiplier for scaling
+        let height_mult = h.max(1) as usize;
+        let char_height = metrics.char_height * height_mult;
+        let char_width = metrics.char_width * height_mult;
+
+        // Parse text into segments (handles both single-char and keycap emoji)
+        let segments = emoji::parse_text(&self.content);
+
+        // First pass: calculate total width and collect glyphs
+        let mut glyphs: Vec<GlyphData> = Vec::new();
+        let mut total_width = 0usize;
+
+        for segment in &segments {
+            match segment {
+                emoji::TextSegment::Emoji(ch) => {
+                    if let Some(sprite) = emoji::get_emoji_bitmap(*ch, char_height) {
+                        glyphs.push(GlyphData::Emoji {
+                            width: sprite.width,
+                            height: sprite.height,
+                            data: sprite.data,
+                        });
+                        total_width += sprite.width;
+                    }
+                }
+                emoji::TextSegment::KeycapEmoji(seq) => {
+                    if let Some(sprite) = emoji::get_keycap_bitmap(seq, char_height) {
+                        glyphs.push(GlyphData::Emoji {
+                            width: sprite.width,
+                            height: sprite.height,
+                            data: sprite.data,
+                        });
+                        total_width += sprite.width;
+                    }
+                }
+                emoji::TextSegment::Text(text) => {
+                    for ch in text.chars() {
+                        let glyph = generate_glyph(font, ch);
+                        glyphs.push(GlyphData::Char {
+                            width: metrics.char_width,
+                            height: metrics.char_height,
+                            data: glyph,
+                            scale: height_mult,
+                        });
+                        total_width += char_width;
+                    }
+                }
+            }
+        }
+
+        if glyphs.is_empty() || total_width == 0 {
+            return;
+        }
+
+        // Handle alignment
+        let x_offset = if self.center || self.align.as_deref() == Some("center") {
+            (print_width.saturating_sub(total_width)) / 2
+        } else if self.right || self.align.as_deref() == Some("right") {
+            print_width.saturating_sub(total_width)
+        } else {
+            0
+        };
+
+        // Create output buffer (1 byte per pixel for now, will pack later)
+        let mut buffer = vec![0u8; print_width * char_height];
+        let mut cursor_x = x_offset;
+
+        // Second pass: render glyphs into buffer
+        for glyph in &glyphs {
+            match glyph {
+                GlyphData::Emoji { width, height, data } => {
+                    // Copy emoji sprite to buffer
+                    for y in 0..*height {
+                        for x in 0..*width {
+                            let src_idx = y * width + x;
+                            let dst_x = cursor_x + x;
+                            let dst_y = y;
+                            if dst_x < print_width && dst_y < char_height {
+                                let dst_idx = dst_y * print_width + dst_x;
+                                if data[src_idx] != 0 {
+                                    buffer[dst_idx] = 1;
+                                }
+                            }
+                        }
+                    }
+                    cursor_x += width;
+                }
+                GlyphData::Char { width, height, data, scale } => {
+                    // Copy scaled character glyph to buffer
+                    for src_y in 0..*height {
+                        for src_x in 0..*width {
+                            let src_idx = src_y * width + src_x;
+                            if data[src_idx] != 0 {
+                                // Scale up the pixel
+                                for dy in 0..*scale {
+                                    for dx in 0..*scale {
+                                        let dst_x = cursor_x + src_x * scale + dx;
+                                        let dst_y = src_y * scale + dy;
+                                        if dst_x < print_width && dst_y < char_height {
+                                            let dst_idx = dst_y * print_width + dst_x;
+                                            buffer[dst_idx] = 1;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    cursor_x += width * scale;
+                }
+            }
+        }
+
+        // Apply bold by duplicating pixels to the right
+        if self.bold {
+            for y in 0..char_height {
+                for x in (1..print_width).rev() {
+                    let idx = y * print_width + x;
+                    let prev_idx = idx - 1;
+                    if buffer[prev_idx] != 0 {
+                        buffer[idx] = 1;
+                    }
+                }
+            }
+        }
+
+        // Pack into 1-bit raster data
+        let width_bytes = print_width.div_ceil(8);
+        let mut raster_data = vec![0u8; width_bytes * char_height];
+
+        for y in 0..char_height {
+            for x in 0..print_width {
+                let src_idx = y * print_width + x;
+                let is_black = buffer[src_idx] != 0;
+
+                // Invert if requested
+                let pixel = if self.invert { !is_black } else { is_black };
+
+                if pixel {
+                    let byte_idx = y * width_bytes + x / 8;
+                    let bit_idx = 7 - (x % 8);
+                    raster_data[byte_idx] |= 1 << bit_idx;
+                }
+            }
+        }
+
+        ops.push(Op::Raster {
+            width: print_width as u16,
+            height: char_height as u16,
+            data: raster_data,
+        });
+    }
+
+    /// Emit text with emoji using TTF fonts (custom font specified).
+    ///
+    /// Uses TTF rendering for regular characters and emoji sprites for emoji.
+    /// Both produce f32 buffers, dithered with Atkinson.
+    fn emit_with_font_and_emoji(&self, font_name: &str, ops: &mut Vec<Op>) {
+        let pixel_height = ttf_font::size_to_pixel_height(self.size);
+        let print_width: usize = 576;
+        let target_height = pixel_height.ceil() as usize;
+
+        // Parse text into segments (handles both single-char and keycap emoji)
+        let parsed_segments = emoji::parse_text(&self.content);
+
+        // Convert to our internal segment format
+        let mut segments: Vec<ContentSegment> = Vec::new();
+        for seg in parsed_segments {
+            match seg {
+                emoji::TextSegment::Text(text) => {
+                    segments.push(ContentSegment::Text(text));
+                }
+                emoji::TextSegment::Emoji(ch) => {
+                    segments.push(ContentSegment::Emoji(ch));
+                }
+                emoji::TextSegment::KeycapEmoji(seq) => {
+                    segments.push(ContentSegment::Keycap(seq));
+                }
+            }
+        }
+
+        // Calculate total width
+        let mut total_width = 0usize;
+        let mut segment_widths: Vec<usize> = Vec::new();
+
+        for segment in &segments {
+            let width = match segment {
+                ContentSegment::Text(text) => {
+                    let rendered = ttf_font::render_ttf_text(
+                        text,
+                        font_name,
+                        self.bold,
+                        pixel_height,
+                        print_width,
+                    );
+                    rendered.width
+                }
+                ContentSegment::Emoji(ch) => {
+                    emoji::get_emoji_grayscale(*ch, target_height)
+                        .map(|s| s.width)
+                        .unwrap_or(0)
+                }
+                ContentSegment::Keycap(seq) => {
+                    emoji::get_keycap_grayscale(seq, target_height)
+                        .map(|s| s.width)
+                        .unwrap_or(0)
+                }
+            };
+            segment_widths.push(width);
+            total_width += width;
+        }
+
+        if total_width == 0 {
+            return;
+        }
+
+        // Handle alignment
+        let x_offset = if self.center || self.align.as_deref() == Some("center") {
+            (print_width.saturating_sub(total_width)) / 2
+        } else if self.right || self.align.as_deref() == Some("right") {
+            print_width.saturating_sub(total_width)
+        } else {
+            0
+        };
+
+        // Create f32 intensity buffer
+        let mut buffer = vec![0.0f32; print_width * target_height];
+        let mut cursor_x = x_offset;
+
+        // Render each segment
+        for (segment, &width) in segments.iter().zip(segment_widths.iter()) {
+            match segment {
+                ContentSegment::Text(text) => {
+                    let rendered = ttf_font::render_ttf_text(
+                        text,
+                        font_name,
+                        self.bold,
+                        pixel_height,
+                        print_width,
+                    );
+                    // Copy rendered text to buffer
+                    for y in 0..rendered.height.min(target_height) {
+                        for x in 0..rendered.width {
+                            let src_idx = y * rendered.width + x;
+                            let dst_x = cursor_x + x;
+                            if dst_x < print_width {
+                                let dst_idx = y * print_width + dst_x;
+                                buffer[dst_idx] = rendered.data.get(src_idx).copied().unwrap_or(0.0);
+                            }
+                        }
+                    }
+                }
+                ContentSegment::Emoji(ch) => {
+                    if let Some(sprite) = emoji::get_emoji_grayscale(*ch, target_height) {
+                        // Copy emoji sprite to buffer
+                        for y in 0..sprite.height.min(target_height) {
+                            for x in 0..sprite.width {
+                                let src_idx = y * sprite.width + x;
+                                let dst_x = cursor_x + x;
+                                if dst_x < print_width {
+                                    let dst_idx = y * print_width + dst_x;
+                                    buffer[dst_idx] = sprite.data.get(src_idx).copied().unwrap_or(0.0);
+                                }
+                            }
+                        }
+                    }
+                }
+                ContentSegment::Keycap(seq) => {
+                    if let Some(sprite) = emoji::get_keycap_grayscale(seq, target_height) {
+                        // Copy keycap emoji sprite to buffer
+                        for y in 0..sprite.height.min(target_height) {
+                            for x in 0..sprite.width {
+                                let src_idx = y * sprite.width + x;
+                                let dst_x = cursor_x + x;
+                                if dst_x < print_width {
+                                    let dst_idx = y * print_width + dst_x;
+                                    buffer[dst_idx] = sprite.data.get(src_idx).copied().unwrap_or(0.0);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            cursor_x += width;
+        }
+
+        // Dither to 1-bit raster
+        let raster_data = dither::generate_raster(
+            print_width,
+            target_height,
+            |x, y, _w, _h| {
+                let idx = y * print_width + x;
+                buffer.get(idx).copied().unwrap_or(0.0)
+            },
+            dither::DitheringAlgorithm::Atkinson,
+        );
+
+        // Handle invert
+        let raster_data = if self.invert {
+            raster_data.iter().map(|b| !b).collect()
+        } else {
+            raster_data
+        };
+
+        ops.push(Op::Raster {
+            width: print_width as u16,
+            height: target_height as u16,
+            data: raster_data,
+        });
+    }
+}
+
+/// Glyph data for compositing text with emoji.
+enum GlyphData {
+    /// Emoji sprite (already at target size).
+    Emoji {
+        width: usize,
+        height: usize,
+        data: Vec<u8>,
+    },
+    /// Character from bitmap font (may need scaling).
+    Char {
+        width: usize,
+        height: usize,
+        data: Vec<u8>,
+        scale: usize,
+    },
+}
+
+/// Content segment for mixed text/emoji rendering.
+enum ContentSegment {
+    Text(String),
+    Emoji(char),
+    Keycap(String),
 }
 
 impl Header {
@@ -511,5 +870,91 @@ mod tests {
         assert!(ops.contains(&Op::SetFont(Font::A)));
         // [3, 1] → ESC i [2, 0] — height expansion only
         assert!(ops.contains(&Op::SetSize { height: 2, width: 0 }));
+    }
+
+    // ============================================================================
+    // EMOJI TESTS
+    // ============================================================================
+
+    #[test]
+    fn test_text_with_emoji_emits_raster() {
+        // Text with emoji should emit Raster op (not Text op)
+        let text = Text {
+            content: "Hello ☀ World".into(),
+            ..Default::default()
+        };
+        let mut ops = Vec::new();
+        text.emit(&mut ops);
+
+        // Should have a Raster op
+        assert!(
+            ops.iter().any(|op| matches!(op, Op::Raster { .. })),
+            "Text with emoji should emit Raster op"
+        );
+        // Should NOT have a Text op (emoji forces graphics mode)
+        assert!(
+            !ops.iter().any(|op| matches!(op, Op::Text(_))),
+            "Text with emoji should not emit Text op"
+        );
+    }
+
+    #[test]
+    fn test_text_without_emoji_emits_text() {
+        // Text without emoji should emit normal Text op
+        let text = Text::new("Hello World");
+        let mut ops = Vec::new();
+        text.emit(&mut ops);
+
+        // Should have a Text op
+        assert!(
+            ops.iter().any(|op| matches!(op, Op::Text(_))),
+            "Text without emoji should emit Text op"
+        );
+        // Should NOT have a Raster op
+        assert!(
+            !ops.iter().any(|op| matches!(op, Op::Raster { .. })),
+            "Text without emoji should not emit Raster op"
+        );
+    }
+
+    #[test]
+    fn test_text_with_emoji_and_custom_font() {
+        // Text with emoji AND custom font should use TTF+emoji path
+        let text = Text {
+            content: "Heart ❤ love".into(),
+            font: Some("ibm".into()),
+            ..Default::default()
+        };
+        let mut ops = Vec::new();
+        text.emit(&mut ops);
+
+        // Should have a Raster op
+        assert!(
+            ops.iter().any(|op| matches!(op, Op::Raster { .. })),
+            "Text with emoji and custom font should emit Raster op"
+        );
+    }
+
+    #[test]
+    fn test_emoji_raster_has_content() {
+        // Verify the raster has actual content (non-zero data)
+        let text = Text {
+            content: "☀".into(),
+            ..Default::default()
+        };
+        let mut ops = Vec::new();
+        text.emit(&mut ops);
+
+        if let Some(Op::Raster { width, height, data }) = ops.iter().find(|op| matches!(op, Op::Raster { .. })) {
+            assert!(*width > 0, "Raster should have non-zero width");
+            assert!(*height > 0, "Raster should have non-zero height");
+            // Should have some black pixels
+            assert!(
+                data.iter().any(|&b| b != 0),
+                "Emoji raster should have some black pixels"
+            );
+        } else {
+            panic!("Expected Raster op");
+        }
     }
 }
