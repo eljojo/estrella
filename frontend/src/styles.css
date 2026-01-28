@@ -857,3 +857,69 @@ button:disabled {
 .resize-handle:hover {
     fill: #667eea;
 }
+
+/* Document Editor Styles */
+.component-editor {
+    padding: 8px 0;
+}
+
+.component-editor .form-group {
+    margin-bottom: 12px;
+}
+
+.component-textarea {
+    min-height: 80px;
+}
+
+.style-toggles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 14px;
+    text-transform: none;
+    letter-spacing: normal;
+}
+
+.toggle-label input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+.editor-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.editor-row .form-group {
+    margin-bottom: 0;
+}
+
+.editor-row input,
+.editor-row select {
+    padding: 8px 12px;
+    font-size: 14px;
+}
+
+.table-row-editor {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.table-row-editor input {
+    flex: 1;
+    padding: 8px 12px;
+    font-size: 14px;
+}

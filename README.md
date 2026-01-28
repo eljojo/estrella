@@ -76,9 +76,9 @@ let json = serde_json::to_string(&doc)?;     // Same type serializes to JSON
 
 | Component | Description |
 |-----------|-------------|
-| `Text` | Styled text (bold, center, invert, size 0–3, etc.) |
+| `Text` | Styled text (bold, center, invert, size 0–3, optional `font: "ibm"`) |
 | `Header` | Pre-styled centered bold header |
-| `Banner` | Framed text with box-drawing borders, auto-sizing |
+| `Banner` | Framed text with box-drawing borders, auto-sizing (optional `font: "ibm"`) |
 | `LineItem` | Left name + right price (e.g., "Coffee" ... "$4.50") |
 | `Total` | Right-aligned total line |
 | `Divider` | Horizontal line (dashed, solid, double, equals) |
@@ -88,6 +88,7 @@ let json = serde_json::to_string(&doc)?;     // Same type serializes to JSON
 | `Markdown` | Rich text from Markdown (headings, bold, lists) |
 | `Image` | Image from URL (downloaded, cached, dithered, auto-centered) |
 | `Pattern` | Generative art pattern with params |
+| `Canvas` | Absolute-positioned raster compositing with blend modes |
 | `QrCode`, `Pdf417`, `Barcode` | 1D and 2D barcodes |
 | `NvLogo` | Logo from printer's flash memory |
 
@@ -214,9 +215,9 @@ Each component in the `"document"` array has a `"type"` field and type-specific 
 
 | Type | Required | Optional (defaults) |
 |------|----------|---------------------|
-| `text` | `content` | `bold`, `underline`, `upperline`, `invert`, `upside_down`, `reduced` (false); `smoothing` (null/auto); `align` ("left"), `center`, `right` (false); `size` (1, default Font A — 0=Font B, 2=double, 3=triple, or `[h,w]`); `scale` (null); `double_width`, `double_height` (false); `inline` (false) |
+| `text` | `content` | `bold`, `underline`, `upperline`, `invert`, `upside_down`, `reduced` (false); `smoothing` (null/auto); `align` ("left"), `center`, `right` (false); `size` (1, default Font A — 0=Font B, 2=double, 3=triple, or `[h,w]`); `scale` (null); `double_width`, `double_height` (false); `inline` (false); `font` (null — set `"ibm"` for IBM Plex Sans) |
 | `header` | `content` | `variant`: "normal" (2x2 centered bold) or "small" (1x1) |
-| `banner` | `content` | `size` (3, max expansion 0–3, auto-cascades width); `border`: "single"/"double"/"heavy"/"shade"/"shadow"; `bold` (true); `padding` (1) |
+| `banner` | `content` | `size` (3, max expansion 0–3, auto-cascades width); `border`: "single"/"double"/"heavy"/"shade"/"shadow"; `bold` (true); `padding` (1); `font` (null — set `"ibm"` for IBM Plex Sans) |
 | `line_item` | `name`, `price` | `width` (48) |
 | `total` | `amount` | `label` ("TOTAL:"), `bold` (true), `double_width` (false), `align` ("right") |
 | `divider` | — | `style`: "dashed" / "solid" / "double" / "equals"; `width` (48) |
@@ -230,6 +231,7 @@ Each component in the `"document"` array has a `"type"` field and type-specific 
 | `barcode` | `format`, `data` | `height` (80); format: "code128" / "code39" / "ean13" / "upca" / "itf" |
 | `image` | `url` | `dither` ("floyd-steinberg"), `width` (576), `height` (null), `align` ("center" — also "left", "right"; only affects images narrower than paper) |
 | `pattern` | `name` | `height` (500), `params` ({}), `dither` ("bayer") |
+| `canvas` | `elements` | `height` (auto), `width` (576), `dither` ("auto" — detects continuous-tone content); each element: `position` ({x, y}), `blend_mode` ("normal"), `opacity` (1.0) + any component fields |
 | `nv_logo` | `key` | `center` (false), `scale` (1), `scale_x` (1), `scale_y` (1) |
 
 **Text `size`** controls both font selection and character expansion using a 1-indexed model:
@@ -455,3 +457,4 @@ The preview renderer embeds bitmap fonts for receipt rendering:
 
 - **[Spleen](https://github.com/fcambus/spleen)** 12×24 — Font A (48 chars/line). Copyright (c) 2018-2024 Frederic Cambus. BSD 2-Clause license.
 - **[UW ttyp0](https://people.mpi-inf.mpg.de/~uwe/misc/uw-ttyp0/)** 9×18 — Font B/C (64 chars/line, scaled vertically to 9×24 / 9×17). Copyright (c) 2012-2015 Uwe Waldmann. ttyp0 license (MIT-like).
+- **[IBM Plex Sans](https://github.com/IBM/plex)** — Optional TTF font for Text and Banner components (`"font": "ibm"`). Anti-aliased rendering via `ab_glyph`, dithered to 1-bit. Copyright (c) IBM Corp. Apache 2.0 license.

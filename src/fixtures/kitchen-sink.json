@@ -51,6 +51,11 @@
     {"type": "chart", "style": "bar", "labels": ["A", "B", "C", "D"], "values": [1, 4, 2, 5], "height": 100, "y_suffix": "u"},
     {"type": "chart", "style": "dot", "labels": ["A", "B", "C", "D"], "values": [1, 4, 2, 5], "height": 100, "y_suffix": "u"},
 
+    {"type": "canvas", "height": 100, "elements": [
+      {"type": "pattern", "name": "estrella", "height": 100, "position": {"x": 0, "y": 0}},
+      {"text": "CANVAS", "bold": true, "invert": true, "center": true, "size": 2, "position": {"x": 0, "y": 30}}
+    ]},
+
     {"type": "pattern", "name": "estrella", "height": 80},
 
     {"type": "qr_code", "data": "https://example.com"},

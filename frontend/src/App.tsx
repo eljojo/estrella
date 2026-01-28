@@ -23,22 +23,14 @@ import {
   weaveHasBlend,
 } from './components/WeaveForm'
 import {
-  ComposerForm,
-  composerPreviewUrl,
-  composerCustomized,
-  cut as composerCut,
-  composerCanPrint,
-  loading as composerLoading,
-  triggerComposerPrint,
-  background as composerBackground,
-  dithering as composerDithering,
-  composerLayers,
-  composerSelectedIndex,
-  composerCanvasHeight,
-  updateComposerLayer,
-  setComposerSelectedIndex,
-} from './components/ComposerForm'
-import { LayerCanvas } from './components/LayerCanvas'
+  EditorForm,
+  editorPreviewUrl,
+  editorCustomized,
+  cut as editorCut,
+  editorCanPrint,
+  loading as editorLoading,
+  triggerEditorPrint,
+} from './components/EditorForm'
 import { PhotoForm, photoPreviewUrl, photoGrayscaleActive, handlePhotoDrop } from './components/PhotoForm'
 import { JsonForm, jsonPreviewUrl, jsonCustomized } from './components/JsonForm'
 import { PrintOptions } from './components/PrintOptions'
@@ -49,7 +41,7 @@ const previewUrls = {
   receipt: () => receiptPreviewUrl.value,
   patterns: () => patternPreviewUrl.value,
   weave: () => weavePreviewUrl.value,
-  composer: () => composerPreviewUrl.value,
+  composer: () => editorPreviewUrl.value,
   photos: () => photoPreviewUrl.value,
   json: () => jsonPreviewUrl.value,
 }
@@ -58,7 +50,7 @@ const placeholderTexts = {
   receipt: 'Start typing to see preview...',
   patterns: 'Select a pattern to see preview...',
   weave: 'Add at least 2 patterns to see preview...',
-  composer: 'Add layers to see preview...',
+  composer: 'Add components to see preview...',
   photos: 'Upload an image to see preview...',
   json: 'Edit JSON to see preview...',
 }
@@ -67,7 +59,7 @@ const grayscaleStates = {
   receipt: () => receiptCustomized.value,
   patterns: () => patternCustomized.value,
   weave: () => weaveHasBlend.value,
-  composer: () => composerCustomized.value,
+  composer: () => editorCustomized.value,
   photos: () => photoGrayscaleActive.value,
   json: () => jsonCustomized.value,
 }
@@ -136,7 +128,7 @@ export function App() {
           ) : activeTab.value === 'weave' ? (
             <WeaveForm />
           ) : activeTab.value === 'composer' ? (
-            <ComposerForm />
+            <EditorForm />
           ) : activeTab.value === 'json' ? (
             <JsonForm />
           ) : (
@@ -148,19 +140,7 @@ export function App() {
           <div class="preview-container">
             <div class="preview-stage">
               {previewUrl ? (
-                <>
-                  <img src={previewUrl} alt="Preview" class="preview-image" />
-                  {activeTab.value === 'composer' && composerLayers.value.length > 0 && (
-                    <LayerCanvas
-                      layers={composerLayers.value}
-                      selectedIndex={composerSelectedIndex.value}
-                      canvasWidth={576}
-                      canvasHeight={composerCanvasHeight.value}
-                      onSelect={setComposerSelectedIndex}
-                      onUpdate={updateComposerLayer}
-                    />
-                  )}
-                </>
+                <img src={previewUrl} alt="Preview" class="preview-image" />
               ) : (
                 <div class="preview-placeholder">
                   <div class="preview-placeholder-text">{placeholderText}</div>
@@ -191,42 +171,14 @@ export function App() {
           )}
           {activeTab.value === 'composer' && (
             <>
-              <PrintOptions cut={composerCut} />
-              <div class="form-group">
-                <label>Background</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.1"
-                  value={composerBackground.value}
-                  onInput={(e) => (composerBackground.value = parseFloat((e.target as HTMLInputElement).value))}
-                />
-                <span class="hint">
-                  {composerBackground.value === 0 ? 'White' : composerBackground.value === 1 ? 'Black' : `${(composerBackground.value * 100).toFixed(0)}% gray`}
-                </span>
-              </div>
-              <div class="form-group">
-                <label>Dithering</label>
-                <select
-                  value={composerDithering.value}
-                  onChange={(e) =>
-                    (composerDithering.value = (e.target as HTMLSelectElement).value as 'bayer' | 'floyd-steinberg' | 'atkinson' | 'jarvis')
-                  }
-                >
-                  <option value="jarvis">Jarvis (smooth)</option>
-                  <option value="atkinson">Atkinson (classic Mac)</option>
-                  <option value="bayer">Bayer (ordered)</option>
-                  <option value="floyd-steinberg">Floyd-Steinberg (diffusion)</option>
-                </select>
-              </div>
+              <PrintOptions cut={editorCut} />
               <button
                 type="button"
                 class="print-button"
-                onClick={() => triggerComposerPrint()}
-                disabled={!composerCanPrint.value || composerLoading.value}
+                onClick={() => triggerEditorPrint()}
+                disabled={!editorCanPrint.value || editorLoading.value}
               >
-                {composerLoading.value ? 'Printing...' : 'Print'}
+                {editorLoading.value ? 'Printing...' : 'Print'}
               </button>
             </>
           )}

@@ -1,0 +1,271 @@
+import { signal, effect, computed } from '@preact/signals'
+import { useEffect } from 'preact/hooks'
+import { fetchJsonPreview, printJson } from '../api'
+import {
+  ComponentEditor,
+  COMPONENT_TYPES,
+  createDefaultComponent,
+  getComponentLabel,
+  getComponentSummary,
+  ensurePatternsFetched,
+} from './ComponentEditor'
+
+// Document state
+const editorComponents = signal<any[]>([])
+const editorSelectedIndex = signal<number | null>(null)
+
+// Print options
+export const cut = signal(true)
+
+// UI state
+const status = signal<{ type: 'success' | 'error'; message: string } | null>(null)
+export const loading = signal(false)
+const showAdvanced = signal(false)
+const jsonError = signal<string | null>(null)
+
+// Exports for App.tsx
+export const editorPreviewUrl = signal<string>('')
+export const editorCustomized = computed(() => editorComponents.value.length > 0)
+export const editorCanPrint = computed(() => editorComponents.value.length > 0 && !loading.value)
+
+// Build document JSON from current state
+function buildDocumentJson(): string {
+  return JSON.stringify({
+    document: editorComponents.value,
+    cut: cut.value,
+  })
+}
+
+// Debounced preview refresh
+let previewTimeout: number | null = null
+
+effect(() => {
+  const components = editorComponents.value
+  void cut.value
+
+  if (previewTimeout) clearTimeout(previewTimeout)
+
+  if (components.length === 0) {
+    editorPreviewUrl.value = ''
+    return
+  }
+
+  previewTimeout = window.setTimeout(async () => {
+    try {
+      const url = await fetchJsonPreview(buildDocumentJson())
+      const prev = editorPreviewUrl.value
+      if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev)
+      editorPreviewUrl.value = url
+    } catch (err) {
+      console.error('Preview error:', err)
+    }
+  }, 300)
+})
+
+// Print handler
+async function handlePrint() {
+  if (editorComponents.value.length === 0) {
+    status.value = { type: 'error', message: 'Add at least one component' }
+    return
+  }
+
+  loading.value = true
+  status.value = null
+
+  try {
+    const result = await printJson(buildDocumentJson())
+    if (result.success) {
+      status.value = { type: 'success', message: result.message || 'Printed!' }
+    } else {
+      status.value = { type: 'error', message: result.error || 'Print failed' }
+    }
+  } catch (err) {
+    status.value = { type: 'error', message: `Error: ${err}` }
+  } finally {
+    loading.value = false
+  }
+}
+
+export function triggerEditorPrint() {
+  return handlePrint()
+}
+
+// Component operations
+function addComponent(type: string) {
+  const comp = createDefaultComponent(type)
+  editorComponents.value = [...editorComponents.value, comp]
+  editorSelectedIndex.value = editorComponents.value.length - 1
+}
+
+function removeComponent(index: number) {
+  const newComps = editorComponents.value.filter((_, i) => i !== index)
+  editorComponents.value = newComps
+
+  const sel = editorSelectedIndex.value
+  if (sel === index) {
+    editorSelectedIndex.value = newComps.length > 0 ? Math.max(0, index - 1) : null
+  } else if (sel !== null && sel > index) {
+    editorSelectedIndex.value = sel - 1
+  }
+}
+
+function moveComponent(index: number, direction: 'up' | 'down') {
+  const newIndex = direction === 'up' ? index - 1 : index + 1
+  if (newIndex < 0 || newIndex >= editorComponents.value.length) return
+
+  const newComps = [...editorComponents.value]
+  ;[newComps[index], newComps[newIndex]] = [newComps[newIndex], newComps[index]]
+  editorComponents.value = newComps
+  editorSelectedIndex.value = newIndex
+}
+
+function updateComponent(index: number, updates: any) {
+  const newComps = [...editorComponents.value]
+  newComps[index] = { ...newComps[index], ...updates }
+  editorComponents.value = newComps
+}
+
+export function EditorForm() {
+  const components = editorComponents.value
+  const selectedIdx = editorSelectedIndex.value
+  const selectedComponent = selectedIdx !== null ? components[selectedIdx] : null
+
+  // Fetch patterns on mount (for pattern/canvas editors)
+  useEffect(() => {
+    ensurePatternsFetched()
+  }, [])
+
+  // JSON sync
+  const handleJsonInput = (text: string) => {
+    try {
+      const doc = JSON.parse(text)
+      if (!Array.isArray(doc.document)) {
+        throw new Error('Missing "document" array')
+      }
+      editorComponents.value = doc.document
+      if (doc.cut !== undefined) cut.value = doc.cut
+      jsonError.value = null
+    } catch (e) {
+      jsonError.value = (e as Error).message
+    }
+  }
+
+  const jsonText = JSON.stringify({ document: components, cut: cut.value }, null, 2)
+
+  return (
+    <div>
+      {status.value && <div class={status.value.type}>{status.value.message}</div>}
+
+      {/* Component List */}
+      <div class="form-group">
+        <label>Components ({components.length})</label>
+        <div class="layers-list">
+          {components.map((comp, index) => (
+            <div
+              key={index}
+              class={`layer-item ${selectedIdx === index ? 'selected' : ''}`}
+              onClick={() => (editorSelectedIndex.value = index)}
+            >
+              <span class="layer-name">
+                {index + 1}. {getComponentLabel(comp.type)}
+              </span>
+              <span class="layer-meta">
+                <span class="layer-blend">{getComponentSummary(comp)}</span>
+              </span>
+              <div class="layer-actions">
+                <button
+                  type="button"
+                  class="icon-btn"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    moveComponent(index, 'up')
+                  }}
+                  disabled={index === 0}
+                  title="Move up"
+                >
+                  &uarr;
+                </button>
+                <button
+                  type="button"
+                  class="icon-btn"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    moveComponent(index, 'down')
+                  }}
+                  disabled={index === components.length - 1}
+                  title="Move down"
+                >
+                  &darr;
+                </button>
+                <button
+                  type="button"
+                  class="icon-btn delete"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    removeComponent(index)
+                  }}
+                  title="Remove"
+                >
+                  &times;
+                </button>
+              </div>
+            </div>
+          ))}
+          <select
+            class="weave-add-select"
+            value=""
+            onChange={(e) => {
+              const type = (e.target as HTMLSelectElement).value
+              if (type) {
+                addComponent(type)
+                ;(e.target as HTMLSelectElement).value = ''
+              }
+            }}
+          >
+            <option value="">+ Add Component</option>
+            {COMPONENT_TYPES.map((t) => (
+              <option key={t.type} value={t.type}>
+                {t.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Selected Component Editor */}
+      {selectedComponent && selectedIdx !== null && (
+        <div class="form-group selected-layer-editor">
+          <label>
+            Edit {getComponentLabel(selectedComponent.type)}: {getComponentSummary(selectedComponent)}
+          </label>
+          <ComponentEditor
+            component={selectedComponent}
+            onUpdate={(updates) => updateComponent(selectedIdx, updates)}
+          />
+        </div>
+      )}
+
+      {/* Advanced JSON Editor */}
+      <details
+        class="advanced-panel"
+        open={showAdvanced.value}
+        onToggle={(e) => (showAdvanced.value = (e.target as HTMLDetailsElement).open)}
+      >
+        <summary>Advanced (JSON)</summary>
+        <div class="json-editor">
+          {jsonError.value && <div class="error">{jsonError.value}</div>}
+          <textarea
+            value={jsonText}
+            onInput={(e) => handleJsonInput((e.target as HTMLTextAreaElement).value)}
+            rows={15}
+            spellcheck={false}
+          />
+          <p class="hint">
+            Edit JSON directly or paste a document to import. Use {'{{'}<em>name</em>{'}}'} in text
+            with a top-level "variables" object.
+          </p>
+        </div>
+      </details>
+    </div>
+  )
+}

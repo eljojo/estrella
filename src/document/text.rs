@@ -2,11 +2,18 @@
 
 use super::types::{Header, LineItem, Text, Total};
 use crate::ir::Op;
+use crate::preview::ttf_font;
 use crate::protocol::text::{Alignment, Font};
+use crate::render::dither;
 
 impl Text {
     /// Emit IR ops for this text component.
     pub fn emit(&self, ops: &mut Vec<Op>) {
+        if let Some(ref font_name) = self.font {
+            self.emit_with_custom_font(font_name, ops);
+            return;
+        }
+
         // Resolve alignment: explicit `align` field > `center` bool > `right` bool
         let alignment = if let Some(ref align) = self.align {
             match align.as_str() {
@@ -130,6 +137,62 @@ impl Text {
             ops.push(Op::SetSmoothing(false));
         }
         // Note: alignment and font are NOT reset - they persist
+    }
+
+    /// Emit text rendered with a custom TTF font as a raster image.
+    fn emit_with_custom_font(&self, font_name: &str, ops: &mut Vec<Op>) {
+        let pixel_height = ttf_font::size_to_pixel_height(self.size);
+        let print_width: usize = 576;
+
+        let rendered = ttf_font::render_ttf_text(
+            &self.content,
+            font_name,
+            self.bold,
+            pixel_height,
+            print_width,
+        );
+
+        if rendered.width == 0 || rendered.height == 0 {
+            return;
+        }
+
+        // Handle alignment: compute x offset within 576 dots
+        let x_offset = if self.center || self.align.as_deref() == Some("center") {
+            (print_width.saturating_sub(rendered.width)) / 2
+        } else if self.right || self.align.as_deref() == Some("right") {
+            print_width.saturating_sub(rendered.width)
+        } else {
+            0
+        };
+
+        // Dither the anti-aliased f32 buffer to 1-bit raster
+        // Place the rendered text at the correct x offset within full print width
+        let raster_data = dither::generate_raster(
+            print_width,
+            rendered.height,
+            |x, y, _w, _h| {
+                let local_x = x as i32 - x_offset as i32;
+                if local_x < 0 || local_x >= rendered.width as i32 {
+                    return 0.0;
+                }
+                let idx = y * rendered.width + local_x as usize;
+                rendered.data.get(idx).copied().unwrap_or(0.0)
+            },
+            dither::DitheringAlgorithm::Atkinson,
+        );
+
+        // Handle invert: flip all bits
+        let raster_data = if self.invert {
+            raster_data.iter().map(|b| !b).collect()
+        } else {
+            raster_data
+        };
+
+        ops.push(Op::Raster {
+            width: print_width as u16,
+            height: rendered.height as u16,
+            data: raster_data,
+        });
     }
 }
 

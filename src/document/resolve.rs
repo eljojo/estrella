@@ -35,22 +35,43 @@ impl ImageResolver {
     ///
     /// Downloads images from URLs (using the cache when possible),
     /// resizes and dithers them, and populates `resolved_data`.
+    /// Recurses into Canvas elements to resolve nested images.
     pub async fn resolve(&self, doc: &mut Document) -> Result<(), EstrellaError> {
         for component in &mut doc.document {
-            if let Component::Image(img) = component {
-                if !img.url.is_empty() && img.resolved_data.is_none() {
-                    let source = fetch_image(&img.url, &self.sessions).await?;
-                    let resolved = process_image(
-                        source,
-                        img.width.unwrap_or(576),
-                        img.height,
-                        img.dither.as_deref(),
-                    );
-                    img.resolved_data = Some(resolved);
-                }
-            }
+            self.resolve_component(component).await?;
         }
         Ok(())
+    }
+
+    /// Recursively resolve images within a single component.
+    fn resolve_component<'a>(
+        &'a self,
+        component: &'a mut Component,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), EstrellaError>> + Send + 'a>>
+    {
+        Box::pin(async move {
+            match component {
+                Component::Image(img) => {
+                    if !img.url.is_empty() && img.resolved_data.is_none() {
+                        let source = fetch_image(&img.url, &self.sessions).await?;
+                        let resolved = process_image(
+                            source,
+                            img.width.unwrap_or(576),
+                            img.height,
+                            img.dither.as_deref(),
+                        );
+                        img.resolved_data = Some(resolved);
+                    }
+                }
+                Component::Canvas(canvas) => {
+                    for element in &mut canvas.elements {
+                        self.resolve_component(&mut element.component).await?;
+                    }
+                }
+                _ => {}
+            }
+            Ok(())
+        })
     }
 }
 

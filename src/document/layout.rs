@@ -3,8 +3,10 @@
 use super::types::{
     Banner, BlankLine, BorderStyle, ColumnAlign, Columns, Divider, DividerStyle, Spacer, Table,
 };
-use crate::ir::Op;
+use crate::ir::{Op, Program};
+use crate::preview::ttf_font;
 use crate::protocol::text::{Alignment, Font};
+use crate::render::dither;
 
 impl Divider {
     /// Emit IR ops for this divider component.
@@ -95,6 +97,11 @@ impl Banner {
     /// Renders a box-drawing frame around the content text, auto-sizing
     /// the width to be as large as possible while fitting the content.
     pub fn emit(&self, ops: &mut Vec<Op>) {
+        if let Some(ref font_name) = self.font {
+            self.emit_with_custom_font(font_name, ops);
+            return;
+        }
+
         let (size, total_width) = Self::fit(self.content.len(), self.size, self.border);
         let [h, w] = size;
         let font = if h == 0 && w == 0 { Font::B } else { Font::A };
@@ -328,6 +335,92 @@ impl Banner {
         if self.bold {
             ops.push(Op::SetBold(false));
         }
+    }
+
+    /// Emit a banner with custom font: render the banner frame using standard
+    /// bitmap path, then composite TTF-rendered text content over the frame.
+    fn emit_with_custom_font(&self, font_name: &str, ops: &mut Vec<Op>) {
+        // Render the banner frame with spaces instead of real text — same length
+        // preserves the fit() result (same expansion, same frame geometry) while
+        // leaving the interior blank for clean TTF compositing.
+        let mut banner_ops = Vec::new();
+        let mut plain_banner = self.clone();
+        plain_banner.font = None;
+        plain_banner.content = " ".repeat(self.content.len());
+        plain_banner.emit(&mut banner_ops);
+
+        if banner_ops.is_empty() {
+            return;
+        }
+
+        // Render the bitmap banner to raw pixels
+        let program = Program { ops: banner_ops };
+        let Ok(raw) = crate::preview::render_raw(&program) else {
+            return;
+        };
+
+        let width = raw.width;
+        let height = raw.height;
+        let width_bytes = width.div_ceil(8);
+
+        // Convert 1-bit banner to f32 intensity buffer
+        let mut buffer = vec![0.0f32; width * height];
+        for y in 0..height {
+            for x in 0..width {
+                let byte_idx = y * width_bytes + x / 8;
+                let bit_idx = 7 - (x % 8);
+                let is_black = (raw.data.get(byte_idx).copied().unwrap_or(0) >> bit_idx) & 1 == 1;
+                if is_black {
+                    buffer[y * width + x] = 1.0;
+                }
+            }
+        }
+
+        // Use the actual fitted size — fit() may cascade width or fall back to Font B
+        let (fitted_size, _) = Self::fit(self.content.len(), self.size, self.border);
+        let pixel_height = ttf_font::size_to_pixel_height(fitted_size);
+        let text_render = ttf_font::render_ttf_text(
+            &self.content,
+            font_name,
+            self.bold,
+            pixel_height,
+            width,
+        );
+
+        // Center the TTF text both horizontally and vertically within the banner
+        let text_x = (width.saturating_sub(text_render.width)) / 2;
+        let text_y = (height.saturating_sub(text_render.height)) / 2;
+
+        // Composite TTF text over the banner (replace the bitmap text region)
+        for ty in 0..text_render.height {
+            for tx in 0..text_render.width {
+                let dst_x = text_x + tx;
+                let dst_y = text_y + ty;
+                if dst_x < width && dst_y < height {
+                    let src_idx = ty * text_render.width + tx;
+                    let coverage = text_render.data.get(src_idx).copied().unwrap_or(0.0);
+                    if coverage > 0.0 {
+                        let dst_idx = dst_y * width + dst_x;
+                        // Overwrite with TTF text (treat as Normal blend)
+                        buffer[dst_idx] = coverage;
+                    }
+                }
+            }
+        }
+
+        // Dither the composite to 1-bit (Atkinson for smooth AA text)
+        let raster_data = dither::generate_raster(
+            width,
+            height,
+            |x, y, _w, _h| buffer[y * width + x],
+            dither::DitheringAlgorithm::Atkinson,
+        );
+
+        ops.push(Op::Raster {
+            width: width as u16,
+            height: height as u16,
+            data: raster_data,
+        });
     }
 
     /// Find the largest size that fits the content.

@@ -31,7 +31,7 @@ export function Tabs() {
         class={`tab ${activeTab.value === 'composer' ? 'active' : ''}`}
         onClick={() => (activeTab.value = 'composer')}
       >
-        Composer
+        Editor
       </button>
       <button
         class={`tab ${activeTab.value === 'json' ? 'active' : ''}`}

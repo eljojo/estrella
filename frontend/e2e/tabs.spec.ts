@@ -24,12 +24,12 @@ test.describe('Tab Navigation', () => {
     await expect(weaveTab).toHaveClass(/active/)
   })
 
-  test('should switch to Composer tab', async ({ page }) => {
-    await page.click('button:has-text("Composer")')
-    const composerTab = page.locator('button.tab:has-text("Composer")')
-    await expect(composerTab).toHaveClass(/active/)
-    // Composer form should be visible
-    await expect(page.locator('label:has-text("Canvas Height")')).toBeVisible()
+  test('should switch to Editor tab', async ({ page }) => {
+    await page.click('button:has-text("Editor")')
+    const editorTab = page.locator('button.tab:has-text("Editor")')
+    await expect(editorTab).toHaveClass(/active/)
+    // Editor form should be visible
+    await expect(page.locator('label:has-text("Components")')).toBeVisible()
   })
 
   test('should switch to Photos tab', async ({ page }) => {
@@ -39,7 +39,7 @@ test.describe('Tab Navigation', () => {
   })
 
   test('all tabs should be clickable', async ({ page }) => {
-    const tabs = ['Receipt', 'Patterns', 'Weave', 'Composer', 'Photos']
+    const tabs = ['Receipt', 'Patterns', 'Weave', 'Editor', 'Photos']
 
     for (const tabName of tabs) {
       await page.click(`button.tab:has-text("${tabName}")`)

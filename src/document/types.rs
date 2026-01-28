@@ -6,6 +6,8 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+use crate::render::composer::BlendMode;
+
 /// Custom deserializer for optional size/scale: accepts a single number (uniform) or [h, w] array.
 pub(crate) fn deserialize_size_or_scale<'de, D>(deserializer: D) -> Result<Option<[u8; 2]>, D::Error>
 where
@@ -105,6 +107,9 @@ pub struct Text {
     /// If true, no trailing newline.
     #[serde(default, rename = "inline")]
     pub is_inline: bool,
+    /// Optional custom font: "ibm" for IBM Plex Sans. When set, text renders as raster.
+    #[serde(default)]
+    pub font: Option<String>,
 }
 
 impl Default for Text {
@@ -126,6 +131,7 @@ impl Default for Text {
             double_width: false,
             double_height: false,
             is_inline: false,
+            font: None,
         }
     }
 }
@@ -219,6 +225,9 @@ pub struct Banner {
     /// Blank lines of padding above and below the content inside the frame. Default: 0.
     #[serde(default = "default_banner_padding")]
     pub padding: u8,
+    /// Optional custom font: "ibm" for IBM Plex Sans. When set, banner renders as raster.
+    #[serde(default)]
+    pub font: Option<String>,
 }
 
 impl Default for Banner {
@@ -229,6 +238,7 @@ impl Default for Banner {
             border: BorderStyle::Single,
             bold: true,
             padding: 0,
+            font: None,
         }
     }
 }
@@ -680,6 +690,84 @@ pub struct NvLogo {
 }
 
 // ============================================================================
+// CANVAS COMPONENT
+// ============================================================================
+
+/// Position for absolute placement of canvas elements.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
+pub struct Position {
+    #[serde(default)]
+    pub x: i32,
+    #[serde(default)]
+    pub y: i32,
+}
+
+fn default_opacity() -> f32 {
+    1.0
+}
+
+/// A canvas element wrapping any Component with positioning and compositing metadata.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CanvasElement {
+    /// The inner component (custom deserialization in mod.rs handles this).
+    pub component: super::Component,
+    /// Absolute position within the canvas. If absent, element flows top-to-bottom.
+    #[serde(default)]
+    pub position: Option<Position>,
+    /// Blend mode for compositing onto the canvas.
+    #[serde(default)]
+    pub blend_mode: BlendMode,
+    /// Opacity (0.0 = transparent, 1.0 = fully opaque).
+    #[serde(default = "default_opacity")]
+    pub opacity: f32,
+}
+
+/// Canvas component: absolute-positioned raster compositing surface.
+///
+/// Renders elements onto a pixel buffer with blend modes, opacity, and
+/// optional dithering. Elements without a `position` flow top-to-bottom.
+///
+/// ## Example (JSON)
+///
+/// ```json
+/// {
+///   "type": "canvas",
+///   "height": 200,
+///   "elements": [
+///     {"type": "pattern", "name": "ripple", "height": 200, "position": {"x": 0, "y": 0}},
+///     {"text": "OVERLAY", "bold": true, "center": true, "size": 2, "position": {"x": 0, "y": 80}}
+///   ]
+/// }
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Canvas {
+    /// Canvas width in dots (default: 576).
+    #[serde(default)]
+    pub width: Option<usize>,
+    /// Canvas height in dots. Auto-detected from elements if absent.
+    #[serde(default)]
+    pub height: Option<usize>,
+    /// Dithering: "auto" (default), "none", "bayer", "atkinson", "floyd-steinberg", "jarvis".
+    /// "auto" uses Atkinson if any element has continuous-tone content, otherwise None.
+    #[serde(default)]
+    pub dither: Option<String>,
+    /// Elements to composite onto the canvas.
+    #[serde(default, deserialize_with = "super::deserialize_canvas_elements")]
+    pub elements: Vec<CanvasElement>,
+}
+
+impl Default for Canvas {
+    fn default() -> Self {
+        Self {
+            width: None,
+            height: None,
+            dither: None,
+            elements: Vec::new(),
+        }
+    }
+}
+
+// ============================================================================
 // HELPER: parse text fields for variable interpolation
 // ============================================================================
 
@@ -804,4 +892,11 @@ impl Interpolatable for Pattern {
 }
 impl Interpolatable for NvLogo {
     fn interpolate(&mut self, _vars: &HashMap<String, String>) {}
+}
+impl Interpolatable for Canvas {
+    fn interpolate(&mut self, vars: &HashMap<String, String>) {
+        for element in &mut self.elements {
+            element.component.interpolate(vars);
+        }
+    }
 }

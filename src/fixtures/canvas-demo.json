@@ -1,0 +1,42 @@
+{
+  "document": [
+    {"type": "header", "content": "CANVAS DEMO"},
+    {"type": "divider"},
+
+    {"type": "canvas", "height": 150, "elements": [
+      {"type": "pattern", "name": "estrella", "height": 150, "position": {"x": 0, "y": 0}},
+      {"text": "OVERLAID", "bold": true, "center": true, "size": 2, "position": {"x": 0, "y": 55}},
+      {"type": "qr_code", "data": "https://example.com", "position": {"x": 400, "y": 10}}
+    ]},
+
+    {"type": "divider", "style": "double"},
+
+    {"type": "canvas", "dither": "none", "elements": [
+      {"text": "Flow item 1", "bold": true},
+      {"type": "divider", "style": "solid"},
+      {"text": "Flow item 2"}
+    ]},
+
+    {"type": "divider", "style": "solid"},
+
+    {"type": "canvas", "height": 120, "elements": [
+      {"type": "banner", "content": "LEFT", "border": "single", "size": 1, "position": {"x": 10, "y": 10}},
+      {"type": "banner", "content": "RIGHT", "border": "double", "size": 1, "position": {"x": 300, "y": 10}}
+    ]},
+
+    {"type": "divider"},
+
+    {"type": "text", "content": "IBM Plex Sans:", "bold": true},
+    {"type": "text", "content": "Hello IBM Plex Sans!", "font": "ibm", "size": 2},
+    {"type": "text", "content": "Small IBM font", "font": "ibm", "size": 0},
+    {"type": "banner", "content": "PLEX BANNER", "font": "ibm", "size": 2},
+
+    {"type": "divider"},
+
+    {"canvas": [
+      {"type": "pattern", "name": "ripple", "height": 80, "position": {"x": 0, "y": 0}},
+      {"text": "SHORTHAND", "bold": true, "invert": true, "center": true, "position": {"x": 0, "y": 25}}
+    ], "height": 80}
+  ],
+  "cut": true
+}

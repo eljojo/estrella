@@ -26,6 +26,7 @@
 pub mod types;
 
 mod barcode;
+mod canvas;
 mod graphics;
 mod layout;
 mod markdown;
@@ -65,6 +66,7 @@ const SHORTHANDS: &[(&str, &str, &str)] = &[
     ("image",     "image",     "url"),
     ("qr_code",   "qr_code",  "data"),
     ("markdown",  "markdown",  "content"),
+    ("canvas",    "canvas",    "elements"),
 ];
 
 /// Rewrite a shorthand JSON object to canonical `{"type": ...}` form.
@@ -116,6 +118,72 @@ where
 
             serde_json::from_value(serde_json::Value::Object(obj)).map_err(|e| {
                 serde::de::Error::custom(format!("document[{}]: {}", i, e))
+            })
+        })
+        .collect()
+}
+
+/// Deserialize a `Vec<CanvasElement>` with shorthand support for the inner component.
+///
+/// Each element is first parsed as raw JSON. Canvas-specific keys (`position`,
+/// `blend_mode`, `opacity`) are extracted, then the remaining object is
+/// deserialized as a `Component` (with shorthand normalization).
+fn deserialize_canvas_elements<'de, D>(deserializer: D) -> Result<Vec<CanvasElement>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use crate::render::composer::BlendMode;
+
+    let values: Vec<serde_json::Value> = Vec::deserialize(deserializer)?;
+    values
+        .into_iter()
+        .enumerate()
+        .map(|(i, v)| {
+            let mut obj = match v {
+                serde_json::Value::Object(map) => map,
+                other => {
+                    return Err(serde::de::Error::custom(format!(
+                        "canvas.elements[{}]: expected object, got {}",
+                        i, other
+                    )))
+                }
+            };
+
+            // Extract canvas-element-specific fields before Component deser
+            let position: Option<Position> = obj
+                .remove("position")
+                .map(|v| serde_json::from_value(v).map_err(serde::de::Error::custom))
+                .transpose()?;
+
+            let blend_mode: BlendMode = obj
+                .remove("blend_mode")
+                .map(|v| serde_json::from_value(v).map_err(serde::de::Error::custom))
+                .transpose()?
+                .unwrap_or_default();
+
+            let opacity: f32 = obj
+                .remove("opacity")
+                .map(|v| serde_json::from_value(v).map_err(serde::de::Error::custom))
+                .transpose()?
+                .unwrap_or(1.0);
+
+            // Normalize shorthand if no "type" key
+            if !obj.contains_key("type") {
+                normalize_shorthand(&mut obj).map_err(|e| {
+                    serde::de::Error::custom(format!("canvas.elements[{}]: {}", i, e))
+                })?;
+            }
+
+            let component: Component =
+                serde_json::from_value(serde_json::Value::Object(obj)).map_err(|e| {
+                    serde::de::Error::custom(format!("canvas.elements[{}]: {}", i, e))
+                })?;
+
+            Ok(CanvasElement {
+                component,
+                position,
+                blend_mode,
+                opacity,
             })
         })
         .collect()
@@ -266,6 +334,7 @@ pub enum Component {
     Pattern(Pattern),
     NvLogo(NvLogo),
     Chart(Chart),
+    Canvas(Canvas),
 }
 
 impl Component {
@@ -290,6 +359,7 @@ impl Component {
             Component::Pattern(c) => c.emit(ops),
             Component::NvLogo(c) => c.emit(ops),
             Component::Chart(c) => c.emit(ops),
+            Component::Canvas(c) => c.emit(ops),
         }
     }
 
@@ -314,6 +384,7 @@ impl Component {
             Component::Pattern(c) => c.interpolate(vars),
             Component::NvLogo(c) => c.interpolate(vars),
             Component::Chart(c) => c.interpolate(vars),
+            Component::Canvas(c) => c.interpolate(vars),
         }
     }
 }

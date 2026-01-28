@@ -29,6 +29,7 @@
 mod barcode;
 mod font;
 mod text;
+pub mod ttf_font;
 
 pub use font::FontMetrics;
 

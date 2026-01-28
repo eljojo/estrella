@@ -174,6 +174,15 @@ fn build_kitchen_sink_document() -> Document {
     serde_json::from_str(KITCHEN_SINK_JSON).expect("Invalid kitchen-sink fixture JSON")
 }
 
+/// JSON fixture exercising canvas features: absolute positioning, flow mode,
+/// auto-dithering, shorthand syntax, and IBM Plex Sans font.
+const CANVAS_DEMO_JSON: &str = include_str!("../src/fixtures/canvas-demo.json");
+
+/// Load the canvas-demo Document from its JSON fixture.
+fn build_canvas_demo_document() -> Document {
+    serde_json::from_str(CANVAS_DEMO_JSON).expect("Invalid canvas-demo fixture JSON")
+}
+
 /// Patterns used for dithering algorithm comparison tests
 const DITHER_TEST_PATTERNS: &[&str] = &["plasma", "rings", "ripple", "topography"];
 const DITHER_TEST_HEIGHT: usize = 1200;
@@ -281,6 +290,10 @@ fn generate_golden_files() {
     // Kitchen sink: every component type and style variant
     let kitchen_sink_program = build_kitchen_sink_document().compile();
     write_golden("kitchen_sink", "png", &generate_preview_png(&kitchen_sink_program));
+
+    // Canvas demo: absolute positioning, flow mode, auto-dithering, IBM Plex Sans
+    let canvas_demo_program = build_canvas_demo_document().compile();
+    write_golden("canvas_demo", "png", &generate_preview_png(&canvas_demo_program));
 
     // Dithering algorithm comparison
     // Use 4 patterns (plasma, ring, ripple, topography) to show each algorithm's characteristics
@@ -479,6 +492,14 @@ fn test_preview_kitchen_sink() {
     let program = build_kitchen_sink_document().compile();
     let png = generate_preview_png(&program);
     check_golden("kitchen_sink", "png", &png);
+}
+
+/// Test that the canvas-demo document matches its golden PNG
+#[test]
+fn test_preview_canvas_demo() {
+    let program = build_canvas_demo_document().compile();
+    let png = generate_preview_png(&program);
+    check_golden("canvas_demo", "png", &png);
 }
 
 /// Test that the raster round-trip produces identical output to text-mode rendering.
