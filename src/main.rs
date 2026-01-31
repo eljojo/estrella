@@ -191,6 +191,14 @@ enum Commands {
         /// RFCOMM channel number (creates /dev/rfcommN)
         #[arg(long, default_value = "0")]
         channel: u8,
+
+        /// Retry interval in seconds if device is not reachable (0 = no retry)
+        #[arg(long, default_value = "5")]
+        retry_interval: u64,
+
+        /// Maximum number of retries (0 = infinite)
+        #[arg(long, default_value = "0")]
+        max_retries: u32,
     },
 }
 
@@ -577,8 +585,8 @@ fn run() -> Result<(), EstrellaError> {
             )?;
         }
 
-        Commands::SetupRfcomm { mac, channel } => {
-            setup_rfcomm_command(&mac, channel)?;
+        Commands::SetupRfcomm { mac, channel, retry_interval, max_retries } => {
+            setup_rfcomm_command(&mac, channel, retry_interval, max_retries)?;
         }
     }
 
@@ -661,8 +669,9 @@ fn print_raw_to_device(device: &str, data: &[u8]) -> Result<(), EstrellaError> {
 }
 
 /// Set up RFCOMM device for a Bluetooth MAC address.
-fn setup_rfcomm_command(mac: &str, channel: u8) -> Result<(), EstrellaError> {
+fn setup_rfcomm_command(mac: &str, channel: u8, retry_interval: u64, max_retries: u32) -> Result<(), EstrellaError> {
     use estrella::transport::bluetooth::{find_rfcomm_for_mac, is_valid_mac, setup_rfcomm};
+    use std::time::Duration;
 
     // Validate MAC format
     if !is_valid_mac(mac) {
@@ -678,10 +687,32 @@ fn setup_rfcomm_command(mac: &str, channel: u8) -> Result<(), EstrellaError> {
         return Ok(());
     }
 
-    // Set up the RFCOMM device
-    let device_path = setup_rfcomm(mac, channel)?;
-    println!("{}", device_path);
-    Ok(())
+    // Retry loop for setup
+    let mut attempts = 0u32;
+    loop {
+        attempts += 1;
+
+        match setup_rfcomm(mac, channel) {
+            Ok(device_path) => {
+                println!("{}", device_path);
+                return Ok(());
+            }
+            Err(e) => {
+                // Check if we should retry
+                let should_retry = retry_interval > 0 && (max_retries == 0 || attempts < max_retries);
+
+                if should_retry {
+                    eprintln!(
+                        "Attempt {} failed: {}. Retrying in {}s...",
+                        attempts, e, retry_interval
+                    );
+                    std::thread::sleep(Duration::from_secs(retry_interval));
+                } else {
+                    return Err(e);
+                }
+            }
+        }
+    }
 }
 
 /// Parse a length string like "15mm" or "62.5mm" and convert to height in dots.
