@@ -1,6 +1,6 @@
 [package]
 name = "estrella"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 description = "Thermal receipt printer library for Star Micronics printers via Bluetooth"
 license = "MIT"

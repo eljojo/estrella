@@ -634,7 +634,7 @@ dependencies = [
 
 [[package]]
 name = "estrella"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "ab_glyph",
  "async-trait",
