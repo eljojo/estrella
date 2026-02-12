@@ -234,9 +234,9 @@ dependencies = [
 
 [[package]]
 name = "awint_core"
-version = "0.11.0"
+version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2785d65c4c05d1c323506e8e8b64f855e99ecfb13e129655bc74a68b41cc6bca"
+checksum = "eb48ec9075a40eaece9dd3add48b2a024530baf2d1e0d2a633de1891d4dc9136"
 dependencies = [
  "awint_internals",
  "const_fn",
@@ -244,9 +244,12 @@ dependencies = [
 
 [[package]]
 name = "awint_internals"
-version = "0.11.0"
+version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f66860693f788a4aa8917c99a37f9b6bb755243e6e7530777abed81a7698894"
+checksum = "026a76ba81e863b761813c98616c2878aa040b01f76dc326b8df7f09b5309a9a"
+dependencies = [
+ "const_fn",
+]
 
 [[package]]
 name = "axum"
@@ -1504,9 +1507,8 @@ checksum = "35fb2e5f958ec131621fdd531e9fc186ed768cbe395337403ae56c17a74c68ec"
 
 [[package]]
 name = "pdf417"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0856ab2592a12298accdee63d4a6149085f4da15dcad92e421ccf3b56ebfe7c3"
+version = "0.3.0"
+source = "git+https://github.com/Sofiman/pdf417#8a59902e831ee69b66f911c332b51a5b3e524384"
 dependencies = [
  "awint_core",
 ]

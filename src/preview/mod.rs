@@ -469,13 +469,13 @@ impl PreviewRenderer {
 
     /// Render a PDF417 barcode.
     fn render_pdf417(&mut self, data: &str, module_width: u8) -> Result<(), PreviewError> {
-        use pdf417::{PDF417, PDF417Encoder, START_PATTERN_LEN, END_PATTERN_LEN};
+        use pdf417::{PDF417, PDF417Encoder, START_PATTERN, END_PATTERN};
 
         // Configuration
         const COLS: u8 = 4;
         const ROWS: u8 = 10;
         // PDF417 width = start(17) + left_row_ind(17) + data_cols*17 + right_row_ind(17) + end(18)
-        const WIDTH: usize = START_PATTERN_LEN as usize + 17 + (COLS as usize * 17) + 17 + END_PATTERN_LEN as usize;
+        const WIDTH: usize = START_PATTERN.size() as usize + 17 + (COLS as usize * 17) + 17 + END_PATTERN.size() as usize;
         const HEIGHT: usize = ROWS as usize;
 
         // Encode the text data
@@ -493,8 +493,13 @@ impl PreviewRenderer {
         };
 
         // Render to bool array
+        let barcode = PDF417::new(filled, ROWS, COLS, level);
         let mut storage = [false; WIDTH * HEIGHT];
-        PDF417::new(filled, ROWS, COLS, level).render(&mut storage[..]);
+        for (i, bit) in barcode.bits().enumerate() {
+            if i < storage.len() {
+                storage[i] = bit;
+            }
+        }
 
         // Scale factors
         let scale_x = module_width.max(2) as usize;
