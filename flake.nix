@@ -92,17 +92,20 @@
         # Use `nix build .#static` on Linux ARM CI runners
         packages.static =
           let
-            staticRustPlatform = pkgs.pkgsStatic.makeRustPlatform {
-              cargo = rustToolchain;
-              rustc = rustToolchain;
-            };
+            muslPkgs = pkgs.pkgsCross.aarch64-multiplatform-musl;
+            muslCC = muslPkgs.stdenv.cc;
           in
-          staticRustPlatform.buildRustPackage {
-            pname = "estrella";
+          rustPlatform.buildRustPackage {
+            pname = "estrella-static";
             version = "0.1.0";
             src = ./.;
             cargoLock.lockFile = ./Cargo.lock;
             buildNoDefaultFeatures = true;
+
+            depsBuildBuild = [ muslCC ];
+
+            CARGO_BUILD_TARGET = "aarch64-unknown-linux-musl";
+            CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER = "${muslCC}/bin/${muslCC.targetPrefix}cc";
 
             preBuild = ''
               mkdir -p frontend/dist
