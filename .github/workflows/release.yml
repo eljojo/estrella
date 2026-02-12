@@ -1,0 +1,147 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-deb:
+    name: Build .deb (arm64)
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Parse version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+
+      - name: Build static binary
+        run: nix build .#static -o result
+
+      - name: Verify binary is static
+        run: |
+          file result/bin/estrella
+          ldd result/bin/estrella 2>&1 && exit 1 || echo "Binary is statically linked"
+
+      - name: Install nfpm
+        run: |
+          NFPM_VERSION=2.41.1
+          curl -sfL "https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${NFPM_VERSION}_arm64.deb" -o nfpm.deb
+          sudo dpkg -i nfpm.deb
+
+      - name: Build .deb package
+        run: |
+          VERSION=${{ steps.version.outputs.version }} nfpm package \
+            --packager deb \
+            --target estrella_${{ steps.version.outputs.version }}_arm64.deb
+
+      - name: Upload .deb artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: deb-package
+          path: estrella_${{ steps.version.outputs.version }}_arm64.deb
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: estrella_${{ steps.version.outputs.version }}_arm64.deb
+          generate_release_notes: true
+
+  publish-apt:
+    name: Publish apt repository
+    needs: build-deb
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Parse version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Download .deb artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: deb-package
+
+      - name: Import GPG key
+        run: echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import
+
+      - name: Create apt release if it doesn't exist
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view apt --repo "${{ github.repository }}" >/dev/null 2>&1 || \
+            gh release create apt \
+              --repo "${{ github.repository }}" \
+              --title "APT Repository" \
+              --notes "Flat apt repository for Raspberry Pi. See README for install instructions." \
+              --latest=false
+
+      - name: Upload new .deb to apt release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload apt \
+            estrella_${{ steps.version.outputs.version }}_arm64.deb \
+            --repo "${{ github.repository }}" \
+            --clobber
+
+      - name: Build apt repository metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p repo && cd repo
+
+          # Fetch existing Packages index (if any) instead of re-downloading all .debs
+          gh release download apt \
+            --repo "${{ github.repository }}" \
+            --pattern 'Packages' \
+            --output old-Packages 2>/dev/null || true
+
+          # Generate entry for the new .deb only
+          cp ../estrella_${{ steps.version.outputs.version }}_arm64.deb .
+          dpkg-scanpackages --multiversion . > new-entry
+          sed -i 's|Filename: \./|Filename: |' new-entry
+          rm estrella_*.deb
+
+          # Merge: old entries + new entry
+          if [ -f old-Packages ]; then
+            cat old-Packages new-entry > Packages
+          else
+            cp new-entry Packages
+          fi
+          gzip -k -f Packages
+
+          # Generate Release file
+          apt-ftparchive release . > Release
+
+          # Sign Release
+          gpg --batch --yes --default-key "${{ secrets.GPG_KEY_ID }}" \
+            -abs -o Release.gpg Release
+          gpg --batch --yes --default-key "${{ secrets.GPG_KEY_ID }}" \
+            --clearsign -o InRelease Release
+
+          # Export public key
+          gpg --armor --export "${{ secrets.GPG_KEY_ID }}" > gpg.key
+
+          # Clean up temp files
+          rm -f old-Packages new-entry
+
+      - name: Upload apt metadata to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload apt \
+            repo/Packages repo/Packages.gz \
+            repo/Release repo/Release.gpg repo/InRelease \
+            repo/gpg.key \
+            --repo "${{ github.repository }}" \
+            --clobber

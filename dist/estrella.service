@@ -1,0 +1,34 @@
+[Unit]
+Description=Estrella Thermal Printer HTTP Daemon
+Documentation=https://github.com/eljojo/estrella
+After=network.target estrella-rfcomm.service
+Requires=estrella-rfcomm.service
+
+[Service]
+Type=simple
+User=estrella
+SupplementaryGroups=dialout
+EnvironmentFile=/etc/estrella/estrella.conf
+ExecStart=/usr/bin/estrella serve --listen ${LISTEN_ADDR} --device /dev/rfcomm${RFCOMM_CHANNEL}
+
+Restart=always
+RestartSec=10s
+
+# Security hardening
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictRealtime=true
+RestrictNamespaces=true
+LockPersonality=true
+
+# Resource limits
+MemoryMax=256M
+TasksMax=128
+
+[Install]
+WantedBy=multi-user.target

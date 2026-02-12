@@ -1,4 +1,5 @@
 .cargo
+.gnupg
 /target
 /result
 /spec/

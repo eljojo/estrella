@@ -1,0 +1,14 @@
+[Unit]
+Description=Estrella RFCOMM Bluetooth Setup
+Documentation=https://github.com/eljojo/estrella
+After=bluetooth.target
+Before=estrella.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+EnvironmentFile=/etc/estrella/estrella.conf
+ExecStart=/usr/bin/estrella setup-rfcomm ${DEVICE_MAC} --channel ${RFCOMM_CHANNEL}
+
+[Install]
+WantedBy=multi-user.target

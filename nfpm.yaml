@@ -1,0 +1,47 @@
+name: estrella
+arch: arm64
+platform: linux
+version: v${VERSION:-0.0.0}
+section: utils
+priority: optional
+maintainer: eljojo
+description: |
+  Thermal receipt printer daemon for Star Micronics printers.
+  Provides a web UI for photo printing, a JSON API for automation,
+  and generative art patterns. Connects via Bluetooth RFCOMM.
+vendor: eljojo
+homepage: https://github.com/eljojo/estrella
+license: MIT
+
+depends:
+  - bluez
+
+contents:
+  - src: result/bin/estrella
+    dst: /usr/bin/estrella
+    file_info:
+      mode: 0755
+
+  - src: dist/estrella.service
+    dst: /usr/lib/systemd/system/estrella.service
+    file_info:
+      mode: 0644
+
+  - src: dist/estrella-rfcomm.service
+    dst: /usr/lib/systemd/system/estrella-rfcomm.service
+    file_info:
+      mode: 0644
+
+  - src: dist/estrella.conf
+    dst: /etc/estrella/estrella.conf
+    type: config|noreplace
+    file_info:
+      mode: 0644
+
+scripts:
+  postinstall: dist/postinstall.sh
+
+overrides:
+  deb:
+    recommends:
+      - bluetooth
