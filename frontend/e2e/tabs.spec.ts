@@ -3,11 +3,13 @@ import { test, expect } from '@playwright/test'
 test.describe('Tab Navigation', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/')
+    // Wait for app to hydrate (active class is set by Preact, not static HTML)
+    await page.locator('button.tab.active').waitFor()
   })
 
-  test('should load with Receipt tab active by default', async ({ page }) => {
-    const receiptTab = page.locator('button.tab:has-text("Receipt")')
-    await expect(receiptTab).toHaveClass(/active/)
+  test('should load with Photos tab active by default', async ({ page }) => {
+    const photosTab = page.locator('button.tab:has-text("Photos")')
+    await expect(photosTab).toHaveClass(/active/)
   })
 
   test('should switch to Patterns tab', async ({ page }) => {
