@@ -345,7 +345,7 @@ fn word_wrap(text: &str, max_chars: usize) -> Vec<String> {
 
             if word.is_empty() {
                 // Consecutive spaces: add a space to current line
-                if line_chars > 0 && line_chars + 1 <= max_chars {
+                if line_chars > 0 && line_chars < max_chars {
                     line.push(' ');
                     line_chars += 1;
                 }

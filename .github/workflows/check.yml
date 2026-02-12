@@ -20,6 +20,9 @@ jobs:
       - name: Nix cache
         uses: DeterminateSystems/magic-nix-cache-action@v8
 
+      - name: Build frontend
+        run: nix develop --command bash -c "cd frontend && npm ci && npm run build"
+
       - name: Check formatting
         run: nix develop --command cargo fmt --check
 
