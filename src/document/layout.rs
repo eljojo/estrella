@@ -14,8 +14,8 @@ impl Divider {
         let width = self.width.unwrap_or(48);
         let line = match self.style {
             DividerStyle::Dashed => "-".repeat(width),
-            DividerStyle::Solid => "\u{2500}".repeat(width),   // ─
-            DividerStyle::Double => "\u{2550}".repeat(width),  // ═
+            DividerStyle::Solid => "\u{2500}".repeat(width), // ─
+            DividerStyle::Double => "\u{2550}".repeat(width), // ═
             DividerStyle::Equals => "=".repeat(width),
         };
         // Reset to Font A to ensure correct width (48 chars × 12 dots = 576 = full print width)
@@ -138,11 +138,21 @@ impl Banner {
     /// Emit a standard boxed banner (Single, Double, Heavy, Shade).
     fn emit_boxed(&self, ops: &mut Vec<Op>, total_width: usize) {
         let (tl, tr, bl, br, horiz, vert) = match self.border {
-            BorderStyle::Single | BorderStyle::Mixed => ('\u{250C}', '\u{2510}', '\u{2514}', '\u{2518}', '\u{2500}', '\u{2502}'),
-            BorderStyle::Double => ('\u{2554}', '\u{2557}', '\u{255A}', '\u{255D}', '\u{2550}', '\u{2551}'),
-            BorderStyle::Heavy  => ('\u{2588}', '\u{2588}', '\u{2588}', '\u{2588}', '\u{2588}', '\u{2588}'),
-            BorderStyle::Shade  => ('\u{2592}', '\u{2592}', '\u{2592}', '\u{2592}', '\u{2592}', '\u{2592}'),
-            BorderStyle::Shadow | BorderStyle::Rule | BorderStyle::Heading | BorderStyle::Tag => unreachable!(),
+            BorderStyle::Single | BorderStyle::Mixed => (
+                '\u{250C}', '\u{2510}', '\u{2514}', '\u{2518}', '\u{2500}', '\u{2502}',
+            ),
+            BorderStyle::Double => (
+                '\u{2554}', '\u{2557}', '\u{255A}', '\u{255D}', '\u{2550}', '\u{2551}',
+            ),
+            BorderStyle::Heavy => (
+                '\u{2588}', '\u{2588}', '\u{2588}', '\u{2588}', '\u{2588}', '\u{2588}',
+            ),
+            BorderStyle::Shade => (
+                '\u{2592}', '\u{2592}', '\u{2592}', '\u{2592}', '\u{2592}', '\u{2592}',
+            ),
+            BorderStyle::Shadow | BorderStyle::Rule | BorderStyle::Heading | BorderStyle::Tag => {
+                unreachable!()
+            }
         };
 
         let inner = total_width - 2;
@@ -238,7 +248,9 @@ impl Banner {
         );
         let shadow_bottom: String = format!(
             " {}",
-            std::iter::repeat(shadow).take(box_width).collect::<String>()
+            std::iter::repeat(shadow)
+                .take(box_width)
+                .collect::<String>()
         );
 
         // Top border (no shadow — creates depth illusion)
@@ -379,13 +391,8 @@ impl Banner {
         // Use the actual fitted size — fit() may cascade width or fall back to Font B
         let (fitted_size, _) = Self::fit(self.content.len(), self.size, self.border);
         let pixel_height = ttf_font::size_to_pixel_height(fitted_size);
-        let text_render = ttf_font::render_ttf_text(
-            &self.content,
-            font_name,
-            self.bold,
-            pixel_height,
-            width,
-        );
+        let text_render =
+            ttf_font::render_ttf_text(&self.content, font_name, self.bold, pixel_height, width);
 
         // Center the TTF text both horizontally and vertically within the banner
         let text_x = (width.saturating_sub(text_render.width)) / 2;
@@ -429,10 +436,10 @@ impl Banner {
     /// Cascades width from `max_size` down to 1, then falls back to Font B.
     pub fn fit(content_len: usize, max_size: u8, border: BorderStyle) -> ([u8; 2], usize) {
         let border_overhead = match border {
-            BorderStyle::Shadow => 3,  // left + right + shadow column
-            BorderStyle::Tag => 2,     // "■ " prefix
+            BorderStyle::Shadow => 3, // left + right + shadow column
+            BorderStyle::Tag => 2,    // "■ " prefix
             BorderStyle::Rule | BorderStyle::Heading => 0, // rules fill remaining space
-            _ => 2,                    // left + right
+            _ => 2,                   // left + right
         };
 
         // Try each width from max down to 1 (Font A with ESC i)
@@ -470,8 +477,12 @@ struct TableChars {
 
 fn table_chars(style: BorderStyle) -> TableChars {
     match style {
-        BorderStyle::Single | BorderStyle::Mixed | BorderStyle::Shadow
-            | BorderStyle::Rule | BorderStyle::Heading | BorderStyle::Tag => TableChars {
+        BorderStyle::Single
+        | BorderStyle::Mixed
+        | BorderStyle::Shadow
+        | BorderStyle::Rule
+        | BorderStyle::Heading
+        | BorderStyle::Tag => TableChars {
             tl: '\u{250C}',
             tr: '\u{2510}',
             bl: '\u{2514}',
@@ -927,7 +938,13 @@ mod tests {
         // Top line should be all full-block chars (█)
         let first_text = ops
             .iter()
-            .find_map(|op| if let Op::Text(s) = op { Some(s.clone()) } else { None })
+            .find_map(|op| {
+                if let Op::Text(s) = op {
+                    Some(s.clone())
+                } else {
+                    None
+                }
+            })
             .unwrap();
         assert!(
             first_text.chars().all(|c| c == '\u{2588}'),
@@ -948,7 +965,13 @@ mod tests {
         // Top line should be all medium-shade chars (▒)
         let first_text = ops
             .iter()
-            .find_map(|op| if let Op::Text(s) = op { Some(s.clone()) } else { None })
+            .find_map(|op| {
+                if let Op::Text(s) = op {
+                    Some(s.clone())
+                } else {
+                    None
+                }
+            })
             .unwrap();
         assert!(
             first_text.chars().all(|c| c == '\u{2592}'),
@@ -969,31 +992,59 @@ mod tests {
         // Top border: single-line, no shadow
         let first_text = ops
             .iter()
-            .find_map(|op| if let Op::Text(s) = op { Some(s.clone()) } else { None })
+            .find_map(|op| {
+                if let Op::Text(s) = op {
+                    Some(s.clone())
+                } else {
+                    None
+                }
+            })
             .unwrap();
-        assert!(first_text.starts_with('\u{250C}'), "Shadow top should start with ┌");
-        assert!(first_text.ends_with('\u{2510}'), "Shadow top should end with ┐ (no shadow)");
+        assert!(
+            first_text.starts_with('\u{250C}'),
+            "Shadow top should start with ┌"
+        );
+        assert!(
+            first_text.ends_with('\u{2510}'),
+            "Shadow top should end with ┐ (no shadow)"
+        );
 
         // Content line should end with shadow char ▓
         let content_text = ops
             .iter()
             .find_map(|op| {
                 if let Op::Text(s) = op {
-                    if s.contains("HI") { Some(s.clone()) } else { None }
+                    if s.contains("HI") {
+                        Some(s.clone())
+                    } else {
+                        None
+                    }
                 } else {
                     None
                 }
             })
             .unwrap();
-        assert!(content_text.ends_with('\u{2593}'), "Shadow content line should end with ▓");
+        assert!(
+            content_text.ends_with('\u{2593}'),
+            "Shadow content line should end with ▓"
+        );
 
         // Last text op should be the shadow bottom row
         let last_text = ops
             .iter()
             .rev()
-            .find_map(|op| if let Op::Text(s) = op { Some(s.clone()) } else { None })
+            .find_map(|op| {
+                if let Op::Text(s) = op {
+                    Some(s.clone())
+                } else {
+                    None
+                }
+            })
             .unwrap();
-        assert!(last_text.starts_with(' '), "Shadow bottom row starts with space");
+        assert!(
+            last_text.starts_with(' '),
+            "Shadow bottom row starts with space"
+        );
         assert!(
             last_text.chars().skip(1).all(|c| c == '\u{2593}'),
             "Shadow bottom row should be all ▓ after leading space"
@@ -1049,15 +1100,34 @@ mod tests {
         // Should produce a single text line + newline (plus style ops)
         let texts: Vec<&str> = ops
             .iter()
-            .filter_map(|op| if let Op::Text(s) = op { Some(s.as_str()) } else { None })
+            .filter_map(|op| {
+                if let Op::Text(s) = op {
+                    Some(s.as_str())
+                } else {
+                    None
+                }
+            })
             .collect();
-        assert_eq!(texts.len(), 1, "Rule banner should emit exactly 1 text line");
+        assert_eq!(
+            texts.len(),
+            1,
+            "Rule banner should emit exactly 1 text line"
+        );
 
         let line = texts[0];
-        assert!(line.contains("WEATHER"), "Rule line should contain the text");
-        assert!(line.contains('\u{2500}'), "Rule line should contain ─ characters");
+        assert!(
+            line.contains("WEATHER"),
+            "Rule line should contain the text"
+        );
+        assert!(
+            line.contains('\u{2500}'),
+            "Rule line should contain ─ characters"
+        );
         // Text should be surrounded by spaces
-        assert!(line.contains(" WEATHER "), "Text should have spaces around it");
+        assert!(
+            line.contains(" WEATHER "),
+            "Text should have spaces around it"
+        );
     }
 
     #[test]
@@ -1073,17 +1143,31 @@ mod tests {
 
         let texts: Vec<&str> = ops
             .iter()
-            .filter_map(|op| if let Op::Text(s) = op { Some(s.as_str()) } else { None })
+            .filter_map(|op| {
+                if let Op::Text(s) = op {
+                    Some(s.as_str())
+                } else {
+                    None
+                }
+            })
             .collect();
         assert_eq!(texts.len(), 2, "Heading banner should emit 2 text lines");
         assert_eq!(texts[0], "FORECAST");
         // Second line is all ─
-        assert!(texts[1].chars().all(|c| c == '\u{2500}'), "Second line should be all ─");
+        assert!(
+            texts[1].chars().all(|c| c == '\u{2500}'),
+            "Second line should be all ─"
+        );
 
         // Should set center alignment for text
         assert!(ops.contains(&Op::SetAlign(Alignment::Center)));
         // Should reset to left for the rule
-        assert!(ops.iter().filter(|op| matches!(op, Op::SetAlign(Alignment::Left))).count() >= 1);
+        assert!(
+            ops.iter()
+                .filter(|op| matches!(op, Op::SetAlign(Alignment::Left)))
+                .count()
+                >= 1
+        );
     }
 
     #[test]
@@ -1099,7 +1183,13 @@ mod tests {
 
         let texts: Vec<&str> = ops
             .iter()
-            .filter_map(|op| if let Op::Text(s) = op { Some(s.as_str()) } else { None })
+            .filter_map(|op| {
+                if let Op::Text(s) = op {
+                    Some(s.as_str())
+                } else {
+                    None
+                }
+            })
             .collect();
         assert_eq!(texts.len(), 1, "Tag banner should emit exactly 1 text line");
         assert_eq!(texts[0], "\u{25A0} GROCERIES");
@@ -1131,10 +1221,7 @@ mod tests {
     #[test]
     fn test_table_basic() {
         let table = Table {
-            rows: vec![
-                vec!["A".into(), "B".into()],
-                vec!["C".into(), "D".into()],
-            ],
+            rows: vec![vec!["A".into(), "B".into()], vec!["C".into(), "D".into()]],
             width: Some(20),
             ..Default::default()
         };
@@ -1148,7 +1235,13 @@ mod tests {
         // Collect all text ops
         let texts: Vec<&str> = ops
             .iter()
-            .filter_map(|op| if let Op::Text(s) = op { Some(s.as_str()) } else { None })
+            .filter_map(|op| {
+                if let Op::Text(s) = op {
+                    Some(s.as_str())
+                } else {
+                    None
+                }
+            })
             .collect();
 
         // Top border: ┌...┬...┐
@@ -1236,8 +1329,14 @@ mod tests {
         // Split on │ to get cells
         let cells: Vec<&str> = row.split('\u{2502}').collect();
         // First and last are empty (before first │ and after last │)
-        assert!(cells[1].starts_with(" L"), "Left-aligned cell starts with ' L'");
-        assert!(cells[3].ends_with("R "), "Right-aligned cell ends with 'R '");
+        assert!(
+            cells[1].starts_with(" L"),
+            "Left-aligned cell starts with ' L'"
+        );
+        assert!(
+            cells[3].ends_with("R "),
+            "Right-aligned cell ends with 'R '"
+        );
     }
 
     #[test]
@@ -1253,7 +1352,13 @@ mod tests {
 
         let texts: Vec<&str> = ops
             .iter()
-            .filter_map(|op| if let Op::Text(s) = op { Some(s.as_str()) } else { None })
+            .filter_map(|op| {
+                if let Op::Text(s) = op {
+                    Some(s.as_str())
+                } else {
+                    None
+                }
+            })
             .collect();
 
         assert!(texts[0].starts_with('\u{2554}'), "Double top starts with ╔");
@@ -1276,7 +1381,13 @@ mod tests {
         // Top border should be single (┌)
         let texts: Vec<&str> = ops
             .iter()
-            .filter_map(|op| if let Op::Text(s) = op { Some(s.as_str()) } else { None })
+            .filter_map(|op| {
+                if let Op::Text(s) = op {
+                    Some(s.as_str())
+                } else {
+                    None
+                }
+            })
             .collect();
         assert!(texts[0].starts_with('\u{250C}'), "Mixed top uses single ┌");
 
@@ -1288,17 +1399,16 @@ mod tests {
                 false
             }
         });
-        assert!(has_mixed_sep, "Mixed border should use ╞═╪═╡ header separator");
+        assert!(
+            has_mixed_sep,
+            "Mixed border should use ╞═╪═╡ header separator"
+        );
     }
 
     #[test]
     fn test_table_row_separator() {
         let table = Table {
-            rows: vec![
-                vec!["A".into()],
-                vec!["B".into()],
-                vec!["C".into()],
-            ],
+            rows: vec![vec!["A".into()], vec!["B".into()], vec!["C".into()]],
             row_separator: true,
             width: Some(20),
             ..Default::default()
@@ -1326,8 +1436,8 @@ mod tests {
         let table = Table {
             headers: Some(vec!["A".into(), "B".into(), "C".into()]),
             rows: vec![
-                vec!["1".into()],                              // 1 cell, 3 columns
-                vec!["1".into(), "2".into(), "3".into()],      // 3 cells
+                vec!["1".into()],                         // 1 cell, 3 columns
+                vec!["1".into(), "2".into(), "3".into()], // 3 cells
             ],
             width: Some(30),
             ..Default::default()
@@ -1336,19 +1446,17 @@ mod tests {
         table.emit(&mut ops);
 
         // Short row should still produce a valid line with 3 │ separators
-        let first_data_row = ops
-            .iter()
-            .find_map(|op| {
-                if let Op::Text(s) = op {
-                    if s.contains("1") && !s.contains("2") && s.starts_with('\u{2502}') {
-                        Some(s.clone())
-                    } else {
-                        None
-                    }
+        let first_data_row = ops.iter().find_map(|op| {
+            if let Op::Text(s) = op {
+                if s.contains("1") && !s.contains("2") && s.starts_with('\u{2502}') {
+                    Some(s.clone())
                 } else {
                     None
                 }
-            });
+            } else {
+                None
+            }
+        });
         assert!(first_data_row.is_some(), "Short row should still render");
     }
 

@@ -19,8 +19,8 @@
 //! ```
 
 use crate::shader::*;
-use rand::Rng;
 use async_trait::async_trait;
+use rand::Rng;
 use std::fmt;
 
 /// Parameters for the overburn effect.
@@ -77,8 +77,12 @@ impl fmt::Display for Params {
         write!(
             f,
             "scale={:.1} drift={:.0} darken=({:.2},{:.2}) blur={:.2} gamma={:.2}",
-            self.scale, self.drift, self.darken_mult, self.darken_offset,
-            self.blur_amount, self.gamma
+            self.scale,
+            self.drift,
+            self.darken_mult,
+            self.darken_offset,
+            self.blur_amount,
+            self.gamma
         )
     }
 }
@@ -123,11 +127,15 @@ impl Default for Overburn {
 
 impl Overburn {
     pub fn golden() -> Self {
-        Self { params: Params::default() }
+        Self {
+            params: Params::default(),
+        }
     }
 
     pub fn random() -> Self {
-        Self { params: Params::random() }
+        Self {
+            params: Params::random(),
+        }
     }
 }
 
@@ -146,7 +154,10 @@ impl super::Pattern for Overburn {
     }
 
     fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
-        let parse_f32 = |v: &str| v.parse::<f32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        let parse_f32 = |v: &str| {
+            v.parse::<f32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
         match name {
             "scale" => self.params.scale = parse_f32(value)?,
             "drift" => self.params.drift = parse_f32(value)?,

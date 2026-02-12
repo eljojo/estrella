@@ -10,11 +10,11 @@ use crate::art;
 use super::dither;
 
 // Re-export everything from art for backwards compatibility
+pub use art::PATTERNS;
+pub use art::Pattern;
 pub use art::by_name;
 pub use art::by_name_golden;
 pub use art::by_name_random;
-pub use art::Pattern;
-pub use art::PATTERNS;
 // Classic patterns
 pub use art::calibration::Calibration;
 pub use art::crystal::Crystal;
@@ -72,7 +72,12 @@ pub fn render(
     height: usize,
     algorithm: dither::DitheringAlgorithm,
 ) -> Vec<u8> {
-    dither::generate_raster(width, height, |x, y, w, h| pattern.intensity(x, y, w, h), algorithm)
+    dither::generate_raster(
+        width,
+        height,
+        |x, y, w, h| pattern.intensity(x, y, w, h),
+        algorithm,
+    )
 }
 
 #[cfg(test)]

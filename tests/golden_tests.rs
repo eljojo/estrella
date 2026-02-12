@@ -16,13 +16,13 @@
 //! make golden
 //! ```
 
+use estrella::PrinterConfig;
 use estrella::document::{self, Component, Divider, Document, Text};
 use estrella::ir::{Op, Program};
 use estrella::receipt;
 use estrella::render::dither::{self, DitheringAlgorithm};
 use estrella::render::patterns::{self, Pattern};
 use estrella::render::weave::{BlendCurve, Weave};
-use estrella::PrinterConfig;
 use std::fs;
 
 /// Path to golden test directory
@@ -76,7 +76,12 @@ fn generate_raster_commands(name: &str, height: usize) -> Vec<u8> {
 fn generate_band_commands(name: &str, height: usize) -> Vec<u8> {
     let pattern_impl = patterns::by_name(name).unwrap();
     let width = 576usize;
-    let data = patterns::render(pattern_impl.as_ref(), width, height, DitheringAlgorithm::Bayer);
+    let data = patterns::render(
+        pattern_impl.as_ref(),
+        width,
+        height,
+        DitheringAlgorithm::Bayer,
+    );
 
     let mut program = Program::with_init();
 
@@ -288,7 +293,11 @@ fn generate_golden_files() {
     write_golden("full_receipt", "png", &generate_preview_png(&full_program));
 
     let markdown_program = receipt::program_by_name_golden("markdown").unwrap();
-    write_golden("markdown_demo", "png", &generate_preview_png(&markdown_program));
+    write_golden(
+        "markdown_demo",
+        "png",
+        &generate_preview_png(&markdown_program),
+    );
 
     // Weave (crossfade between patterns)
     // Use 3 distinct patterns, 800px height (~100mm), 160px crossfade (~20mm)
@@ -297,15 +306,27 @@ fn generate_golden_files() {
 
     // Kitchen sink: every component type and style variant
     let kitchen_sink_program = build_kitchen_sink_document().compile();
-    write_golden("kitchen_sink", "png", &generate_preview_png(&kitchen_sink_program));
+    write_golden(
+        "kitchen_sink",
+        "png",
+        &generate_preview_png(&kitchen_sink_program),
+    );
 
     // Canvas demo: absolute positioning, flow mode, auto-dithering, IBM Plex Sans
     let canvas_demo_program = build_canvas_demo_document().compile();
-    write_golden("canvas_demo", "png", &generate_preview_png(&canvas_demo_program));
+    write_golden(
+        "canvas_demo",
+        "png",
+        &generate_preview_png(&canvas_demo_program),
+    );
 
     // Emoji showcase: all supported DoCoMo emoji with normal text
     let emoji_showcase_program = build_emoji_showcase_document().compile();
-    write_golden("emoji_showcase", "png", &generate_preview_png(&emoji_showcase_program));
+    write_golden(
+        "emoji_showcase",
+        "png",
+        &generate_preview_png(&emoji_showcase_program),
+    );
 
     // Dithering algorithm comparison
     // Use 4 patterns (plasma, ring, ripple, topography) to show each algorithm's characteristics
@@ -364,7 +385,6 @@ fn test_binary_ripple_band() {
     check_golden("ripple_band", "bin", &cmd);
 }
 
-
 // ============================================================================
 // PATTERN PREVIEW TESTS
 // ============================================================================
@@ -385,7 +405,6 @@ fn test_preview_all_patterns() {
         check_golden(name, "png", &png);
     }
 }
-
 
 // ============================================================================
 // RECEIPT BINARY TESTS
@@ -553,7 +572,8 @@ fn test_kitchen_sink_raster_vs_text() {
     let raster_png = generate_preview_png(&raster_program);
 
     assert_eq!(
-        text_png, raster_png,
+        text_png,
+        raster_png,
         "raster round-trip must produce identical preview (text={} bytes, raster={} bytes)",
         text_png.len(),
         raster_png.len()

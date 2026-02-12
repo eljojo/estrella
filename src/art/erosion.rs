@@ -9,8 +9,8 @@
 //! canyon-like structures reminiscent of aerial landscape photography.
 
 use crate::shader::*;
-use rand::Rng;
 use async_trait::async_trait;
+use rand::Rng;
 use std::fmt;
 
 /// Parameters for the erosion pattern.
@@ -67,8 +67,7 @@ impl fmt::Display for Params {
         write!(
             f,
             "scale={:.3} drops={} len={} erode={:.2} seed={}",
-            self.terrain_scale, self.droplets, self.trail_length,
-            self.erosion_strength, self.seed
+            self.terrain_scale, self.droplets, self.trail_length, self.erosion_strength, self.seed
         )
     }
 }
@@ -87,11 +86,15 @@ impl Default for Erosion {
 
 impl Erosion {
     pub fn golden() -> Self {
-        Self { params: Params::default() }
+        Self {
+            params: Params::default(),
+        }
     }
 
     pub fn random() -> Self {
-        Self { params: Params::random() }
+        Self {
+            params: Params::random(),
+        }
     }
 }
 
@@ -110,8 +113,13 @@ pub fn shade(x: usize, y: usize, _width: usize, _height: usize, params: &Params)
 
     // Ridge noise - creates sharp ridges/valleys by inverting peaks
     let ridge_noise = |x: f32, y: f32, scale: f32, seed_offset: u32| -> f32 {
-        let n = fbm(x * scale, y * scale, 3, params.seed.wrapping_add(seed_offset));
-        1.0 - (n - 0.5).abs() * 2.0  // Sharp valleys at 0.5
+        let n = fbm(
+            x * scale,
+            y * scale,
+            3,
+            params.seed.wrapping_add(seed_offset),
+        );
+        1.0 - (n - 0.5).abs() * 2.0 // Sharp valleys at 0.5
     };
 
     let ridge1 = ridge_noise(xf, yf, params.terrain_scale * 2.0, 100);
@@ -164,9 +172,18 @@ impl super::Pattern for Erosion {
     }
 
     fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
-        let parse_f32 = |v: &str| v.parse::<f32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
-        let parse_usize = |v: &str| v.parse::<usize>().map_err(|e| format!("Invalid value '{}': {}", v, e));
-        let parse_u32 = |v: &str| v.parse::<u32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        let parse_f32 = |v: &str| {
+            v.parse::<f32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
+        let parse_usize = |v: &str| {
+            v.parse::<usize>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
+        let parse_u32 = |v: &str| {
+            v.parse::<u32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
         match name {
             "terrain_scale" => self.params.terrain_scale = parse_f32(value)?,
             "octaves" => self.params.octaves = parse_usize(value)?,
@@ -186,7 +203,10 @@ impl super::Pattern for Erosion {
             ("octaves", self.params.octaves.to_string()),
             ("droplets", self.params.droplets.to_string()),
             ("trail_length", self.params.trail_length.to_string()),
-            ("erosion_strength", format!("{:.2}", self.params.erosion_strength)),
+            (
+                "erosion_strength",
+                format!("{:.2}", self.params.erosion_strength),
+            ),
             ("seed", self.params.seed.to_string()),
             ("contrast", format!("{:.2}", self.params.contrast)),
         ]

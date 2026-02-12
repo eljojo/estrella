@@ -31,7 +31,12 @@ pub struct IntensityCacheKey {
 
 impl IntensityCacheKey {
     /// Create a new cache key from layer parameters.
-    pub fn new(pattern: &str, params: &HashMap<String, String>, width: usize, height: usize) -> Self {
+    pub fn new(
+        pattern: &str,
+        params: &HashMap<String, String>,
+        width: usize,
+        height: usize,
+    ) -> Self {
         Self {
             pattern: pattern.to_string(),
             params_hash: hash_params(params),
@@ -71,8 +76,8 @@ impl CachedIntensity {
     /// Create from f32 intensities.
     /// Quantizes to u8 and compresses with gzip for memory savings.
     pub fn new(intensity: &[f32]) -> Self {
-        use flate2::write::GzEncoder;
         use flate2::Compression;
+        use flate2::write::GzEncoder;
         use std::io::Write;
 
         let uncompressed_size = intensity.len();
@@ -102,7 +107,9 @@ impl CachedIntensity {
 
         let mut decoder = GzDecoder::new(&self.compressed[..]);
         let mut quantized = Vec::with_capacity(self.uncompressed_size);
-        decoder.read_to_end(&mut quantized).expect("decompression failed");
+        decoder
+            .read_to_end(&mut quantized)
+            .expect("decompression failed");
 
         quantized.iter().map(|&v| v as f32 / 255.0).collect()
     }

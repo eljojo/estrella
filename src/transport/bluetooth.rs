@@ -174,10 +174,7 @@ impl BluetoothTransport {
     /// ```
     pub fn send_programs(&mut self, programs: &[crate::ir::Program]) -> Result<(), EstrellaError> {
         let total = programs.len();
-        println!(
-            "[send_programs] Sending {} program(s) to printer",
-            total
-        );
+        println!("[send_programs] Sending {} program(s) to printer", total);
 
         for (i, program) in programs.iter().enumerate() {
             let bytes = program.to_bytes();

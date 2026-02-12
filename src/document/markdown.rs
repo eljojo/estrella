@@ -80,18 +80,27 @@ impl ParserState {
                     HeadingLevel::H1 => {
                         ops.push(Op::SetAlign(Alignment::Center));
                         ops.push(Op::SetBold(true));
-                        ops.push(Op::SetSize { height: 3, width: 3 });
+                        ops.push(Op::SetSize {
+                            height: 3,
+                            width: 3,
+                        });
                         ops.push(Op::SetSmoothing(true));
                     }
                     HeadingLevel::H2 => {
                         ops.push(Op::SetAlign(Alignment::Center));
                         ops.push(Op::SetBold(true));
-                        ops.push(Op::SetSize { height: 2, width: 2 });
+                        ops.push(Op::SetSize {
+                            height: 2,
+                            width: 2,
+                        });
                         ops.push(Op::SetSmoothing(true));
                     }
                     HeadingLevel::H3 => {
                         ops.push(Op::SetBold(true));
-                        ops.push(Op::SetSize { height: 1, width: 1 });
+                        ops.push(Op::SetSize {
+                            height: 1,
+                            width: 1,
+                        });
                         ops.push(Op::SetSmoothing(true));
                     }
                     HeadingLevel::H4 => {
@@ -162,7 +171,10 @@ impl ParserState {
                 match self.heading_level {
                     Some(HeadingLevel::H1) => {
                         ops.push(Op::Newline);
-                        ops.push(Op::SetSize { height: 0, width: 0 });
+                        ops.push(Op::SetSize {
+                            height: 0,
+                            width: 0,
+                        });
                         ops.push(Op::SetBold(false));
                         ops.push(Op::SetSmoothing(false));
                         ops.push(Op::SetAlign(Alignment::Left));
@@ -170,7 +182,10 @@ impl ParserState {
                     }
                     Some(HeadingLevel::H2) => {
                         ops.push(Op::Newline);
-                        ops.push(Op::SetSize { height: 0, width: 0 });
+                        ops.push(Op::SetSize {
+                            height: 0,
+                            width: 0,
+                        });
                         ops.push(Op::SetBold(false));
                         ops.push(Op::SetSmoothing(false));
                         ops.push(Op::SetAlign(Alignment::Left));
@@ -178,7 +193,10 @@ impl ParserState {
                     }
                     Some(HeadingLevel::H3) => {
                         ops.push(Op::Newline);
-                        ops.push(Op::SetSize { height: 0, width: 0 });
+                        ops.push(Op::SetSize {
+                            height: 0,
+                            width: 0,
+                        });
                         ops.push(Op::SetBold(false));
                         ops.push(Op::SetSmoothing(false));
                         ops.push(Op::Feed { units: 4 });
@@ -291,7 +309,10 @@ mod tests {
     fn test_heading_h1() {
         let ops = compile_markdown("# Title");
         assert!(ops.contains(&Op::SetAlign(Alignment::Center)));
-        assert!(ops.contains(&Op::SetSize { height: 3, width: 3 }));
+        assert!(ops.contains(&Op::SetSize {
+            height: 3,
+            width: 3
+        }));
         assert!(ops.contains(&Op::Text("Title".into())));
     }
 

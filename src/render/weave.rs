@@ -213,7 +213,12 @@ mod tests {
         assert!(BlendCurve::EaseOut.apply(0.3) > 0.3);
 
         // All should hit 0 and 1 at endpoints
-        for curve in [BlendCurve::Linear, BlendCurve::Smooth, BlendCurve::EaseIn, BlendCurve::EaseOut] {
+        for curve in [
+            BlendCurve::Linear,
+            BlendCurve::Smooth,
+            BlendCurve::EaseIn,
+            BlendCurve::EaseOut,
+        ] {
             assert!((curve.apply(0.0)).abs() < 0.001);
             assert!((curve.apply(1.0) - 1.0).abs() < 0.001);
         }
@@ -221,10 +226,22 @@ mod tests {
 
     #[test]
     fn test_curve_from_str() {
-        assert!(matches!(BlendCurve::from_str("linear"), Some(BlendCurve::Linear)));
-        assert!(matches!(BlendCurve::from_str("smooth"), Some(BlendCurve::Smooth)));
-        assert!(matches!(BlendCurve::from_str("ease-in"), Some(BlendCurve::EaseIn)));
-        assert!(matches!(BlendCurve::from_str("ease-out"), Some(BlendCurve::EaseOut)));
+        assert!(matches!(
+            BlendCurve::from_str("linear"),
+            Some(BlendCurve::Linear)
+        ));
+        assert!(matches!(
+            BlendCurve::from_str("smooth"),
+            Some(BlendCurve::Smooth)
+        ));
+        assert!(matches!(
+            BlendCurve::from_str("ease-in"),
+            Some(BlendCurve::EaseIn)
+        ));
+        assert!(matches!(
+            BlendCurve::from_str("ease-out"),
+            Some(BlendCurve::EaseOut)
+        ));
         assert!(BlendCurve::from_str("invalid").is_none());
     }
 }

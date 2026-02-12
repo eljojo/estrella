@@ -8,8 +8,8 @@
 //! at different angles. The slight angular offset creates the characteristic
 //! shimmering, wave-like optical illusion.
 
-use async_trait::async_trait;
 use crate::shader::*;
+use async_trait::async_trait;
 use rand::Rng;
 use std::f32::consts::PI;
 use std::fmt;
@@ -102,7 +102,13 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
     combined += grid1;
 
     // Second grid at slight angle
-    let grid2 = line_grid(xf, yf, params.spacing2, params.angle_offset, params.thickness);
+    let grid2 = line_grid(
+        xf,
+        yf,
+        params.spacing2,
+        params.angle_offset,
+        params.thickness,
+    );
     combined += grid2;
 
     // Additional layers if specified
@@ -112,7 +118,13 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
     }
 
     if params.layers > 3 {
-        let grid4 = line_grid(xf, yf, params.spacing2, 90.0 + params.angle_offset, params.thickness);
+        let grid4 = line_grid(
+            xf,
+            yf,
+            params.spacing2,
+            90.0 + params.angle_offset,
+            params.thickness,
+        );
         combined += grid4;
     }
 
@@ -134,11 +146,15 @@ impl Default for Moire {
 
 impl Moire {
     pub fn golden() -> Self {
-        Self { params: Params::default() }
+        Self {
+            params: Params::default(),
+        }
     }
 
     pub fn random() -> Self {
-        Self { params: Params::random() }
+        Self {
+            params: Params::random(),
+        }
     }
 }
 
@@ -157,8 +173,14 @@ impl super::Pattern for Moire {
     }
 
     fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
-        let parse_f32 = |v: &str| v.parse::<f32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
-        let parse_usize = |v: &str| v.parse::<usize>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        let parse_f32 = |v: &str| {
+            v.parse::<f32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
+        let parse_usize = |v: &str| {
+            v.parse::<usize>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
         match name {
             "spacing1" => self.params.spacing1 = parse_f32(value)?,
             "spacing2" => self.params.spacing2 = parse_f32(value)?,
@@ -215,7 +237,13 @@ mod tests {
         for y in (0..500).step_by(50) {
             for x in (0..576).step_by(50) {
                 let v = shade(x, y, 576, 500, &params);
-                assert!(v >= 0.0 && v <= 1.0, "value {} out of range at ({}, {})", v, x, y);
+                assert!(
+                    v >= 0.0 && v <= 1.0,
+                    "value {} out of range at ({}, {})",
+                    v,
+                    x,
+                    y
+                );
             }
         }
     }

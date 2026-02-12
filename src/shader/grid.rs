@@ -7,7 +7,10 @@ use std::f32::consts::PI;
 /// Returns (cell_x, cell_y) as integers.
 #[inline]
 pub fn grid_cell(x: f32, y: f32, cell_size: f32) -> (i32, i32) {
-    ((x / cell_size).floor() as i32, (y / cell_size).floor() as i32)
+    (
+        (x / cell_size).floor() as i32,
+        (y / cell_size).floor() as i32,
+    )
 }
 
 /// Get the position within a cell as [0, 1].

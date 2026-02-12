@@ -15,14 +15,7 @@ use super::distance::dist;
 ///
 /// # Returns
 /// Distorted (x, y) coordinates
-pub fn bulge_spherical(
-    x: f32,
-    y: f32,
-    cx: f32,
-    cy: f32,
-    radius: f32,
-    strength: f32,
-) -> (f32, f32) {
+pub fn bulge_spherical(x: f32, y: f32, cx: f32, cy: f32, radius: f32, strength: f32) -> (f32, f32) {
     let dx = x - cx;
     let dy = y - cy;
     let d = dist(x, y, cx, cy);
@@ -148,10 +141,7 @@ pub fn swirl(x: f32, y: f32, cx: f32, cy: f32, radius: f32, angle: f32) -> (f32,
         let twist = angle * (1.0 - normalized * normalized);
         let cos_t = twist.cos();
         let sin_t = twist.sin();
-        (
-            cx + dx * cos_t - dy * sin_t,
-            cy + dx * sin_t + dy * cos_t,
-        )
+        (cx + dx * cos_t - dy * sin_t, cy + dx * sin_t + dy * cos_t)
     }
 }
 

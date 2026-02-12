@@ -9,8 +9,8 @@
 //! movement and depth found in Riley's work.
 
 use crate::shader::*;
-use rand::Rng;
 use async_trait::async_trait;
+use rand::Rng;
 use std::fmt;
 
 /// Parameters for the Riley pattern.
@@ -71,8 +71,12 @@ impl fmt::Display for Params {
         write!(
             f,
             "spacing={:.1} amp=({:.1},{:.1}) freq=({:.3},{:.3}) thick={:.1}",
-            self.line_spacing, self.amplitude1, self.amplitude2,
-            self.freq1, self.freq2, self.thickness
+            self.line_spacing,
+            self.amplitude1,
+            self.amplitude2,
+            self.freq1,
+            self.freq2,
+            self.thickness
         )
     }
 }
@@ -113,11 +117,15 @@ impl Default for Riley {
 
 impl Riley {
     pub fn golden() -> Self {
-        Self { params: Params::default() }
+        Self {
+            params: Params::default(),
+        }
     }
 
     pub fn random() -> Self {
-        Self { params: Params::random() }
+        Self {
+            params: Params::random(),
+        }
     }
 }
 
@@ -136,7 +144,10 @@ impl super::Pattern for Riley {
     }
 
     fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
-        let parse_f32 = |v: &str| v.parse::<f32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        let parse_f32 = |v: &str| {
+            v.parse::<f32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
         match name {
             "line_spacing" => self.params.line_spacing = parse_f32(value)?,
             "amplitude1" => self.params.amplitude1 = parse_f32(value)?,
@@ -181,8 +192,7 @@ impl super::Pattern for Riley {
                 .with_description("Line thickness"),
             ParamSpec::slider("y_freq", "Y Frequency", 0.005, 0.02, 0.001)
                 .with_description("Vertical wave component"),
-            ParamSpec::slider("phase", "Phase", 0.0, 6.28, 0.1)
-                .with_description("Phase offset"),
+            ParamSpec::slider("phase", "Phase", 0.0, 6.28, 0.1).with_description("Phase offset"),
         ]
     }
 }

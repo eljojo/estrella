@@ -97,10 +97,8 @@ pub fn render_ttf_text(
 
     // Rasterize each glyph
     for &(glyph_id, glyph_x) in &glyphs {
-        let glyph = glyph_id.with_scale_and_position(
-            pixel_height,
-            ab_glyph::point(glyph_x, baseline_y),
-        );
+        let glyph =
+            glyph_id.with_scale_and_position(pixel_height, ab_glyph::point(glyph_x, baseline_y));
 
         if let Some(outlined) = font.outline_glyph(glyph) {
             let bounds = outlined.px_bounds();
@@ -164,6 +162,9 @@ mod tests {
         let result = render_ttf_text("Smooth", "ibm", false, 48.0, 576);
         // Anti-aliased output should have intermediate values (not just 0.0 and 1.0)
         let has_intermediate = result.data.iter().any(|&v| v > 0.01 && v < 0.99);
-        assert!(has_intermediate, "TTF rendering should produce anti-aliased (intermediate) values");
+        assert!(
+            has_intermediate,
+            "TTF rendering should produce anti-aliased (intermediate) values"
+        );
     }
 }

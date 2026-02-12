@@ -1,10 +1,10 @@
 //! Receipt printing handlers.
 
 use axum::{
-    extract::State,
-    http::{header, StatusCode},
-    response::{Html, IntoResponse, Response},
     Json,
+    extract::State,
+    http::{StatusCode, header},
+    response::{Html, IntoResponse, Response},
 };
 use serde::Deserialize;
 use std::sync::Arc;
@@ -38,10 +38,7 @@ pub struct ReceiptForm {
 }
 
 /// Handle POST /api/receipt/print - print the receipt.
-pub async fn print(
-    State(state): State<Arc<AppState>>,
-    Json(form): Json<ReceiptForm>,
-) -> Response {
+pub async fn print(State(state): State<Arc<AppState>>, Json(form): Json<ReceiptForm>) -> Response {
     // Validate input
     if form.body.trim().is_empty() {
         return error_response("Body cannot be empty");
@@ -52,10 +49,8 @@ pub async fn print(
 
     // Print to device (blocking operation, run in separate thread)
     let device_path = state.config.device_path.clone();
-    let print_result = tokio::task::spawn_blocking(move || {
-        print_to_device(&device_path, &receipt_data)
-    })
-    .await;
+    let print_result =
+        tokio::task::spawn_blocking(move || print_to_device(&device_path, &receipt_data)).await;
 
     match print_result {
         Ok(Ok(())) => success_response(&form),
@@ -145,10 +140,7 @@ fn error_response(error_msg: &str) -> Response {
 /// Handle POST /api/receipt/preview - generate PNG preview.
 pub async fn preview(Json(form): Json<ReceiptForm>) -> impl IntoResponse {
     if form.body.trim().is_empty() {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            "Body cannot be empty".to_string(),
-        ));
+        return Err((StatusCode::BAD_REQUEST, "Body cannot be empty".to_string()));
     }
 
     // Build the receipt program and render to PNG

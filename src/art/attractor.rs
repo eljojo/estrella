@@ -8,8 +8,8 @@
 //! The chaotic but deterministic trajectories create intricate, flowing
 //! patterns that reveal the underlying mathematical structure.
 
-use async_trait::async_trait;
 use crate::shader::*;
+use async_trait::async_trait;
 use rand::Rng;
 use std::fmt;
 use std::sync::Mutex;
@@ -185,7 +185,12 @@ impl AttractorCache {
         }
 
         let params_hash = Self::hash_params(params);
-        Self { density, width, height, params_hash }
+        Self {
+            density,
+            width,
+            height,
+            params_hash,
+        }
     }
 
     fn is_valid_for(&self, width: usize, height: usize, params_hash: u64) -> bool {
@@ -195,7 +200,9 @@ impl AttractorCache {
     fn hash_params(params: &Params) -> u64 {
         let mut h: u64 = params.attractor as u64;
         h = h.wrapping_mul(31).wrapping_add(params.iterations as u64);
-        h = h.wrapping_mul(31).wrapping_add((params.zoom * 100.0) as u64);
+        h = h
+            .wrapping_mul(31)
+            .wrapping_add((params.zoom * 100.0) as u64);
         h = h.wrapping_mul(31).wrapping_add((params.a * 1000.0) as u64);
         h = h.wrapping_mul(31).wrapping_add((params.b * 1000.0) as u64);
         h
@@ -379,12 +386,22 @@ impl super::Pattern for Attractor {
     }
 
     fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
-        let parse_f32 = |v: &str| v.parse::<f32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
-        let parse_usize = |v: &str| v.parse::<usize>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        let parse_f32 = |v: &str| {
+            v.parse::<f32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
+        let parse_usize = |v: &str| {
+            v.parse::<usize>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
         match name {
             "attractor" => {
-                self.params.attractor = AttractorType::from_str(value)
-                    .ok_or_else(|| format!("Invalid attractor type '{}'. Use: lorenz, rossler, clifford", value))?;
+                self.params.attractor = AttractorType::from_str(value).ok_or_else(|| {
+                    format!(
+                        "Invalid attractor type '{}'. Use: lorenz, rossler, clifford",
+                        value
+                    )
+                })?;
             }
             "iterations" => self.params.iterations = parse_usize(value)?,
             "zoom" => self.params.zoom = parse_f32(value)?,
@@ -423,12 +440,15 @@ impl super::Pattern for Attractor {
     fn param_specs(&self) -> Vec<super::ParamSpec> {
         use super::ParamSpec;
         vec![
-            ParamSpec::select("attractor", "Attractor Type", vec!["lorenz", "rossler", "clifford"])
-                .with_description("Attractor type"),
+            ParamSpec::select(
+                "attractor",
+                "Attractor Type",
+                vec!["lorenz", "rossler", "clifford"],
+            )
+            .with_description("Attractor type"),
             ParamSpec::int("iterations", "Iterations", Some(50000), Some(150000))
                 .with_description("Number of iterations"),
-            ParamSpec::slider("zoom", "Zoom", 60.0, 120.0, 5.0)
-                .with_description("Zoom level"),
+            ParamSpec::slider("zoom", "Zoom", 60.0, 120.0, 5.0).with_description("Zoom level"),
             ParamSpec::slider("offset_x", "Offset X", -20.0, 20.0, 1.0)
                 .with_description("X offset"),
             ParamSpec::slider("offset_y", "Offset Y", -20.0, 20.0, 1.0)
@@ -458,7 +478,13 @@ mod tests {
         for y in (0..500).step_by(50) {
             for x in (0..576).step_by(50) {
                 let v = attractor.intensity(x, y, 576, 500);
-                assert!(v >= 0.0 && v <= 1.0, "value {} out of range at ({}, {})", v, x, y);
+                assert!(
+                    v >= 0.0 && v <= 1.0,
+                    "value {} out of range at ({}, {})",
+                    v,
+                    x,
+                    y
+                );
             }
         }
     }

@@ -10,8 +10,8 @@
 //! ```
 
 use crate::shader::{clamp01, dist, gamma};
-use rand::Rng;
 use async_trait::async_trait;
+use rand::Rng;
 use std::fmt;
 
 /// Parameters for the plasma effect.
@@ -68,8 +68,13 @@ impl fmt::Display for Params {
         write!(
             f,
             "freq=({:.1},{:.1},{:.1},{:.1}) center=({:.2},{:.2}) gamma={:.2}",
-            self.freq1, self.freq2, self.freq3, self.freq4,
-            self.center_x, self.center_y, self.gamma
+            self.freq1,
+            self.freq2,
+            self.freq3,
+            self.freq4,
+            self.center_x,
+            self.center_y,
+            self.gamma
         )
     }
 }
@@ -113,11 +118,15 @@ impl Default for Plasma {
 
 impl Plasma {
     pub fn golden() -> Self {
-        Self { params: Params::default() }
+        Self {
+            params: Params::default(),
+        }
     }
 
     pub fn random() -> Self {
-        Self { params: Params::random() }
+        Self {
+            params: Params::random(),
+        }
     }
 }
 
@@ -136,7 +145,10 @@ impl super::Pattern for Plasma {
     }
 
     fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
-        let parse_f32 = |v: &str| v.parse::<f32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        let parse_f32 = |v: &str| {
+            v.parse::<f32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
         match name {
             "freq1" => self.params.freq1 = parse_f32(value)?,
             "freq2" => self.params.freq2 = parse_f32(value)?,

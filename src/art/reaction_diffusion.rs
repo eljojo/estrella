@@ -9,8 +9,8 @@
 //! biological patterns. Uses pre-computed steady-state approximation.
 
 use crate::shader::*;
-use rand::Rng;
 use async_trait::async_trait;
+use rand::Rng;
 use std::fmt;
 
 /// Parameters for reaction-diffusion pattern.
@@ -52,9 +52,18 @@ impl Params {
         // maze: f=0.029, k=0.057
         let pattern_type = rng.random_range(0..3);
         let (feed, kill) = match pattern_type {
-            0 => (rng.random_range(0.020..0.028), rng.random_range(0.049..0.055)), // stripes
-            1 => (rng.random_range(0.030..0.040), rng.random_range(0.060..0.070)), // spots
-            _ => (rng.random_range(0.025..0.035), rng.random_range(0.055..0.063)), // maze
+            0 => (
+                rng.random_range(0.020..0.028),
+                rng.random_range(0.049..0.055),
+            ), // stripes
+            1 => (
+                rng.random_range(0.030..0.040),
+                rng.random_range(0.060..0.070),
+            ), // spots
+            _ => (
+                rng.random_range(0.025..0.035),
+                rng.random_range(0.055..0.063),
+            ), // maze
         };
         Self {
             feed,
@@ -77,7 +86,6 @@ impl fmt::Display for Params {
     }
 }
 
-
 /// Approximate reaction-diffusion steady state using noise-based simulation.
 /// This creates patterns similar to true RD without expensive simulation.
 pub fn shade(x: usize, y: usize, _width: usize, _height: usize, params: &Params) -> f32 {
@@ -91,7 +99,12 @@ pub fn shade(x: usize, y: usize, _width: usize, _height: usize, params: &Params)
     let warp_x = xf + fbm(xf + 50.0, yf + 50.0, 3, params.seed.wrapping_add(100)) * 2.0;
     let warp_y = yf + fbm(xf + 100.0, yf + 100.0, 3, params.seed.wrapping_add(200)) * 2.0;
 
-    let n2 = fbm(warp_x, warp_y, params.octaves, params.seed.wrapping_add(300));
+    let n2 = fbm(
+        warp_x,
+        warp_y,
+        params.octaves,
+        params.seed.wrapping_add(300),
+    );
 
     // Create reaction-like threshold behavior
     // Feed rate affects the amount of "activator"
@@ -103,7 +116,12 @@ pub fn shade(x: usize, y: usize, _width: usize, _height: usize, params: &Params)
     let pattern = 1.0 / (1.0 + (-(n2 - threshold) * sharpness).exp());
 
     // Add second scale for spots vs stripes
-    let n3 = fbm(xf * 1.5 + 200.0, yf * 1.5, params.octaves - 1, params.seed.wrapping_add(400));
+    let n3 = fbm(
+        xf * 1.5 + 200.0,
+        yf * 1.5,
+        params.octaves - 1,
+        params.seed.wrapping_add(400),
+    );
     let mix = params.feed / 0.06; // Higher feed = more mixed/spotted
 
     let combined = pattern * mix + n3 * (1.0 - mix) * pattern;
@@ -129,11 +147,15 @@ impl Default for ReactionDiffusion {
 
 impl ReactionDiffusion {
     pub fn golden() -> Self {
-        Self { params: Params::default() }
+        Self {
+            params: Params::default(),
+        }
     }
 
     pub fn random() -> Self {
-        Self { params: Params::random() }
+        Self {
+            params: Params::random(),
+        }
     }
 }
 
@@ -152,9 +174,18 @@ impl super::Pattern for ReactionDiffusion {
     }
 
     fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
-        let parse_f32 = |v: &str| v.parse::<f32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
-        let parse_usize = |v: &str| v.parse::<usize>().map_err(|e| format!("Invalid value '{}': {}", v, e));
-        let parse_u32 = |v: &str| v.parse::<u32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        let parse_f32 = |v: &str| {
+            v.parse::<f32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
+        let parse_usize = |v: &str| {
+            v.parse::<usize>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
+        let parse_u32 = |v: &str| {
+            v.parse::<u32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
         match name {
             "feed" => self.params.feed = parse_f32(value)?,
             "kill" => self.params.kill = parse_f32(value)?,
@@ -207,7 +238,13 @@ mod tests {
         for y in (0..500).step_by(50) {
             for x in (0..576).step_by(50) {
                 let v = shade(x, y, 576, 500, &params);
-                assert!(v >= 0.0 && v <= 1.0, "value {} out of range at ({}, {})", v, x, y);
+                assert!(
+                    v >= 0.0 && v <= 1.0,
+                    "value {} out of range at ({}, {})",
+                    v,
+                    x,
+                    y
+                );
             }
         }
     }

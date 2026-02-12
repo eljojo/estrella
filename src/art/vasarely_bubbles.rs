@@ -9,8 +9,8 @@
 //! kinetic art and the CBC logo aesthetic of spheres emerging from grids.
 
 use crate::shader::*;
-use rand::Rng;
 use async_trait::async_trait;
+use rand::Rng;
 use std::fmt;
 
 /// A single bubble/sphere distortion.
@@ -47,9 +47,24 @@ impl Default for Params {
             cell_size: 16.0,
             line_thickness: 0.0,
             bubbles: vec![
-                Bubble { x: 0.3, y: 0.35, radius: 0.25, strength: 0.7 },
-                Bubble { x: 0.7, y: 0.5, radius: 0.2, strength: 0.6 },
-                Bubble { x: 0.5, y: 0.75, radius: 0.15, strength: 0.5 },
+                Bubble {
+                    x: 0.3,
+                    y: 0.35,
+                    radius: 0.25,
+                    strength: 0.7,
+                },
+                Bubble {
+                    x: 0.7,
+                    y: 0.5,
+                    radius: 0.2,
+                    strength: 0.6,
+                },
+                Bubble {
+                    x: 0.5,
+                    y: 0.75,
+                    radius: 0.15,
+                    strength: 0.5,
+                },
             ],
             invert_bubbles: true,
             checkerboard: true,
@@ -74,7 +89,11 @@ impl Params {
 
         Self {
             cell_size: rng.random_range(10.0..24.0),
-            line_thickness: if rng.random_bool(0.3) { rng.random_range(1.0..3.0) } else { 0.0 },
+            line_thickness: if rng.random_bool(0.3) {
+                rng.random_range(1.0..3.0)
+            } else {
+                0.0
+            },
             bubbles,
             invert_bubbles: rng.random_bool(0.8),
             checkerboard: rng.random_bool(0.7),
@@ -165,11 +184,15 @@ impl Default for VasarelyBubbles {
 
 impl VasarelyBubbles {
     pub fn golden() -> Self {
-        Self { params: Params::default() }
+        Self {
+            params: Params::default(),
+        }
     }
 
     pub fn random() -> Self {
-        Self { params: Params::random() }
+        Self {
+            params: Params::random(),
+        }
     }
 }
 
@@ -188,9 +211,18 @@ impl super::Pattern for VasarelyBubbles {
     }
 
     fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
-        let parse_f32 = |v: &str| v.parse::<f32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
-        let parse_bool = |v: &str| v.parse::<bool>().map_err(|e| format!("Invalid value '{}': {}", v, e));
-        let parse_usize = |v: &str| v.parse::<usize>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        let parse_f32 = |v: &str| {
+            v.parse::<f32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
+        let parse_bool = |v: &str| {
+            v.parse::<bool>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
+        let parse_usize = |v: &str| {
+            v.parse::<usize>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
 
         match name {
             "cell_size" => self.params.cell_size = parse_f32(value)?,
@@ -219,7 +251,10 @@ impl super::Pattern for VasarelyBubbles {
     fn list_params(&self) -> Vec<(&'static str, String)> {
         vec![
             ("cell_size", format!("{:.1}", self.params.cell_size)),
-            ("line_thickness", format!("{:.1}", self.params.line_thickness)),
+            (
+                "line_thickness",
+                format!("{:.1}", self.params.line_thickness),
+            ),
             ("num_bubbles", self.params.bubbles.len().to_string()),
             ("invert_bubbles", self.params.invert_bubbles.to_string()),
             ("checkerboard", self.params.checkerboard.to_string()),
@@ -253,7 +288,13 @@ mod tests {
         for y in (0..500).step_by(50) {
             for x in (0..576).step_by(50) {
                 let v = shade(x, y, 576, 500, &params);
-                assert!(v >= 0.0 && v <= 1.0, "value {} out of range at ({}, {})", v, x, y);
+                assert!(
+                    v >= 0.0 && v <= 1.0,
+                    "value {} out of range at ({}, {})",
+                    v,
+                    x,
+                    y
+                );
             }
         }
     }

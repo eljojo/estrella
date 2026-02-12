@@ -9,8 +9,8 @@
 //! interference and data corruption artifacts.
 
 use crate::shader::*;
-use rand::Rng;
 use async_trait::async_trait;
+use rand::Rng;
 use std::fmt;
 
 /// Parameters for corrupt barcode pattern.
@@ -107,7 +107,10 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
 
     // Add vertical corruption zones
     let decay_zone = (yf / hf * 8.0).floor() as u32;
-    let decay = hash_f32(decay_zone.wrapping_add(bar_index as u32), params.seed.wrapping_add(200));
+    let decay = hash_f32(
+        decay_zone.wrapping_add(bar_index as u32),
+        params.seed.wrapping_add(200),
+    );
     let corrupted = if decay < params.corruption * 0.3 {
         invert(base) // Invert some areas
     } else {
@@ -138,11 +141,15 @@ impl Default for CorruptBarcode {
 
 impl CorruptBarcode {
     pub fn golden() -> Self {
-        Self { params: Params::default() }
+        Self {
+            params: Params::default(),
+        }
     }
 
     pub fn random() -> Self {
-        Self { params: Params::random() }
+        Self {
+            params: Params::random(),
+        }
     }
 }
 
@@ -161,9 +168,18 @@ impl super::Pattern for CorruptBarcode {
     }
 
     fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
-        let parse_f32 = |v: &str| v.parse::<f32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
-        let parse_usize = |v: &str| v.parse::<usize>().map_err(|e| format!("Invalid value '{}': {}", v, e));
-        let parse_u32 = |v: &str| v.parse::<u32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        let parse_f32 = |v: &str| {
+            v.parse::<f32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
+        let parse_usize = |v: &str| {
+            v.parse::<usize>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
+        let parse_u32 = |v: &str| {
+            v.parse::<u32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
         match name {
             "bar_width" => self.params.bar_width = parse_usize(value)?,
             "corruption" => self.params.corruption = parse_f32(value)?,
@@ -216,7 +232,13 @@ mod tests {
         for y in (0..500).step_by(50) {
             for x in (0..576).step_by(50) {
                 let v = shade(x, y, 576, 500, &params);
-                assert!(v >= 0.0 && v <= 1.0, "value {} out of range at ({}, {})", v, x, y);
+                assert!(
+                    v >= 0.0 && v <= 1.0,
+                    "value {} out of range at ({}, {})",
+                    v,
+                    x,
+                    y
+                );
             }
         }
     }

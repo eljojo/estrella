@@ -33,7 +33,7 @@ mod markdown;
 pub mod resolve;
 mod text;
 
-pub use resolve::{fetch_image, fetch_image_with_ctx, ImageResolver};
+pub use resolve::{ImageResolver, fetch_image, fetch_image_with_ctx};
 pub use types::*;
 
 use crate::ir::{Op, Program};
@@ -57,16 +57,16 @@ fn default_true() -> bool {
 ///
 /// Example: `{"text": "hello", "bold": true}` → `{"type": "text", "content": "hello", "bold": true}`
 const SHORTHANDS: &[(&str, &str, &str)] = &[
-    ("text",      "text",      "content"),
-    ("banner",    "banner",    "content"),
+    ("text", "text", "content"),
+    ("banner", "banner", "content"),
     ("line_item", "line_item", "name"),
-    ("total",     "total",     "amount"),
-    ("divider",   "divider",   "style"),
-    ("spacer_mm", "spacer",    "mm"),
-    ("image",     "image",     "url"),
-    ("qr_code",   "qr_code",  "data"),
-    ("markdown",  "markdown",  "content"),
-    ("canvas",    "canvas",    "elements"),
+    ("total", "total", "amount"),
+    ("divider", "divider", "style"),
+    ("spacer_mm", "spacer", "mm"),
+    ("image", "image", "url"),
+    ("qr_code", "qr_code", "data"),
+    ("markdown", "markdown", "content"),
+    ("canvas", "canvas", "elements"),
 ];
 
 /// Rewrite a shorthand JSON object to canonical `{"type": ...}` form.
@@ -81,7 +81,11 @@ fn normalize_shorthand(map: &mut serde_json::Map<String, serde_json::Value>) -> 
     }
     Err(format!(
         "component object has no 'type' field and no shorthand key ({})",
-        SHORTHANDS.iter().map(|(k, _, _)| *k).collect::<Vec<_>>().join(", ")
+        SHORTHANDS
+            .iter()
+            .map(|(k, _, _)| *k)
+            .collect::<Vec<_>>()
+            .join(", ")
     ))
 }
 
@@ -104,21 +108,18 @@ where
                 other => {
                     return Err(serde::de::Error::custom(format!(
                         "document[{}]: expected object, got {}",
-                        i,
-                        other
-                    )))
+                        i, other
+                    )));
                 }
             };
 
             if !obj.contains_key("type") {
-                normalize_shorthand(&mut obj).map_err(|e| {
-                    serde::de::Error::custom(format!("document[{}]: {}", i, e))
-                })?;
+                normalize_shorthand(&mut obj)
+                    .map_err(|e| serde::de::Error::custom(format!("document[{}]: {}", i, e)))?;
             }
 
-            serde_json::from_value(serde_json::Value::Object(obj)).map_err(|e| {
-                serde::de::Error::custom(format!("document[{}]: {}", i, e))
-            })
+            serde_json::from_value(serde_json::Value::Object(obj))
+                .map_err(|e| serde::de::Error::custom(format!("document[{}]: {}", i, e)))
         })
         .collect()
 }
@@ -145,7 +146,7 @@ where
                     return Err(serde::de::Error::custom(format!(
                         "canvas.elements[{}]: expected object, got {}",
                         i, other
-                    )))
+                    )));
                 }
             };
 
@@ -174,10 +175,8 @@ where
                 })?;
             }
 
-            let component: Component =
-                serde_json::from_value(serde_json::Value::Object(obj)).map_err(|e| {
-                    serde::de::Error::custom(format!("canvas.elements[{}]: {}", i, e))
-                })?;
+            let component: Component = serde_json::from_value(serde_json::Value::Object(obj))
+                .map_err(|e| serde::de::Error::custom(format!("canvas.elements[{}]: {}", i, e)))?;
 
             Ok(CanvasElement {
                 component,
@@ -281,8 +280,7 @@ impl Document {
     pub fn build_with_config(&self, config: &PrinterConfig) -> Vec<u8> {
         if self.raster {
             let program = self.compile();
-            let raw = crate::preview::render_raw(&program)
-                .expect("raster render failed");
+            let raw = crate::preview::render_raw(&program).expect("raster render failed");
             let mut raster_program = Program::new();
             raster_program.push(Op::Init);
             raster_program.push(Op::Raster {
@@ -381,14 +379,17 @@ fn builtin_variables() -> HashMap<String, String> {
     let now = Local::now();
     let mut vars = HashMap::new();
 
-    vars.insert("date".into(), now.format("%B %-d, %Y").to_string());       // January 27, 2026
-    vars.insert("date_short".into(), now.format("%b %-d").to_string());     // Jan 27
-    vars.insert("day".into(), now.format("%A").to_string());                 // Monday
-    vars.insert("time".into(), now.format("%H:%M").to_string());             // 09:30
-    vars.insert("time_12h".into(), now.format("%-I:%M %p").to_string());     // 9:30 AM
-    vars.insert("datetime".into(), now.format("%a, %b %-d %H:%M").to_string()); // Mon, Jan 27 09:30
-    vars.insert("year".into(), now.format("%Y").to_string());                // 2026
-    vars.insert("iso_date".into(), now.format("%Y-%m-%d").to_string());      // 2026-01-27
+    vars.insert("date".into(), now.format("%B %-d, %Y").to_string()); // January 27, 2026
+    vars.insert("date_short".into(), now.format("%b %-d").to_string()); // Jan 27
+    vars.insert("day".into(), now.format("%A").to_string()); // Monday
+    vars.insert("time".into(), now.format("%H:%M").to_string()); // 09:30
+    vars.insert("time_12h".into(), now.format("%-I:%M %p").to_string()); // 9:30 AM
+    vars.insert(
+        "datetime".into(),
+        now.format("%a, %b %-d %H:%M").to_string(),
+    ); // Mon, Jan 27 09:30
+    vars.insert("year".into(), now.format("%Y").to_string()); // 2026
+    vars.insert("iso_date".into(), now.format("%Y-%m-%d").to_string()); // 2026-01-27
 
     vars
 }
@@ -458,12 +459,21 @@ mod tests {
 
     #[test]
     fn test_text_bold_center() {
-        let json = r#"{"document": [{"type": "text", "content": "Hello", "bold": true, "center": true}]}"#;
+        let json =
+            r#"{"document": [{"type": "text", "content": "Hello", "bold": true, "center": true}]}"#;
         let doc: Document = serde_json::from_str(json).unwrap();
         let ir = doc.compile();
         assert!(ir.ops.iter().any(|op| matches!(op, Op::SetBold(true))));
-        assert!(ir.ops.iter().any(|op| matches!(op, Op::SetAlign(crate::protocol::text::Alignment::Center))));
-        assert!(ir.ops.iter().any(|op| matches!(op, Op::Text(s) if s == "Hello")));
+        assert!(
+            ir.ops
+                .iter()
+                .any(|op| matches!(op, Op::SetAlign(crate::protocol::text::Alignment::Center)))
+        );
+        assert!(
+            ir.ops
+                .iter()
+                .any(|op| matches!(op, Op::Text(s) if s == "Hello"))
+        );
     }
 
     #[test]
@@ -472,7 +482,13 @@ mod tests {
         let json = r#"{"document": [{"type": "text", "content": "x", "size": 2}]}"#;
         let doc: Document = serde_json::from_str(json).unwrap();
         let ir = doc.compile();
-        assert!(ir.ops.iter().any(|op| matches!(op, Op::SetSize { height: 1, width: 1 })));
+        assert!(ir.ops.iter().any(|op| matches!(
+            op,
+            Op::SetSize {
+                height: 1,
+                width: 1
+            }
+        )));
     }
 
     #[test]
@@ -481,7 +497,13 @@ mod tests {
         let json = r#"{"document": [{"type": "text", "content": "x", "size": [2, 3]}]}"#;
         let doc: Document = serde_json::from_str(json).unwrap();
         let ir = doc.compile();
-        assert!(ir.ops.iter().any(|op| matches!(op, Op::SetSize { height: 1, width: 2 })));
+        assert!(ir.ops.iter().any(|op| matches!(
+            op,
+            Op::SetSize {
+                height: 1,
+                width: 2
+            }
+        )));
     }
 
     #[test]
@@ -490,7 +512,11 @@ mod tests {
         let json = r#"{"document": [{"type": "text", "content": "x", "size": 0}]}"#;
         let doc: Document = serde_json::from_str(json).unwrap();
         let ir = doc.compile();
-        assert!(ir.ops.iter().any(|op| matches!(op, Op::SetFont(crate::protocol::text::Font::B))));
+        assert!(
+            ir.ops
+                .iter()
+                .any(|op| matches!(op, Op::SetFont(crate::protocol::text::Font::B)))
+        );
         assert!(!ir.ops.iter().any(|op| matches!(op, Op::SetSize { .. })));
     }
 
@@ -502,7 +528,11 @@ mod tests {
         let doc: Document = serde_json::from_str(json).unwrap();
         let ir = doc.compile();
         assert!(!ir.ops.iter().any(|op| matches!(op, Op::SetSize { .. })));
-        assert!(ir.ops.iter().any(|op| matches!(op, Op::Text(s) if s == "x")));
+        assert!(
+            ir.ops
+                .iter()
+                .any(|op| matches!(op, Op::Text(s) if s == "x"))
+        );
     }
 
     #[test]
@@ -510,7 +540,11 @@ mod tests {
         let json = r#"{"document": [{"type": "text", "content": "x", "inline": true}]}"#;
         let doc: Document = serde_json::from_str(json).unwrap();
         let ir = doc.compile();
-        let text_idx = ir.ops.iter().position(|op| matches!(op, Op::Text(s) if s == "x")).unwrap();
+        let text_idx = ir
+            .ops
+            .iter()
+            .position(|op| matches!(op, Op::Text(s) if s == "x"))
+            .unwrap();
         if text_idx + 1 < ir.ops.len() {
             assert!(!matches!(ir.ops[text_idx + 1], Op::Newline));
         }
@@ -522,7 +556,13 @@ mod tests {
         let doc: Document = serde_json::from_str(json).unwrap();
         let ir = doc.compile();
         assert!(ir.ops.iter().any(|op| matches!(op, Op::SetBold(true))));
-        assert!(ir.ops.iter().any(|op| matches!(op, Op::SetSize { height: 1, width: 1 })));
+        assert!(ir.ops.iter().any(|op| matches!(
+            op,
+            Op::SetSize {
+                height: 1,
+                width: 1
+            }
+        )));
     }
 
     #[test]
@@ -531,11 +571,19 @@ mod tests {
         let doc: Document = serde_json::from_str(json).unwrap();
         let ir = doc.compile();
         // Should contain the content text
-        assert!(ir.ops.iter().any(|op| matches!(op, Op::Text(s) if s.contains("SALE"))));
+        assert!(
+            ir.ops
+                .iter()
+                .any(|op| matches!(op, Op::Text(s) if s.contains("SALE")))
+        );
         // Should have bold (default)
         assert!(ir.ops.iter().any(|op| matches!(op, Op::SetBold(true))));
         // Should have box-drawing characters (top-left corner)
-        assert!(ir.ops.iter().any(|op| matches!(op, Op::Text(s) if s.starts_with('\u{250C}'))));
+        assert!(
+            ir.ops
+                .iter()
+                .any(|op| matches!(op, Op::Text(s) if s.starts_with('\u{250C}')))
+        );
     }
 
     #[test]
@@ -574,7 +622,14 @@ mod tests {
         let json = r#"{"document": [{"type": "pattern", "name": "ripple", "height": 100}]}"#;
         let doc: Document = serde_json::from_str(json).unwrap();
         let ir = doc.compile();
-        assert!(ir.ops.iter().any(|op| matches!(op, Op::Raster { width: 576, height: 100, .. })));
+        assert!(ir.ops.iter().any(|op| matches!(
+            op,
+            Op::Raster {
+                width: 576,
+                height: 100,
+                ..
+            }
+        )));
     }
 
     #[test]
@@ -626,13 +681,25 @@ mod tests {
         let ir = doc.compile();
 
         // Should contain header text
-        assert!(ir.ops.iter().any(|op| matches!(op, Op::Text(s) if s.contains("Item"))));
+        assert!(
+            ir.ops
+                .iter()
+                .any(|op| matches!(op, Op::Text(s) if s.contains("Item")))
+        );
         // Should contain data
-        assert!(ir.ops.iter().any(|op| matches!(op, Op::Text(s) if s.contains("Espresso"))));
+        assert!(
+            ir.ops
+                .iter()
+                .any(|op| matches!(op, Op::Text(s) if s.contains("Espresso")))
+        );
         // Should have bold for headers
         assert!(ir.ops.iter().any(|op| matches!(op, Op::SetBold(true))));
         // Should have mixed header separator (╞)
-        assert!(ir.ops.iter().any(|op| matches!(op, Op::Text(s) if s.contains('\u{255E}'))));
+        assert!(
+            ir.ops
+                .iter()
+                .any(|op| matches!(op, Op::Text(s) if s.contains('\u{255E}')))
+        );
     }
 
     #[test]
@@ -647,8 +714,16 @@ mod tests {
         }"#;
         let doc: Document = serde_json::from_str(json).unwrap();
         let ir = doc.compile();
-        assert!(ir.ops.iter().any(|op| matches!(op, Op::Text(s) if s.contains("Latte"))));
-        assert!(!ir.ops.iter().any(|op| matches!(op, Op::Text(s) if s.contains("{{item}}"))));
+        assert!(
+            ir.ops
+                .iter()
+                .any(|op| matches!(op, Op::Text(s) if s.contains("Latte")))
+        );
+        assert!(
+            !ir.ops
+                .iter()
+                .any(|op| matches!(op, Op::Text(s) if s.contains("{{item}}")))
+        );
     }
 
     #[test]
@@ -662,8 +737,16 @@ mod tests {
         }"#;
         let doc: Document = serde_json::from_str(json).unwrap();
         let ir = doc.compile();
-        assert!(ir.ops.iter().any(|op| matches!(op, Op::Text(s) if s.contains("Jojo"))));
-        assert!(ir.ops.iter().any(|op| matches!(op, Op::Text(s) if s.contains("6°C"))));
+        assert!(
+            ir.ops
+                .iter()
+                .any(|op| matches!(op, Op::Text(s) if s.contains("Jojo")))
+        );
+        assert!(
+            ir.ops
+                .iter()
+                .any(|op| matches!(op, Op::Text(s) if s.contains("6°C")))
+        );
     }
 
     #[test]
@@ -678,7 +761,11 @@ mod tests {
         let doc: Document = serde_json::from_str(json).unwrap();
         let ir = doc.compile();
         // Should keep the literal {{name}}
-        assert!(ir.ops.iter().any(|op| matches!(op, Op::Text(s) if s.contains("{{name}}"))));
+        assert!(
+            ir.ops
+                .iter()
+                .any(|op| matches!(op, Op::Text(s) if s.contains("{{name}}")))
+        );
     }
 
     #[test]
@@ -704,9 +791,17 @@ mod tests {
         let doc: Document = serde_json::from_str(json).unwrap();
         let ir = doc.compile();
         // Should have interpolated {{year}} with current year
-        assert!(ir.ops.iter().any(|op| matches!(op, Op::Text(s) if s.starts_with("Year: 20"))));
+        assert!(
+            ir.ops
+                .iter()
+                .any(|op| matches!(op, Op::Text(s) if s.starts_with("Year: 20")))
+        );
         // Should NOT contain the template placeholder
-        assert!(!ir.ops.iter().any(|op| matches!(op, Op::Text(s) if s.contains("{{year}}"))));
+        assert!(
+            !ir.ops
+                .iter()
+                .any(|op| matches!(op, Op::Text(s) if s.contains("{{year}}")))
+        );
     }
 
     #[test]
@@ -719,7 +814,11 @@ mod tests {
         }"#;
         let doc: Document = serde_json::from_str(json).unwrap();
         let ir = doc.compile();
-        assert!(ir.ops.iter().any(|op| matches!(op, Op::Text(s) if s.contains("CUSTOM"))));
+        assert!(
+            ir.ops
+                .iter()
+                .any(|op| matches!(op, Op::Text(s) if s.contains("CUSTOM")))
+        );
     }
 
     #[test]
@@ -764,7 +863,11 @@ mod tests {
         let json = r#"{"document": [{"text": "hello"}]}"#;
         let doc: Document = serde_json::from_str(json).unwrap();
         let ir = doc.compile();
-        assert!(ir.ops.iter().any(|op| matches!(op, Op::Text(s) if s == "hello")));
+        assert!(
+            ir.ops
+                .iter()
+                .any(|op| matches!(op, Op::Text(s) if s == "hello"))
+        );
     }
 
     #[test]
@@ -772,9 +875,19 @@ mod tests {
         let json = r#"{"document": [{"text": "hi", "bold": true, "size": 2}]}"#;
         let doc: Document = serde_json::from_str(json).unwrap();
         let ir = doc.compile();
-        assert!(ir.ops.iter().any(|op| matches!(op, Op::Text(s) if s == "hi")));
+        assert!(
+            ir.ops
+                .iter()
+                .any(|op| matches!(op, Op::Text(s) if s == "hi"))
+        );
         assert!(ir.ops.iter().any(|op| matches!(op, Op::SetBold(true))));
-        assert!(ir.ops.iter().any(|op| matches!(op, Op::SetSize { height: 1, width: 1 })));
+        assert!(ir.ops.iter().any(|op| matches!(
+            op,
+            Op::SetSize {
+                height: 1,
+                width: 1
+            }
+        )));
     }
 
     #[test]
@@ -782,7 +895,11 @@ mod tests {
         let json = r#"{"document": [{"banner": "SALE", "border": "heavy"}]}"#;
         let doc: Document = serde_json::from_str(json).unwrap();
         let ir = doc.compile();
-        assert!(ir.ops.iter().any(|op| matches!(op, Op::Text(s) if s.contains("SALE"))));
+        assert!(
+            ir.ops
+                .iter()
+                .any(|op| matches!(op, Op::Text(s) if s.contains("SALE")))
+        );
     }
 
     #[test]
@@ -790,7 +907,11 @@ mod tests {
         let json = r#"{"document": [{"line_item": "Coffee", "price": 4.50}]}"#;
         let doc: Document = serde_json::from_str(json).unwrap();
         let ir = doc.compile();
-        assert!(ir.ops.iter().any(|op| matches!(op, Op::Text(s) if s.contains("Coffee") && s.contains("4.50"))));
+        assert!(
+            ir.ops
+                .iter()
+                .any(|op| matches!(op, Op::Text(s) if s.contains("Coffee") && s.contains("4.50")))
+        );
     }
 
     #[test]
@@ -798,7 +919,11 @@ mod tests {
         let json = r#"{"document": [{"total": 9.99}]}"#;
         let doc: Document = serde_json::from_str(json).unwrap();
         let ir = doc.compile();
-        assert!(ir.ops.iter().any(|op| matches!(op, Op::Text(s) if s.contains("9.99"))));
+        assert!(
+            ir.ops
+                .iter()
+                .any(|op| matches!(op, Op::Text(s) if s.contains("9.99")))
+        );
     }
 
     #[test]
@@ -806,7 +931,11 @@ mod tests {
         let json = r#"{"document": [{"divider": "double"}]}"#;
         let doc: Document = serde_json::from_str(json).unwrap();
         let ir = doc.compile();
-        assert!(ir.ops.iter().any(|op| matches!(op, Op::Text(s) if s.contains("═"))));
+        assert!(
+            ir.ops
+                .iter()
+                .any(|op| matches!(op, Op::Text(s) if s.contains("═")))
+        );
     }
 
     #[test]
@@ -822,7 +951,9 @@ mod tests {
         let json = r#"{"document": [{"image": "https://example.com/photo.jpg"}]}"#;
         let doc: Document = serde_json::from_str(json).unwrap();
         assert_eq!(doc.document.len(), 1);
-        assert!(matches!(&doc.document[0], Component::Image(img) if img.url == "https://example.com/photo.jpg"));
+        assert!(
+            matches!(&doc.document[0], Component::Image(img) if img.url == "https://example.com/photo.jpg")
+        );
     }
 
     #[test]
@@ -847,7 +978,11 @@ mod tests {
         let json = r#"{"document": [{"type": "text", "content": "real", "text": "ignored"}]}"#;
         let doc: Document = serde_json::from_str(json).unwrap();
         let ir = doc.compile();
-        assert!(ir.ops.iter().any(|op| matches!(op, Op::Text(s) if s == "real")));
+        assert!(
+            ir.ops
+                .iter()
+                .any(|op| matches!(op, Op::Text(s) if s == "real"))
+        );
     }
 
     #[test]
@@ -873,7 +1008,11 @@ mod tests {
         // All type names are unique
         let mut seen = std::collections::HashSet::new();
         for meta in &types {
-            assert!(seen.insert(&meta.type_name), "Duplicate type: {}", meta.type_name);
+            assert!(
+                seen.insert(&meta.type_name),
+                "Duplicate type: {}",
+                meta.type_name
+            );
         }
 
         // Every type name round-trips through default_component

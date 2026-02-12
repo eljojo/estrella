@@ -32,7 +32,7 @@ mod font;
 mod text;
 pub mod ttf_font;
 
-pub use font::{generate_glyph, FontMetrics};
+pub use font::{FontMetrics, generate_glyph};
 
 use crate::ir::{BarcodeKind, Op, Program, StyleState};
 use crate::protocol::barcode::qr::QrErrorLevel;
@@ -41,7 +41,7 @@ use image::{GrayImage, Luma};
 use std::collections::HashMap;
 use thiserror::Error;
 
-use barcode::{encode_code128, encode_code39};
+use barcode::{encode_code39, encode_code128};
 use font::RenderState;
 
 /// Errors that can occur during preview rendering.
@@ -78,7 +78,12 @@ impl PreviewRenderer {
     /// - `print_width`: Printable area width in dots (e.g., 576 for 72mm)
     /// - `left_margin`: Left margin in dots (e.g., 32 for 4mm)
     /// - `top_margin`: Top margin in dots (e.g., 16 for ~2mm)
-    pub fn new(paper_width: usize, print_width: usize, left_margin: usize, top_margin: usize) -> Self {
+    pub fn new(
+        paper_width: usize,
+        print_width: usize,
+        left_margin: usize,
+        top_margin: usize,
+    ) -> Self {
         // Start with a reasonable initial height
         let initial_height = 100;
         let buffer = vec![0u8; paper_width * initial_height];
@@ -252,7 +257,11 @@ impl PreviewRenderer {
                 // Raw bytes are printer-specific, can't preview
             }
 
-            Op::Raster { width, height, data } => {
+            Op::Raster {
+                width,
+                height,
+                data,
+            } => {
                 self.render_raster(*width as usize, *height as usize, data);
             }
 
@@ -287,7 +296,11 @@ impl PreviewRenderer {
                 self.state.x = (*dots as usize).min(self.print_width);
             }
 
-            Op::NvPrint { key, scale_x, scale_y } => {
+            Op::NvPrint {
+                key,
+                scale_x,
+                scale_y,
+            } => {
                 // Look up logo from registry for preview
                 if let Some(raster) = crate::logos::get_raster(key) {
                     self.render_nv_logo(&raster, *scale_x, *scale_y);
@@ -469,13 +482,17 @@ impl PreviewRenderer {
 
     /// Render a PDF417 barcode.
     fn render_pdf417(&mut self, data: &str, module_width: u8) -> Result<(), PreviewError> {
-        use pdf417::{PDF417, PDF417Encoder, START_PATTERN, END_PATTERN};
+        use pdf417::{END_PATTERN, PDF417, PDF417Encoder, START_PATTERN};
 
         // Configuration
         const COLS: u8 = 4;
         const ROWS: u8 = 10;
         // PDF417 width = start(17) + left_row_ind(17) + data_cols*17 + right_row_ind(17) + end(18)
-        const WIDTH: usize = START_PATTERN.size() as usize + 17 + (COLS as usize * 17) + 17 + END_PATTERN.size() as usize;
+        const WIDTH: usize = START_PATTERN.size() as usize
+            + 17
+            + (COLS as usize * 17)
+            + 17
+            + END_PATTERN.size() as usize;
         const HEIGHT: usize = ROWS as usize;
 
         // Encode the text data

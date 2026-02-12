@@ -5,8 +5,8 @@
 
 use serde::Serialize;
 
-use super::types::Canvas;
 use super::Component;
+use super::types::Canvas;
 use crate::ir::{Op, Program};
 use crate::preview::render_raw;
 use crate::render::composer::BlendMode;
@@ -216,8 +216,7 @@ impl Canvas {
                 }
 
                 // Track full element bounds for canvas height calculation
-                full_bottoms
-                    .push((elem_y + measurement.full_height as i32).max(0) as usize);
+                full_bottoms.push((elem_y + measurement.full_height as i32).max(0) as usize);
 
                 match measurement.content_bounds {
                     Some((min_x, min_y, max_x, max_y)) => {
@@ -272,9 +271,9 @@ impl Canvas {
         }
 
         // Canvas height uses full element bounds (must match emit() behavior)
-        let canvas_height = self.height.unwrap_or_else(|| {
-            full_bottoms.iter().copied().max().unwrap_or(1)
-        });
+        let canvas_height = self
+            .height
+            .unwrap_or_else(|| full_bottoms.iter().copied().max().unwrap_or(1));
 
         CanvasLayout {
             width: canvas_width,
@@ -525,10 +524,19 @@ mod tests {
         assert_eq!(layout.elements.len(), 1);
         let el = &layout.elements[0];
         // Content bounds should be narrower than full width
-        assert!(el.width < el.full_width, "content width {} should be < full width {}", el.width, el.full_width);
+        assert!(
+            el.width < el.full_width,
+            "content width {} should be < full width {}",
+            el.width,
+            el.full_width
+        );
         assert_eq!(el.full_width, 576);
         // Content offset should reflect the left whitespace
-        assert!(el.content_offset_x > 0, "centered text should have positive x offset, got {}", el.content_offset_x);
+        assert!(
+            el.content_offset_x > 0,
+            "centered text should have positive x offset, got {}",
+            el.content_offset_x
+        );
     }
 
     #[test]
@@ -551,10 +559,7 @@ mod tests {
     fn layout_flow_elements_stack() {
         // Two flow elements (no position) should stack vertically
         let canvas = Canvas {
-            elements: vec![
-                text_element("First", None),
-                text_element("Second", None),
-            ],
+            elements: vec![text_element("First", None), text_element("Second", None)],
             ..Default::default()
         };
         let layout = canvas.compute_layout();
@@ -617,7 +622,10 @@ mod tests {
     #[test]
     fn layout_positioned_element_preserves_offset() {
         let canvas = Canvas {
-            elements: vec![centered_text_element("AB", Some(Position { x: 100, y: 50 }))],
+            elements: vec![centered_text_element(
+                "AB",
+                Some(Position { x: 100, y: 50 }),
+            )],
             ..Default::default()
         };
         let layout = canvas.compute_layout();

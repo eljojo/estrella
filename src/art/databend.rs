@@ -9,8 +9,8 @@
 //! file data with blocks, streaks, and digital noise.
 
 use crate::shader::*;
-use rand::Rng;
 use async_trait::async_trait;
+use rand::Rng;
 use std::fmt;
 
 /// Parameters for databend pattern.
@@ -99,7 +99,8 @@ pub fn shade(x: usize, y: usize, _width: usize, _height: usize, params: &Params)
             0 => {
                 // Horizontal streak: repeat a value across multiple blocks
                 let streak_start = effective_block_x.saturating_sub(
-                    (hash_f32(block_y as u32, params.seed.wrapping_add(100)) * params.streak_length) as usize
+                    (hash_f32(block_y as u32, params.seed.wrapping_add(100)) * params.streak_length)
+                        as usize,
                 );
                 read_byte(streak_start, block_y, params.seed, params.bit_depth)
             }
@@ -112,7 +113,11 @@ pub fn shade(x: usize, y: usize, _width: usize, _height: usize, params: &Params)
                 // Noise burst
                 let local_x = x % params.block_size;
                 let local_y = y % params.block_size;
-                hash2_f32(local_x as u32, local_y as u32, params.seed.wrapping_add(block_x as u32))
+                hash2_f32(
+                    local_x as u32,
+                    local_y as u32,
+                    params.seed.wrapping_add(block_x as u32),
+                )
             }
             _ => {
                 // Solid block (stuck bit)
@@ -155,11 +160,15 @@ impl Default for Databend {
 
 impl Databend {
     pub fn golden() -> Self {
-        Self { params: Params::default() }
+        Self {
+            params: Params::default(),
+        }
     }
 
     pub fn random() -> Self {
-        Self { params: Params::random() }
+        Self {
+            params: Params::random(),
+        }
     }
 }
 
@@ -178,9 +187,18 @@ impl super::Pattern for Databend {
     }
 
     fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
-        let parse_f32 = |v: &str| v.parse::<f32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
-        let parse_usize = |v: &str| v.parse::<usize>().map_err(|e| format!("Invalid value '{}': {}", v, e));
-        let parse_u32 = |v: &str| v.parse::<u32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        let parse_f32 = |v: &str| {
+            v.parse::<f32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
+        let parse_usize = |v: &str| {
+            v.parse::<usize>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
+        let parse_u32 = |v: &str| {
+            v.parse::<u32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
         match name {
             "block_size" => self.params.block_size = parse_usize(value)?,
             "corruption_rate" => self.params.corruption_rate = parse_f32(value)?,
@@ -196,7 +214,10 @@ impl super::Pattern for Databend {
     fn list_params(&self) -> Vec<(&'static str, String)> {
         vec![
             ("block_size", self.params.block_size.to_string()),
-            ("corruption_rate", format!("{:.2}", self.params.corruption_rate)),
+            (
+                "corruption_rate",
+                format!("{:.2}", self.params.corruption_rate),
+            ),
             ("streak_length", format!("{:.1}", self.params.streak_length)),
             ("bit_depth", self.params.bit_depth.to_string()),
             ("row_shift", format!("{:.2}", self.params.row_shift)),
@@ -233,7 +254,13 @@ mod tests {
         for y in (0..500).step_by(50) {
             for x in (0..576).step_by(50) {
                 let v = shade(x, y, 576, 500, &params);
-                assert!(v >= 0.0 && v <= 1.0, "value {} out of range at ({}, {})", v, x, y);
+                assert!(
+                    v >= 0.0 && v <= 1.0,
+                    "value {} out of range at ({}, {})",
+                    v,
+                    x,
+                    y
+                );
             }
         }
     }

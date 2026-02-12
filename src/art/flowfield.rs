@@ -9,8 +9,8 @@
 //! that's rendered as varying line density.
 
 use crate::shader::*;
-use rand::Rng;
 use async_trait::async_trait;
+use rand::Rng;
 use std::fmt;
 
 /// Parameters for the flow field pattern.
@@ -89,8 +89,18 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
     let angle = fbm(nx, ny, params.octaves, params.seed) * std::f32::consts::TAU;
 
     // Add turbulence layer
-    let turb_x = fbm(nx * 2.0 + 100.0, ny * 2.0, params.octaves, params.seed.wrapping_add(500));
-    let turb_y = fbm(nx * 2.0, ny * 2.0 + 100.0, params.octaves, params.seed.wrapping_add(1000));
+    let turb_x = fbm(
+        nx * 2.0 + 100.0,
+        ny * 2.0,
+        params.octaves,
+        params.seed.wrapping_add(500),
+    );
+    let turb_y = fbm(
+        nx * 2.0,
+        ny * 2.0 + 100.0,
+        params.octaves,
+        params.seed.wrapping_add(1000),
+    );
 
     // Displace coordinates along flow direction
     let flow_x = xf + angle.cos() * 50.0 * params.turbulence + turb_x * 30.0 * params.turbulence;
@@ -105,7 +115,12 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
     let line_value = (line_phase * params.sharpness).tanh() * 0.5 + 0.5;
 
     // Add some variation based on position
-    let variation = fbm(nx * 3.0 + 200.0, ny * 3.0 + 200.0, 2, params.seed.wrapping_add(2000));
+    let variation = fbm(
+        nx * 3.0 + 200.0,
+        ny * 3.0 + 200.0,
+        2,
+        params.seed.wrapping_add(2000),
+    );
     let final_value = line_value * (0.7 + variation * 0.3);
 
     // Edge fade
@@ -130,11 +145,15 @@ impl Default for Flowfield {
 
 impl Flowfield {
     pub fn golden() -> Self {
-        Self { params: Params::default() }
+        Self {
+            params: Params::default(),
+        }
     }
 
     pub fn random() -> Self {
-        Self { params: Params::random() }
+        Self {
+            params: Params::random(),
+        }
     }
 }
 
@@ -153,9 +172,18 @@ impl super::Pattern for Flowfield {
     }
 
     fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
-        let parse_f32 = |v: &str| v.parse::<f32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
-        let parse_usize = |v: &str| v.parse::<usize>().map_err(|e| format!("Invalid value '{}': {}", v, e));
-        let parse_u32 = |v: &str| v.parse::<u32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        let parse_f32 = |v: &str| {
+            v.parse::<f32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
+        let parse_usize = |v: &str| {
+            v.parse::<usize>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
+        let parse_u32 = |v: &str| {
+            v.parse::<u32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
         match name {
             "noise_scale" => self.params.noise_scale = parse_f32(value)?,
             "octaves" => self.params.octaves = parse_usize(value)?,

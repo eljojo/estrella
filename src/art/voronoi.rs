@@ -9,8 +9,8 @@
 //! or cracked earth depending on the rendering mode.
 
 use crate::shader::*;
-use rand::Rng;
 use async_trait::async_trait;
+use rand::Rng;
 use std::fmt;
 
 /// Rendering mode for Voronoi cells.
@@ -103,7 +103,6 @@ impl fmt::Display for Params {
     }
 }
 
-
 /// Generate seed points.
 fn generate_points(num: usize, width: usize, height: usize, seed: u32) -> Vec<(f32, f32)> {
     let mut points = Vec::with_capacity(num);
@@ -116,12 +115,7 @@ fn generate_points(num: usize, width: usize, height: usize, seed: u32) -> Vec<(f
 }
 
 /// Find the two nearest points and return distances.
-fn find_nearest_two(
-    x: f32,
-    y: f32,
-    points: &[(f32, f32)],
-    metric_power: f32,
-) -> (usize, f32, f32) {
+fn find_nearest_two(x: f32, y: f32, points: &[(f32, f32)], metric_power: f32) -> (usize, f32, f32) {
     let mut min_dist = f32::MAX;
     let mut second_dist = f32::MAX;
     let mut min_idx = 0;
@@ -157,7 +151,10 @@ impl VoronoiCache {
     fn new(width: usize, height: usize, params: &Params) -> Self {
         let points = generate_points(params.num_points, width, height, params.seed);
         let params_hash = Self::hash_params(params, width, height);
-        Self { points, params_hash }
+        Self {
+            points,
+            params_hash,
+        }
     }
 
     fn hash_params(params: &Params, width: usize, height: usize) -> u64 {
@@ -228,14 +225,14 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
 
         match params.mode {
             RenderMode::Edges => {
-                if is_edge { 1.0 } else { 0.0 }
+                if is_edge {
+                    1.0
+                } else {
+                    0.0
+                }
             }
-            RenderMode::Distance => {
-                normalized_dist
-            }
-            RenderMode::Cells => {
-                cell_value
-            }
+            RenderMode::Distance => normalized_dist,
+            RenderMode::Cells => cell_value,
             RenderMode::CellsAndEdges => {
                 if is_edge {
                     1.0
@@ -261,11 +258,15 @@ impl Default for Voronoi {
 
 impl Voronoi {
     pub fn golden() -> Self {
-        Self { params: Params::default() }
+        Self {
+            params: Params::default(),
+        }
     }
 
     pub fn random() -> Self {
-        Self { params: Params::random() }
+        Self {
+            params: Params::random(),
+        }
     }
 }
 
@@ -284,9 +285,18 @@ impl super::Pattern for Voronoi {
     }
 
     fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
-        let parse_f32 = |v: &str| v.parse::<f32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
-        let parse_usize = |v: &str| v.parse::<usize>().map_err(|e| format!("Invalid value '{}': {}", v, e));
-        let parse_u32 = |v: &str| v.parse::<u32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        let parse_f32 = |v: &str| {
+            v.parse::<f32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
+        let parse_usize = |v: &str| {
+            v.parse::<usize>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
+        let parse_u32 = |v: &str| {
+            v.parse::<u32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
 
         match name {
             "num_points" => self.params.num_points = parse_usize(value)?,
@@ -316,7 +326,10 @@ impl super::Pattern for Voronoi {
         };
         vec![
             ("num_points", self.params.num_points.to_string()),
-            ("edge_thickness", format!("{:.1}", self.params.edge_thickness)),
+            (
+                "edge_thickness",
+                format!("{:.1}", self.params.edge_thickness),
+            ),
             ("mode", mode_str.to_string()),
             ("metric_power", format!("{:.1}", self.params.metric_power)),
             ("seed", self.params.seed.to_string()),
@@ -331,8 +344,12 @@ impl super::Pattern for Voronoi {
                 .with_description("Number of seed points"),
             ParamSpec::slider("edge_thickness", "Edge Thickness", 1.0, 4.0, 0.5)
                 .with_description("Edge thickness"),
-            ParamSpec::select("mode", "Render Mode", vec!["edges", "distance", "cells", "cells_and_edges"])
-                .with_description("Rendering mode"),
+            ParamSpec::select(
+                "mode",
+                "Render Mode",
+                vec!["edges", "distance", "cells", "cells_and_edges"],
+            )
+            .with_description("Rendering mode"),
             ParamSpec::slider("metric_power", "Metric Power", 1.0, 3.0, 0.1)
                 .with_description("Distance metric power (2=Euclidean)"),
             ParamSpec::int("seed", "Seed", Some(0), Some(999999))
@@ -353,7 +370,13 @@ mod tests {
         for y in (0..500).step_by(50) {
             for x in (0..576).step_by(50) {
                 let v = shade(x, y, 576, 500, &params);
-                assert!(v >= 0.0 && v <= 1.0, "value {} out of range at ({}, {})", v, x, y);
+                assert!(
+                    v >= 0.0 && v <= 1.0,
+                    "value {} out of range at ({}, {})",
+                    v,
+                    x,
+                    y
+                );
             }
         }
     }

@@ -135,7 +135,12 @@ pub fn ridge_fbm(x: f32, y: f32, octaves: usize, seed: u32) -> f32 {
     let mut max_value = 0.0;
 
     for i in 0..octaves {
-        let r = ridge(x * frequency, y * frequency, 1.0, seed.wrapping_add(i as u32));
+        let r = ridge(
+            x * frequency,
+            y * frequency,
+            1.0,
+            seed.wrapping_add(i as u32),
+        );
         value += amplitude * r * r; // Square for sharper ridges
         max_value += amplitude;
         amplitude *= 0.5;

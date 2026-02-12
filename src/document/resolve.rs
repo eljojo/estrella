@@ -7,15 +7,15 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use image::{imageops::FilterType, DynamicImage};
+use image::{DynamicImage, imageops::FilterType};
 
 use super::graphics::parse_dither_algorithm;
 use super::types::ResolvedImage;
 use super::{Component, Document};
+use crate::EstrellaError;
 use crate::render::context::RenderContext;
 use crate::render::dither::{self, DitheringAlgorithm};
 use crate::server::PhotoSession;
-use crate::EstrellaError;
 
 /// Resolves external resources (images) in a document.
 ///

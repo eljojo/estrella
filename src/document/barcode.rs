@@ -16,7 +16,12 @@ impl QrCode {
         };
 
         // Resolve error level (default: M)
-        let error_level = match self.error_level.as_deref().map(|s| s.to_uppercase()).as_deref() {
+        let error_level = match self
+            .error_level
+            .as_deref()
+            .map(|s| s.to_uppercase())
+            .as_deref()
+        {
             Some("L") => QrErrorLevel::L,
             Some("Q") => QrErrorLevel::Q,
             Some("H") => QrErrorLevel::H,
@@ -95,7 +100,10 @@ mod tests {
                 ..
             }
         )));
-        assert!(ops.iter().any(|op| matches!(op, Op::SetAlign(Alignment::Center))));
+        assert!(
+            ops.iter()
+                .any(|op| matches!(op, Op::SetAlign(Alignment::Center)))
+        );
     }
 
     #[test]
@@ -116,7 +124,10 @@ mod tests {
                 ..
             }
         )));
-        assert!(ops.iter().any(|op| matches!(op, Op::SetAlign(Alignment::Left))));
+        assert!(
+            ops.iter()
+                .any(|op| matches!(op, Op::SetAlign(Alignment::Left)))
+        );
     }
 
     #[test]

@@ -9,8 +9,8 @@
 //! lines at different angles create varying tonal densities.
 
 use crate::shader::*;
-use rand::Rng;
 use async_trait::async_trait;
+use rand::Rng;
 use std::fmt;
 
 /// Parameters for cross-hatch pattern.
@@ -76,7 +76,15 @@ impl fmt::Display for Params {
 }
 
 /// Render a single hatch layer.
-fn hatch_layer(x: f32, y: f32, angle_deg: f32, spacing: f32, thickness: f32, wobble: f32, seed: u32) -> f32 {
+fn hatch_layer(
+    x: f32,
+    y: f32,
+    angle_deg: f32,
+    spacing: f32,
+    thickness: f32,
+    wobble: f32,
+    seed: u32,
+) -> f32 {
     // Add wobble
     let wobble_offset = if wobble > 0.0 {
         let n = noise2d(x * 0.05, y * 0.05, seed);
@@ -151,11 +159,15 @@ impl Default for Crosshatch {
 
 impl Crosshatch {
     pub fn golden() -> Self {
-        Self { params: Params::default() }
+        Self {
+            params: Params::default(),
+        }
     }
 
     pub fn random() -> Self {
-        Self { params: Params::random() }
+        Self {
+            params: Params::random(),
+        }
     }
 }
 
@@ -174,9 +186,18 @@ impl super::Pattern for Crosshatch {
     }
 
     fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
-        let parse_f32 = |v: &str| v.parse::<f32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
-        let parse_usize = |v: &str| v.parse::<usize>().map_err(|e| format!("Invalid value '{}': {}", v, e));
-        let parse_u32 = |v: &str| v.parse::<u32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        let parse_f32 = |v: &str| {
+            v.parse::<f32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
+        let parse_usize = |v: &str| {
+            v.parse::<usize>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
+        let parse_u32 = |v: &str| {
+            v.parse::<u32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
 
         match name {
             "spacing" => self.params.spacing = parse_f32(value)?,
@@ -238,7 +259,13 @@ mod tests {
         for y in (0..500).step_by(50) {
             for x in (0..576).step_by(50) {
                 let v = shade(x, y, 576, 500, &params);
-                assert!(v >= 0.0 && v <= 1.0, "value {} out of range at ({}, {})", v, x, y);
+                assert!(
+                    v >= 0.0 && v <= 1.0,
+                    "value {} out of range at ({}, {})",
+                    v,
+                    x,
+                    y
+                );
             }
         }
     }

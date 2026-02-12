@@ -1,14 +1,14 @@
 //! Photo upload and printing API handlers.
 
 use axum::{
-    extract::{Multipart, Path, Query, State},
-    http::{header, StatusCode},
-    response::IntoResponse,
     Json,
+    extract::{Multipart, Path, Query, State},
+    http::{StatusCode, header},
+    response::IntoResponse,
 };
-use image::{imageops::FilterType, DynamicImage};
 #[cfg(feature = "heif")]
 use image::RgbImage;
+use image::{DynamicImage, imageops::FilterType};
 #[cfg(feature = "heif")]
 use libheif_rs::{ColorSpace, HeifContext, LibHeif, RgbChroma};
 use serde::{Deserialize, Serialize};
@@ -98,29 +98,39 @@ pub async fn upload(
     {
         let name = field.name().unwrap_or("").to_string();
         if name == "image" {
-            filename = field
-                .file_name()
-                .unwrap_or("unknown")
-                .to_string();
-            let bytes = field
-                .bytes()
-                .await
-                .map_err(|e| (StatusCode::BAD_REQUEST, format!("Failed to read image: {}", e)))?;
+            filename = field.file_name().unwrap_or("unknown").to_string();
+            let bytes = field.bytes().await.map_err(|e| {
+                (
+                    StatusCode::BAD_REQUEST,
+                    format!("Failed to read image: {}", e),
+                )
+            })?;
             image_data = Some(bytes.to_vec());
             break;
         }
     }
 
-    let image_bytes = image_data
-        .ok_or((StatusCode::BAD_REQUEST, "No image field found".to_string()))?;
+    let image_bytes =
+        image_data.ok_or((StatusCode::BAD_REQUEST, "No image field found".to_string()))?;
 
     // Decode the image (try HEIC first if it looks like HEIC, otherwise use image crate)
-    let img = if is_heic(&image_bytes) || filename.to_lowercase().ends_with(".heic") || filename.to_lowercase().ends_with(".heif") {
-        decode_heic(&image_bytes)
-            .map_err(|e| (StatusCode::BAD_REQUEST, format!("Failed to decode HEIC: {}", e)))?
+    let img = if is_heic(&image_bytes)
+        || filename.to_lowercase().ends_with(".heic")
+        || filename.to_lowercase().ends_with(".heif")
+    {
+        decode_heic(&image_bytes).map_err(|e| {
+            (
+                StatusCode::BAD_REQUEST,
+                format!("Failed to decode HEIC: {}", e),
+            )
+        })?
     } else {
-        image::load_from_memory(&image_bytes)
-            .map_err(|e| (StatusCode::BAD_REQUEST, format!("Failed to decode image: {}", e)))?
+        image::load_from_memory(&image_bytes).map_err(|e| {
+            (
+                StatusCode::BAD_REQUEST,
+                format!("Failed to decode image: {}", e),
+            )
+        })?
     };
 
     let width = img.width();
@@ -170,9 +180,10 @@ pub async fn preview(
     // Get the image from session (minimize lock time)
     let source_image = {
         let mut sessions = state.photo_sessions.write().await;
-        let session = sessions
-            .get_mut(&id)
-            .ok_or((StatusCode::NOT_FOUND, "Session not found or expired".to_string()))?;
+        let session = sessions.get_mut(&id).ok_or((
+            StatusCode::NOT_FOUND,
+            "Session not found or expired".to_string(),
+        ))?;
 
         // Touch session to keep it alive
         session.touch();
@@ -261,7 +272,13 @@ fn generate_preview_png(
     dither_algo: DitheringAlgorithm,
 ) -> Result<Vec<u8>, String> {
     // Use Triangle filter for speed in preview
-    let processed = prepare_for_print(source_image, rotation, brightness, contrast, FilterType::Triangle);
+    let processed = prepare_for_print(
+        source_image,
+        rotation,
+        brightness,
+        contrast,
+        FilterType::Triangle,
+    );
     let (width, height, raster_data) = generate_dithered_raster(&processed, dither_algo);
     render::raster_to_png(width, height, &raster_data)
 }
@@ -275,7 +292,13 @@ fn generate_print_raster(
     dither_algo: DitheringAlgorithm,
 ) -> (usize, usize, Vec<u8>) {
     // Use Lanczos3 for print quality
-    let processed = prepare_for_print(source_image, rotation, brightness, contrast, FilterType::Lanczos3);
+    let processed = prepare_for_print(
+        source_image,
+        rotation,
+        brightness,
+        contrast,
+        FilterType::Lanczos3,
+    );
     generate_dithered_raster(&processed, dither_algo)
 }
 
@@ -370,7 +393,11 @@ pub async fn print(
 }
 
 /// Apply brightness and contrast if needed, otherwise return a clone.
-fn apply_brightness_contrast_if_needed(img: &DynamicImage, brightness: i32, contrast: i32) -> DynamicImage {
+fn apply_brightness_contrast_if_needed(
+    img: &DynamicImage,
+    brightness: i32,
+    contrast: i32,
+) -> DynamicImage {
     if brightness != 0 || contrast != 0 {
         apply_brightness_contrast(img, brightness, contrast)
     } else {
@@ -471,7 +498,17 @@ fn is_heic(data: &[u8]) -> bool {
     let brand = &data[8..12];
     matches!(
         brand,
-        b"heic" | b"heix" | b"hevc" | b"hevx" | b"heim" | b"heis" | b"hevm" | b"hevs" | b"mif1" | b"msf1" | b"avif"
+        b"heic"
+            | b"heix"
+            | b"hevc"
+            | b"hevx"
+            | b"heim"
+            | b"heis"
+            | b"hevm"
+            | b"hevs"
+            | b"mif1"
+            | b"msf1"
+            | b"avif"
     )
 }
 
@@ -479,7 +516,8 @@ fn is_heic(data: &[u8]) -> bool {
 #[cfg(feature = "heif")]
 fn decode_heic(data: &[u8]) -> Result<DynamicImage, String> {
     let lib_heif = LibHeif::new();
-    let ctx = HeifContext::read_from_bytes(data).map_err(|e| format!("Failed to read HEIC: {}", e))?;
+    let ctx =
+        HeifContext::read_from_bytes(data).map_err(|e| format!("Failed to read HEIC: {}", e))?;
 
     let handle = ctx
         .primary_image_handle()
@@ -519,7 +557,10 @@ fn decode_heic(data: &[u8]) -> Result<DynamicImage, String> {
 /// Stub when built without HEIC support.
 #[cfg(not(feature = "heif"))]
 fn decode_heic(_data: &[u8]) -> Result<DynamicImage, String> {
-    Err("HEIC/HEIF images are not supported in this build. Please convert to JPEG or PNG first.".to_string())
+    Err(
+        "HEIC/HEIF images are not supported in this build. Please convert to JPEG or PNG first."
+            .to_string(),
+    )
 }
 
 #[cfg(test)]
@@ -615,7 +656,11 @@ mod tests {
 
         // With contrast increase, values below 128 should go lower
         // Original: 100, after contrast (factor 1.5): (100-128)*1.5+128 = 86
-        assert!(pixel[0] < 100, "Expected contrast to move 100 away from 128, got {}", pixel[0]);
+        assert!(
+            pixel[0] < 100,
+            "Expected contrast to move 100 away from 128, got {}",
+            pixel[0]
+        );
     }
 
     #[test]

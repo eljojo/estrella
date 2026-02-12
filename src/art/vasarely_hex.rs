@@ -10,8 +10,8 @@
 //! Very Windows 98 / early 3D graphics aesthetic.
 
 use crate::shader::*;
-use rand::Rng;
 use async_trait::async_trait;
+use rand::Rng;
 use std::fmt;
 
 /// Parameters for the Vasarely hex pattern.
@@ -130,11 +130,15 @@ impl Default for VasarelyHex {
 
 impl VasarelyHex {
     pub fn golden() -> Self {
-        Self { params: Params::default() }
+        Self {
+            params: Params::default(),
+        }
     }
 
     pub fn random() -> Self {
-        Self { params: Params::random() }
+        Self {
+            params: Params::random(),
+        }
     }
 }
 
@@ -153,7 +157,10 @@ impl super::Pattern for VasarelyHex {
     }
 
     fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
-        let parse_f32 = |v: &str| v.parse::<f32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        let parse_f32 = |v: &str| {
+            v.parse::<f32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
         match name {
             "hex_size" => self.params.hex_size = parse_f32(value)?,
             "top_intensity" => self.params.top_intensity = parse_f32(value)?,
@@ -170,9 +177,18 @@ impl super::Pattern for VasarelyHex {
         vec![
             ("hex_size", format!("{:.1}", self.params.hex_size)),
             ("top_intensity", format!("{:.2}", self.params.top_intensity)),
-            ("left_intensity", format!("{:.2}", self.params.left_intensity)),
-            ("right_intensity", format!("{:.2}", self.params.right_intensity)),
-            ("gradient_strength", format!("{:.2}", self.params.gradient_strength)),
+            (
+                "left_intensity",
+                format!("{:.2}", self.params.left_intensity),
+            ),
+            (
+                "right_intensity",
+                format!("{:.2}", self.params.right_intensity),
+            ),
+            (
+                "gradient_strength",
+                format!("{:.2}", self.params.gradient_strength),
+            ),
             ("rotation", format!("{:.1}", self.params.rotation)),
         ]
     }
@@ -206,7 +222,13 @@ mod tests {
         for y in (0..500).step_by(50) {
             for x in (0..576).step_by(50) {
                 let v = shade(x, y, 576, 500, &params);
-                assert!(v >= 0.0 && v <= 1.0, "value {} out of range at ({}, {})", v, x, y);
+                assert!(
+                    v >= 0.0 && v <= 1.0,
+                    "value {} out of range at ({}, {})",
+                    v,
+                    x,
+                    y
+                );
             }
         }
     }

@@ -119,7 +119,10 @@ mod tests {
         // Rough sanity check: star should fill about 30-50% of the area
         let total_pixels = 96 * 96;
         assert!(black_pixels > total_pixels / 5, "Star has too few pixels");
-        assert!(black_pixels < total_pixels * 3 / 4, "Star has too many pixels");
+        assert!(
+            black_pixels < total_pixels * 3 / 4,
+            "Star has too many pixels"
+        );
     }
 
     #[test]

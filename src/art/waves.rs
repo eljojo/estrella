@@ -12,8 +12,8 @@
 //! ```
 
 use crate::shader::{clamp01, dist, gamma, normalize};
-use rand::Rng;
 use async_trait::async_trait;
+use rand::Rng;
 use std::fmt;
 
 /// Parameters for the waves effect.
@@ -70,8 +70,13 @@ impl fmt::Display for Params {
         write!(
             f,
             "horiz={:.1} vert={:.1} radial={:.1} weights=({:.2},{:.2},{:.2}) gamma={:.2}",
-            self.horiz_freq, self.vert_freq, self.radial_freq,
-            self.horiz_weight, self.vert_weight, self.radial_weight, self.gamma
+            self.horiz_freq,
+            self.vert_freq,
+            self.radial_freq,
+            self.horiz_weight,
+            self.vert_weight,
+            self.radial_weight,
+            self.gamma
         )
     }
 }
@@ -126,11 +131,15 @@ impl Default for Waves {
 
 impl Waves {
     pub fn golden() -> Self {
-        Self { params: Params::default() }
+        Self {
+            params: Params::default(),
+        }
     }
 
     pub fn random() -> Self {
-        Self { params: Params::random() }
+        Self {
+            params: Params::random(),
+        }
     }
 }
 
@@ -149,7 +158,10 @@ impl super::Pattern for Waves {
     }
 
     fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
-        let parse_f32 = |v: &str| v.parse::<f32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        let parse_f32 = |v: &str| {
+            v.parse::<f32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
         match name {
             "horiz_freq" => self.params.horiz_freq = parse_f32(value)?,
             "vert_freq" => self.params.vert_freq = parse_f32(value)?,

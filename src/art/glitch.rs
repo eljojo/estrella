@@ -13,8 +13,8 @@
 //! ```
 
 use crate::shader::*;
-use rand::Rng;
 use async_trait::async_trait;
+use rand::Rng;
 use std::fmt;
 
 /// Parameters for the glitch effect.
@@ -79,8 +79,12 @@ impl fmt::Display for Params {
         write!(
             f,
             "col={} freq={:.2} wobble={:.1} scan={}x{} gamma={:.2}",
-            self.column_width, self.column_freq, self.wobble_freq,
-            self.scanline_period, self.scanline_thickness, self.gamma
+            self.column_width,
+            self.column_freq,
+            self.wobble_freq,
+            self.scanline_period,
+            self.scanline_thickness,
+            self.gamma
         )
     }
 }
@@ -125,11 +129,15 @@ impl Default for Glitch {
 
 impl Glitch {
     pub fn golden() -> Self {
-        Self { params: Params::default() }
+        Self {
+            params: Params::default(),
+        }
     }
 
     pub fn random() -> Self {
-        Self { params: Params::random() }
+        Self {
+            params: Params::random(),
+        }
     }
 }
 
@@ -148,8 +156,14 @@ impl super::Pattern for Glitch {
     }
 
     fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
-        let parse_f32 = |v: &str| v.parse::<f32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
-        let parse_usize = |v: &str| v.parse::<usize>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        let parse_f32 = |v: &str| {
+            v.parse::<f32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
+        let parse_usize = |v: &str| {
+            v.parse::<usize>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
         match name {
             "column_width" => self.params.column_width = parse_usize(value)?,
             "column_freq" => self.params.column_freq = parse_f32(value)?,
@@ -172,7 +186,10 @@ impl super::Pattern for Glitch {
             ("wobble_freq", format!("{:.1}", self.params.wobble_freq)),
             ("wobble_vert", format!("{:.1}", self.params.wobble_vert)),
             ("scanline_period", self.params.scanline_period.to_string()),
-            ("scanline_thickness", self.params.scanline_thickness.to_string()),
+            (
+                "scanline_thickness",
+                self.params.scanline_thickness.to_string(),
+            ),
             ("base_weight", format!("{:.2}", self.params.base_weight)),
             ("wobble_weight", format!("{:.2}", self.params.wobble_weight)),
             ("gamma", format!("{:.2}", self.params.gamma)),

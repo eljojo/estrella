@@ -2,8 +2,8 @@
 //!
 //! Implements character and text rendering with support for various styles.
 
-use super::font::{generate_glyph, FontMetrics};
 use super::PreviewRenderer;
+use super::font::{FontMetrics, generate_glyph};
 use crate::protocol::text::{Alignment, Font};
 
 impl PreviewRenderer {

@@ -9,8 +9,8 @@
 //! and the sweeping curves seen in brutalist architecture.
 
 use crate::shader::*;
-use rand::Rng;
 use async_trait::async_trait;
+use rand::Rng;
 use std::fmt;
 
 /// Parameters for the Riley curve pattern.
@@ -66,8 +66,11 @@ impl fmt::Display for Params {
         write!(
             f,
             "stripe={:.0} curve=({:.0},{:.1}) waves=({:.0},{:.3})",
-            self.stripe_width, self.curve_strength, self.curve_falloff,
-            self.wave_amplitude, self.wave_freq
+            self.stripe_width,
+            self.curve_strength,
+            self.curve_falloff,
+            self.wave_amplitude,
+            self.wave_freq
         )
     }
 }
@@ -124,11 +127,15 @@ impl Default for RileyCurve {
 
 impl RileyCurve {
     pub fn golden() -> Self {
-        Self { params: Params::default() }
+        Self {
+            params: Params::default(),
+        }
     }
 
     pub fn random() -> Self {
-        Self { params: Params::random() }
+        Self {
+            params: Params::random(),
+        }
     }
 }
 
@@ -147,8 +154,14 @@ impl super::Pattern for RileyCurve {
     }
 
     fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
-        let parse_f32 = |v: &str| v.parse::<f32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
-        let parse_usize = |v: &str| v.parse::<usize>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        let parse_f32 = |v: &str| {
+            v.parse::<f32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
+        let parse_usize = |v: &str| {
+            v.parse::<usize>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
         match name {
             "stripe_width" => self.params.stripe_width = parse_f32(value)?,
             "curve_strength" => self.params.curve_strength = parse_f32(value)?,
@@ -165,10 +178,16 @@ impl super::Pattern for RileyCurve {
     fn list_params(&self) -> Vec<(&'static str, String)> {
         vec![
             ("stripe_width", format!("{:.1}", self.params.stripe_width)),
-            ("curve_strength", format!("{:.1}", self.params.curve_strength)),
+            (
+                "curve_strength",
+                format!("{:.1}", self.params.curve_strength),
+            ),
             ("curve_falloff", format!("{:.1}", self.params.curve_falloff)),
             ("num_curves", self.params.num_curves.to_string()),
-            ("wave_amplitude", format!("{:.1}", self.params.wave_amplitude)),
+            (
+                "wave_amplitude",
+                format!("{:.1}", self.params.wave_amplitude),
+            ),
             ("wave_freq", format!("{:.3}", self.params.wave_freq)),
             ("rotation", format!("{:.1}", self.params.rotation)),
         ]

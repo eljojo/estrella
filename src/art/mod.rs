@@ -116,22 +116,13 @@ pub enum ParamType {
         step: Option<f32>,
     },
     /// Integer with optional range.
-    Int {
-        min: Option<i32>,
-        max: Option<i32>,
-    },
+    Int { min: Option<i32>, max: Option<i32> },
     /// Slider (range input) with min, max, and step.
-    Slider {
-        min: f32,
-        max: f32,
-        step: f32,
-    },
+    Slider { min: f32, max: f32, step: f32 },
     /// Boolean toggle.
     Bool,
     /// Selection from a list of options.
-    Select {
-        options: Vec<&'static str>,
-    },
+    Select { options: Vec<&'static str> },
     /// Free-form text input (e.g., URLs).
     Text,
 }
@@ -166,13 +157,22 @@ impl ParamSpec {
         Self {
             name,
             label,
-            param_type: ParamType::Float { min: None, max: None, step: None },
+            param_type: ParamType::Float {
+                min: None,
+                max: None,
+                step: None,
+            },
             description: None,
         }
     }
 
     /// Create an integer parameter.
-    pub fn int(name: &'static str, label: &'static str, min: Option<i32>, max: Option<i32>) -> Self {
+    pub fn int(
+        name: &'static str,
+        label: &'static str,
+        min: Option<i32>,
+        max: Option<i32>,
+    ) -> Self {
         Self {
             name,
             label,
@@ -257,7 +257,11 @@ pub trait Pattern: Send + Sync {
 
     /// Set a parameter by name. Returns error if param name is unknown or value is invalid.
     fn set_param(&mut self, name: &str, _value: &str) -> Result<(), String> {
-        Err(format!("Pattern '{}' has no configurable params or unknown param '{}'", self.name(), name))
+        Err(format!(
+            "Pattern '{}' has no configurable params or unknown param '{}'",
+            self.name(),
+            name
+        ))
     }
 
     /// List available parameters as (name, current_value) pairs.

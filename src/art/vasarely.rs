@@ -9,8 +9,8 @@
 //! follows a spherical mapping function.
 
 use crate::shader::*;
-use rand::Rng;
 use async_trait::async_trait;
+use rand::Rng;
 use std::fmt;
 
 /// Parameters for the Vasarely pattern.
@@ -140,11 +140,15 @@ impl Default for Vasarely {
 
 impl Vasarely {
     pub fn golden() -> Self {
-        Self { params: Params::default() }
+        Self {
+            params: Params::default(),
+        }
     }
 
     pub fn random() -> Self {
-        Self { params: Params::random() }
+        Self {
+            params: Params::random(),
+        }
     }
 }
 
@@ -163,8 +167,14 @@ impl super::Pattern for Vasarely {
     }
 
     fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
-        let parse_f32 = |v: &str| v.parse::<f32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
-        let parse_bool = |v: &str| v.parse::<bool>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        let parse_f32 = |v: &str| {
+            v.parse::<f32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
+        let parse_bool = |v: &str| {
+            v.parse::<bool>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
         match name {
             "cell_size" => self.params.cell_size = parse_f32(value)?,
             "line_thickness" => self.params.line_thickness = parse_f32(value)?,
@@ -181,9 +191,15 @@ impl super::Pattern for Vasarely {
     fn list_params(&self) -> Vec<(&'static str, String)> {
         vec![
             ("cell_size", format!("{:.1}", self.params.cell_size)),
-            ("line_thickness", format!("{:.1}", self.params.line_thickness)),
+            (
+                "line_thickness",
+                format!("{:.1}", self.params.line_thickness),
+            ),
             ("sphere_radius", format!("{:.2}", self.params.sphere_radius)),
-            ("bulge_strength", format!("{:.2}", self.params.bulge_strength)),
+            (
+                "bulge_strength",
+                format!("{:.2}", self.params.bulge_strength),
+            ),
             ("center_x", format!("{:.2}", self.params.center_x)),
             ("center_y", format!("{:.2}", self.params.center_y)),
             ("invert_sphere", self.params.invert_sphere.to_string()),

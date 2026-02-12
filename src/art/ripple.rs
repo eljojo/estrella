@@ -12,8 +12,8 @@
 //! ```
 
 use crate::shader::{clamp01, dist, gamma, lerp, wave_cos, wave_sin};
-use rand::Rng;
 use async_trait::async_trait;
+use rand::Rng;
 use std::fmt;
 
 /// Parameters for the ripple effect.
@@ -136,17 +136,23 @@ impl Default for Ripple {
 impl Ripple {
     /// Create with golden (deterministic) params for reproducible output.
     pub fn golden() -> Self {
-        Self { params: Params::default() }
+        Self {
+            params: Params::default(),
+        }
     }
 
     /// Create with randomized params for unique prints.
     pub fn random() -> Self {
-        Self { params: Params::random() }
+        Self {
+            params: Params::random(),
+        }
     }
 
     /// Create with logo-optimized params.
     pub fn logo() -> Self {
-        Self { params: Params::logo() }
+        Self {
+            params: Params::logo(),
+        }
     }
 }
 
@@ -165,7 +171,10 @@ impl super::Pattern for Ripple {
     }
 
     fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
-        let parse_f32 = |v: &str| v.parse::<f32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        let parse_f32 = |v: &str| {
+            v.parse::<f32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
         match name {
             "center_x" => self.params.center_x = parse_f32(value)?,
             "center_y" => self.params.center_y = parse_f32(value)?,
@@ -174,7 +183,12 @@ impl super::Pattern for Ripple {
             "wobble_mix" => self.params.wobble_mix = parse_f32(value)?,
             "gamma" => self.params.gamma = parse_f32(value)?,
             "border" => self.params.border = parse_f32(value)?,
-            _ => return Err(format!("Unknown param '{}' for ripple. Available: center_x, center_y, scale, drift, wobble_mix, gamma, border", name)),
+            _ => {
+                return Err(format!(
+                    "Unknown param '{}' for ripple. Available: center_x, center_y, scale, drift, wobble_mix, gamma, border",
+                    name
+                ));
+            }
         }
         Ok(())
     }

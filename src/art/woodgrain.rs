@@ -9,8 +9,8 @@
 //! variations found in different wood types.
 
 use crate::shader::*;
-use rand::Rng;
 use async_trait::async_trait;
+use rand::Rng;
 use std::fmt;
 
 /// Parameters for wood grain pattern.
@@ -92,7 +92,12 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
 
     // Flow field distortion
     let flow_x = fbm(xf * 0.005, yf * 0.005, 3, params.seed) - 0.5;
-    let _flow_y = fbm(xf * 0.005 + 50.0, yf * 0.005 + 50.0, 3, params.seed.wrapping_add(100)) - 0.5;
+    let _flow_y = fbm(
+        xf * 0.005 + 50.0,
+        yf * 0.005 + 50.0,
+        3,
+        params.seed.wrapping_add(100),
+    ) - 0.5;
 
     // Apply flow to create curved grain
     let distorted_x = xf + flow_x * params.flow_amp;
@@ -102,7 +107,12 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
     let mut ring_dist = distorted_x;
 
     // Add influence from knots
-    let knots = get_knots(params.num_knots, width, height, params.seed.wrapping_add(2000));
+    let knots = get_knots(
+        params.num_knots,
+        width,
+        height,
+        params.seed.wrapping_add(2000),
+    );
     for (kx, ky) in &knots {
         let dx = xf - kx;
         let dy = yf - ky;
@@ -153,7 +163,12 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
     }
 
     // Fine grain texture
-    let fine_grain = fbm(xf * 0.1 + 100.0, yf * 0.02, 2, params.seed.wrapping_add(4000));
+    let fine_grain = fbm(
+        xf * 0.1 + 100.0,
+        yf * 0.02,
+        2,
+        params.seed.wrapping_add(4000),
+    );
     let grain_lines = ((distorted_y * 0.5).sin() * 0.5 + 0.5) * 0.1;
 
     clamp01(ring_value.max(knot_value) + fine_grain * 0.1 + grain_lines)
@@ -173,11 +188,15 @@ impl Default for Woodgrain {
 
 impl Woodgrain {
     pub fn golden() -> Self {
-        Self { params: Params::default() }
+        Self {
+            params: Params::default(),
+        }
     }
 
     pub fn random() -> Self {
-        Self { params: Params::random() }
+        Self {
+            params: Params::random(),
+        }
     }
 }
 
@@ -196,9 +215,18 @@ impl super::Pattern for Woodgrain {
     }
 
     fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
-        let parse_f32 = |v: &str| v.parse::<f32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
-        let parse_usize = |v: &str| v.parse::<usize>().map_err(|e| format!("Invalid value '{}': {}", v, e));
-        let parse_u32 = |v: &str| v.parse::<u32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        let parse_f32 = |v: &str| {
+            v.parse::<f32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
+        let parse_usize = |v: &str| {
+            v.parse::<usize>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
+        let parse_u32 = |v: &str| {
+            v.parse::<u32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
 
         match name {
             "ring_spacing" => self.params.ring_spacing = parse_f32(value)?,
@@ -217,7 +245,10 @@ impl super::Pattern for Woodgrain {
     fn list_params(&self) -> Vec<(&'static str, String)> {
         vec![
             ("ring_spacing", format!("{:.1}", self.params.ring_spacing)),
-            ("ring_thickness", format!("{:.1}", self.params.ring_thickness)),
+            (
+                "ring_thickness",
+                format!("{:.1}", self.params.ring_thickness),
+            ),
             ("flow_freq", format!("{:.3}", self.params.flow_freq)),
             ("flow_amp", format!("{:.1}", self.params.flow_amp)),
             ("num_knots", self.params.num_knots.to_string()),
@@ -260,7 +291,13 @@ mod tests {
         for y in (0..500).step_by(50) {
             for x in (0..576).step_by(50) {
                 let v = shade(x, y, 576, 500, &params);
-                assert!(v >= 0.0 && v <= 1.0, "value {} out of range at ({}, {})", v, x, y);
+                assert!(
+                    v >= 0.0 && v <= 1.0,
+                    "value {} out of range at ({}, {})",
+                    v,
+                    x,
+                    y
+                );
             }
         }
     }

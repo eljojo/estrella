@@ -21,8 +21,8 @@
 //! ```
 
 use crate::shader::*;
-use rand::Rng;
 use async_trait::async_trait;
+use rand::Rng;
 use std::fmt;
 
 /// Parameters for the jitter/banding effect.
@@ -147,11 +147,15 @@ impl Default for Jitter {
 
 impl Jitter {
     pub fn golden() -> Self {
-        Self { params: Params::default() }
+        Self {
+            params: Params::default(),
+        }
     }
 
     pub fn random() -> Self {
-        Self { params: Params::random() }
+        Self {
+            params: Params::random(),
+        }
     }
 }
 
@@ -170,8 +174,14 @@ impl super::Pattern for Jitter {
     }
 
     fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
-        let parse_f32 = |v: &str| v.parse::<f32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
-        let parse_usize = |v: &str| v.parse::<usize>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        let parse_f32 = |v: &str| {
+            v.parse::<f32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
+        let parse_usize = |v: &str| {
+            v.parse::<usize>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
         match name {
             "scale" => self.params.scale = parse_f32(value)?,
             "drift" => self.params.drift = parse_f32(value)?,
@@ -194,7 +204,10 @@ impl super::Pattern for Jitter {
             ("drift", format!("{:.0}", self.params.drift)),
             ("wobble_mix", format!("{:.2}", self.params.wobble_mix)),
             ("band_height", self.params.band_height.to_string()),
-            ("variation_freq", format!("{:.2}", self.params.variation_freq)),
+            (
+                "variation_freq",
+                format!("{:.2}", self.params.variation_freq),
+            ),
             ("mod_min", format!("{:.2}", self.params.mod_min)),
             ("mod_range", format!("{:.2}", self.params.mod_range)),
             ("edge_darken", format!("{:.2}", self.params.edge_darken)),

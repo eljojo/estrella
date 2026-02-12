@@ -8,8 +8,8 @@
 //! the image, reminiscent of both Riley's op art and natural zebra patterns.
 //! Multiple wave components create organic, almost liquid movement.
 
-use async_trait::async_trait;
 use crate::shader::*;
+use async_trait::async_trait;
 use rand::Rng;
 use std::f32::consts::PI;
 use std::fmt;
@@ -121,11 +121,15 @@ impl Default for Zebra {
 
 impl Zebra {
     pub fn golden() -> Self {
-        Self { params: Params::default() }
+        Self {
+            params: Params::default(),
+        }
     }
 
     pub fn random() -> Self {
-        Self { params: Params::random() }
+        Self {
+            params: Params::random(),
+        }
     }
 }
 
@@ -144,7 +148,10 @@ impl super::Pattern for Zebra {
     }
 
     fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
-        let parse_f32 = |v: &str| v.parse::<f32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        let parse_f32 = |v: &str| {
+            v.parse::<f32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
         match name {
             "stripe_width" => self.params.stripe_width = parse_f32(value)?,
             "wave1_amp" => self.params.wave1_amp = parse_f32(value)?,
@@ -193,8 +200,7 @@ impl super::Pattern for Zebra {
                 .with_description("Tertiary wave frequency"),
             ParamSpec::slider("direction", "Direction", 0.0, 180.0, 15.0)
                 .with_description("Base stripe direction in degrees"),
-            ParamSpec::slider("phase", "Phase", 0.0, 6.28, 0.1)
-                .with_description("Phase offset"),
+            ParamSpec::slider("phase", "Phase", 0.0, 6.28, 0.1).with_description("Phase offset"),
         ]
     }
 }

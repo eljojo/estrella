@@ -46,11 +46,7 @@ pub fn wave_radial(r: f32, freq: f32, phase: f32) -> f32 {
 pub fn wave_triangle(coord: f32, freq: f32, phase: f32) -> f32 {
     use std::f32::consts::TAU;
     let t = ((coord * freq + phase) / TAU).rem_euclid(1.0);
-    if t < 0.5 {
-        t * 2.0
-    } else {
-        2.0 - t * 2.0
-    }
+    if t < 0.5 { t * 2.0 } else { 2.0 - t * 2.0 }
 }
 
 /// Sawtooth wave normalized to [0, 1].
@@ -79,7 +75,13 @@ pub fn wave_square(coord: f32, freq: f32, phase: f32, duty: f32) -> f32 {
 ///
 /// The frequency is modulated by another wave, creating complex patterns.
 #[inline]
-pub fn wave_modulated(coord: f32, base_freq: f32, mod_freq: f32, mod_depth: f32, phase: f32) -> f32 {
+pub fn wave_modulated(
+    coord: f32,
+    base_freq: f32,
+    mod_freq: f32,
+    mod_depth: f32,
+    phase: f32,
+) -> f32 {
     let modulation = (coord * mod_freq).sin() * mod_depth;
     let effective_freq = base_freq + modulation;
     (coord * effective_freq + phase).sin() * 0.5 + 0.5

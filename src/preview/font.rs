@@ -4,7 +4,7 @@
 
 use crate::ir::StyleState;
 use crate::protocol::text::Font;
-use spleen_font::{PSF2Font, FONT_12X24};
+use spleen_font::{FONT_12X24, PSF2Font};
 
 /// UW ttyp0 9×18 bitmap font (PSF2 format).
 /// Native 9-pixel width — no horizontal scaling needed for Font B/C.
@@ -232,79 +232,94 @@ fn fallback_glyph(ch: char, w: usize, h: usize) -> Option<Vec<u8>> {
     // Double box-drawing line parameters (2px thickness each, 2px gap)
     let dl = cx.saturating_sub(3); // double left
     let dr = cx.saturating_sub(1); // double left end
-    let dl2 = cx + 1;              // double right start
-    let dr2 = cx + 3;              // double right end
+    let dl2 = cx + 1; // double right start
+    let dr2 = cx + 3; // double right end
     let dt = cy.saturating_sub(3); // double top
     let db = cy.saturating_sub(1); // double top end
-    let dt2 = cy + 1;              // double bottom start
-    let db2 = cy + 3;              // double bottom end
+    let dt2 = cy + 1; // double bottom start
+    let db2 = cy + 3; // double bottom end
 
     match ch {
         // ── Single box-drawing ──
-        '\u{2500}' => { // ─ horizontal
+        '\u{2500}' => {
+            // ─ horizontal
             fill_rect(&mut g, w, 0, t1, w, t2);
         }
-        '\u{2502}' => { // │ vertical
+        '\u{2502}' => {
+            // │ vertical
             fill_rect(&mut g, w, s1, 0, s2, h);
         }
-        '\u{250C}' => { // ┌ top-left
+        '\u{250C}' => {
+            // ┌ top-left
             fill_rect(&mut g, w, s1, t1, w, t2);
             fill_rect(&mut g, w, s1, t1, s2, h);
         }
-        '\u{2510}' => { // ┐ top-right
+        '\u{2510}' => {
+            // ┐ top-right
             fill_rect(&mut g, w, 0, t1, s2, t2);
             fill_rect(&mut g, w, s1, t1, s2, h);
         }
-        '\u{2514}' => { // └ bottom-left
+        '\u{2514}' => {
+            // └ bottom-left
             fill_rect(&mut g, w, s1, t1, w, t2);
             fill_rect(&mut g, w, s1, 0, s2, t2);
         }
-        '\u{2518}' => { // ┘ bottom-right
+        '\u{2518}' => {
+            // ┘ bottom-right
             fill_rect(&mut g, w, 0, t1, s2, t2);
             fill_rect(&mut g, w, s1, 0, s2, t2);
         }
 
         // ══ Double box-drawing ══
-        '\u{2550}' => { // ═ horizontal
+        '\u{2550}' => {
+            // ═ horizontal
             fill_rect(&mut g, w, 0, dt, w, db);
             fill_rect(&mut g, w, 0, dt2, w, db2);
         }
-        '\u{2551}' => { // ║ vertical
+        '\u{2551}' => {
+            // ║ vertical
             fill_rect(&mut g, w, dl, 0, dr, h);
             fill_rect(&mut g, w, dl2, 0, dr2, h);
         }
-        '\u{2554}' => { // ╔ top-left
-            fill_rect(&mut g, w, dl, dt, w, db);   // outer horiz
-            fill_rect(&mut g, w, dl, dt, dr, h);    // outer vert
+        '\u{2554}' => {
+            // ╔ top-left
+            fill_rect(&mut g, w, dl, dt, w, db); // outer horiz
+            fill_rect(&mut g, w, dl, dt, dr, h); // outer vert
             fill_rect(&mut g, w, dl2, dt2, w, db2); // inner horiz
             fill_rect(&mut g, w, dl2, dt2, dr2, h); // inner vert
         }
-        '\u{2557}' => { // ╗ top-right
-            fill_rect(&mut g, w, 0, dt, dr2, db);   // outer horiz
-            fill_rect(&mut g, w, dl2, dt, dr2, h);   // outer vert
-            fill_rect(&mut g, w, 0, dt2, dr, db2);   // inner horiz
-            fill_rect(&mut g, w, dl, dt2, dr, h);    // inner vert
+        '\u{2557}' => {
+            // ╗ top-right
+            fill_rect(&mut g, w, 0, dt, dr2, db); // outer horiz
+            fill_rect(&mut g, w, dl2, dt, dr2, h); // outer vert
+            fill_rect(&mut g, w, 0, dt2, dr, db2); // inner horiz
+            fill_rect(&mut g, w, dl, dt2, dr, h); // inner vert
         }
-        '\u{255A}' => { // ╚ bottom-left
-            fill_rect(&mut g, w, dl, dt2, w, db2);  // outer horiz
-            fill_rect(&mut g, w, dl, 0, dr, db2);   // outer vert
-            fill_rect(&mut g, w, dl2, dt, w, db);    // inner horiz
-            fill_rect(&mut g, w, dl2, 0, dr2, db);  // inner vert
+        '\u{255A}' => {
+            // ╚ bottom-left
+            fill_rect(&mut g, w, dl, dt2, w, db2); // outer horiz
+            fill_rect(&mut g, w, dl, 0, dr, db2); // outer vert
+            fill_rect(&mut g, w, dl2, dt, w, db); // inner horiz
+            fill_rect(&mut g, w, dl2, 0, dr2, db); // inner vert
         }
-        '\u{255D}' => { // ╝ bottom-right
+        '\u{255D}' => {
+            // ╝ bottom-right
             fill_rect(&mut g, w, 0, dt2, dr2, db2); // outer horiz
             fill_rect(&mut g, w, dl2, 0, dr2, db2); // outer vert
-            fill_rect(&mut g, w, 0, dt, dr, db);     // inner horiz
-            fill_rect(&mut g, w, dl, 0, dr, db);    // inner vert
+            fill_rect(&mut g, w, 0, dt, dr, db); // inner horiz
+            fill_rect(&mut g, w, dl, 0, dr, db); // inner vert
         }
 
         // «» Guillemets ──
-        '\u{00AB}' | '\u{00BB}' => { // « »
+        '\u{00AB}' | '\u{00BB}' => {
+            // « »
             let top = h / 4;
             let bot = h * 3 / 4;
             let mid = (top + bot) / 2;
             let half = mid - top;
-            if half == 0 { return None; }
+            if half == 0 {
+                return None;
+            }
 
             // Two chevrons with different x offsets
             let (tip1, arm1, tip2, arm2) = if ch == '\u{00AB}' {
@@ -328,60 +343,74 @@ fn fallback_glyph(ch: char, w: usize, h: usize) -> Option<Vec<u8>> {
                         arm + (tip - arm) * (half - dist) / half
                     };
                     // Draw 2px wide
-                    if x < w { g[y * w + x] = 1; }
-                    if x + 1 < w { g[y * w + x + 1] = 1; }
+                    if x < w {
+                        g[y * w + x] = 1;
+                    }
+                    if x + 1 < w {
+                        g[y * w + x + 1] = 1;
+                    }
                 }
             }
         }
 
         // ── Single T-junctions + cross ──
-        '\u{252C}' => { // ┬ T-down: full horiz + bottom vert
+        '\u{252C}' => {
+            // ┬ T-down: full horiz + bottom vert
             fill_rect(&mut g, w, 0, t1, w, t2);
             fill_rect(&mut g, w, s1, t1, s2, h);
         }
-        '\u{2534}' => { // ┴ T-up: full horiz + top vert
+        '\u{2534}' => {
+            // ┴ T-up: full horiz + top vert
             fill_rect(&mut g, w, 0, t1, w, t2);
             fill_rect(&mut g, w, s1, 0, s2, t2);
         }
-        '\u{251C}' => { // ├ T-right: full vert + right horiz
+        '\u{251C}' => {
+            // ├ T-right: full vert + right horiz
             fill_rect(&mut g, w, s1, 0, s2, h);
             fill_rect(&mut g, w, s1, t1, w, t2);
         }
-        '\u{2524}' => { // ┤ T-left: full vert + left horiz
+        '\u{2524}' => {
+            // ┤ T-left: full vert + left horiz
             fill_rect(&mut g, w, s1, 0, s2, h);
             fill_rect(&mut g, w, 0, t1, s2, t2);
         }
-        '\u{253C}' => { // ┼ cross: full horiz + full vert
+        '\u{253C}' => {
+            // ┼ cross: full horiz + full vert
             fill_rect(&mut g, w, 0, t1, w, t2);
             fill_rect(&mut g, w, s1, 0, s2, h);
         }
 
         // ══ Double T-junctions + cross ══
-        '\u{2566}' => { // ╦ T-down: full double horiz + bottom double vert
+        '\u{2566}' => {
+            // ╦ T-down: full double horiz + bottom double vert
             fill_rect(&mut g, w, 0, dt, w, db);
             fill_rect(&mut g, w, 0, dt2, w, db2);
             fill_rect(&mut g, w, dl, dt, dr, h);
             fill_rect(&mut g, w, dl2, dt2, dr2, h);
         }
-        '\u{2569}' => { // ╩ T-up: full double horiz + top double vert
+        '\u{2569}' => {
+            // ╩ T-up: full double horiz + top double vert
             fill_rect(&mut g, w, 0, dt, w, db);
             fill_rect(&mut g, w, 0, dt2, w, db2);
             fill_rect(&mut g, w, dl, 0, dr, db2);
             fill_rect(&mut g, w, dl2, 0, dr2, db);
         }
-        '\u{2560}' => { // ╠ T-right: full double vert + right double horiz
+        '\u{2560}' => {
+            // ╠ T-right: full double vert + right double horiz
             fill_rect(&mut g, w, dl, 0, dr, h);
             fill_rect(&mut g, w, dl2, 0, dr2, h);
             fill_rect(&mut g, w, dl, dt, w, db);
             fill_rect(&mut g, w, dl2, dt2, w, db2);
         }
-        '\u{2563}' => { // ╣ T-left: full double vert + left double horiz
+        '\u{2563}' => {
+            // ╣ T-left: full double vert + left double horiz
             fill_rect(&mut g, w, dl, 0, dr, h);
             fill_rect(&mut g, w, dl2, 0, dr2, h);
             fill_rect(&mut g, w, 0, dt, dr2, db);
             fill_rect(&mut g, w, 0, dt2, dr, db2);
         }
-        '\u{256C}' => { // ╬ cross: full double horiz + full double vert
+        '\u{256C}' => {
+            // ╬ cross: full double horiz + full double vert
             fill_rect(&mut g, w, 0, dt, w, db);
             fill_rect(&mut g, w, 0, dt2, w, db2);
             fill_rect(&mut g, w, dl, 0, dr, h);
@@ -389,17 +418,20 @@ fn fallback_glyph(ch: char, w: usize, h: usize) -> Option<Vec<u8>> {
         }
 
         // ── Mixed junctions (single vert + double horiz) ──
-        '\u{255E}' => { // ╞ single vert + right double horiz
+        '\u{255E}' => {
+            // ╞ single vert + right double horiz
             fill_rect(&mut g, w, s1, 0, s2, h);
             fill_rect(&mut g, w, s1, dt, w, db);
             fill_rect(&mut g, w, s1, dt2, w, db2);
         }
-        '\u{2561}' => { // ╡ single vert + left double horiz
+        '\u{2561}' => {
+            // ╡ single vert + left double horiz
             fill_rect(&mut g, w, s1, 0, s2, h);
             fill_rect(&mut g, w, 0, dt, s2, db);
             fill_rect(&mut g, w, 0, dt2, s2, db2);
         }
-        '\u{256A}' => { // ╪ single vert + full double horiz
+        '\u{256A}' => {
+            // ╪ single vert + full double horiz
             fill_rect(&mut g, w, s1, 0, s2, h);
             fill_rect(&mut g, w, 0, dt, w, db);
             fill_rect(&mut g, w, 0, dt2, w, db2);
@@ -445,7 +477,12 @@ mod tests {
         for ch in &chars {
             let s = ch.to_string();
             let found = font.glyph_for_utf8(s.as_bytes()).is_some();
-            eprintln!("{} (U+{:04X}): {}", ch, *ch as u32, if found { "FOUND" } else { "MISSING" });
+            eprintln!(
+                "{} (U+{:04X}): {}",
+                ch,
+                *ch as u32,
+                if found { "FOUND" } else { "MISSING" }
+            );
         }
     }
 
@@ -453,13 +490,13 @@ mod tests {
     fn test_fallback_glyphs_not_boxes() {
         // All characters that should have fallback glyphs (not empty box outlines)
         let chars = [
-            '─', '│', '┌', '┐', '└', '┘',       // single box-drawing
-            '┬', '┴', '├', '┤', '┼',             // single T-junctions + cross
-            '═', '║', '╔', '╗', '╚', '╝',       // double box-drawing
-            '╦', '╩', '╠', '╣', '╬',             // double T-junctions + cross
-            '╞', '╡', '╪',                        // mixed junctions
-            '«', '»',                             // guillemets
-            '■',                                   // filled square
+            '─', '│', '┌', '┐', '└', '┘', // single box-drawing
+            '┬', '┴', '├', '┤', '┼', // single T-junctions + cross
+            '═', '║', '╔', '╗', '╚', '╝', // double box-drawing
+            '╦', '╩', '╠', '╣', '╬', // double T-junctions + cross
+            '╞', '╡', '╪', // mixed junctions
+            '«', '»', // guillemets
+            '■', // filled square
         ];
 
         for ch in &chars {
@@ -468,7 +505,12 @@ mod tests {
 
             // Should have black pixels (not empty)
             let black_count: usize = glyph.iter().filter(|&&p| p != 0).count();
-            assert!(black_count > 0, "{} (U+{:04X}) has no black pixels", ch, *ch as u32);
+            assert!(
+                black_count > 0,
+                "{} (U+{:04X}) has no black pixels",
+                ch,
+                *ch as u32
+            );
 
             // Should NOT be identical to a box outline (draw_box fills edges).
             // Compare against actual draw_box output to verify the fallback was used.
@@ -487,10 +529,16 @@ mod tests {
         // ─ should have pixels in the center rows, none at top/bottom
         let horiz = generate_glyph(Font::A, '─');
         // Top row should be empty
-        assert!(horiz[..12].iter().all(|&p| p == 0), "─ top row should be empty");
+        assert!(
+            horiz[..12].iter().all(|&p| p == 0),
+            "─ top row should be empty"
+        );
         // Center row should have pixels
         let center_row = 11 * 12;
-        assert!(horiz[center_row..center_row + 12].iter().any(|&p| p != 0), "─ center should have pixels");
+        assert!(
+            horiz[center_row..center_row + 12].iter().any(|&p| p != 0),
+            "─ center should have pixels"
+        );
 
         // │ should have pixels in center columns, none at left/right edges
         let vert = generate_glyph(Font::A, '│');

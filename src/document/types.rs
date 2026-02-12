@@ -29,7 +29,9 @@ pub trait ComponentMeta: Sized {
 }
 
 /// Custom deserializer for optional size/scale: accepts a single number (uniform) or [h, w] array.
-pub(crate) fn deserialize_size_or_scale<'de, D>(deserializer: D) -> Result<Option<[u8; 2]>, D::Error>
+pub(crate) fn deserialize_size_or_scale<'de, D>(
+    deserializer: D,
+) -> Result<Option<[u8; 2]>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
@@ -115,7 +117,10 @@ pub struct Text {
     #[serde(default)]
     pub right: bool,
     /// Character size: 0 = Font B, 1 = Font A (default), N = Font A + expansion.
-    #[serde(default = "default_text_size", deserialize_with = "deserialize_text_size")]
+    #[serde(
+        default = "default_text_size",
+        deserialize_with = "deserialize_text_size"
+    )]
     pub size: [u8; 2],
     /// Character scale via ESC W / ESC h (single number for uniform, or [h, w]).
     #[serde(default, deserialize_with = "deserialize_size_or_scale")]
@@ -157,9 +162,14 @@ impl Default for Text {
 }
 
 impl ComponentMeta for Text {
-    fn label() -> &'static str { "Text" }
+    fn label() -> &'static str {
+        "Text"
+    }
     fn editor_default() -> Self {
-        Self { content: "Hello World".into(), ..Default::default() }
+        Self {
+            content: "Hello World".into(),
+            ..Default::default()
+        }
     }
 }
 
@@ -182,9 +192,14 @@ pub struct Header {
 }
 
 impl ComponentMeta for Header {
-    fn label() -> &'static str { "Header" }
+    fn label() -> &'static str {
+        "Header"
+    }
     fn editor_default() -> Self {
-        Self { content: "HEADER".into(), ..Default::default() }
+        Self {
+            content: "HEADER".into(),
+            ..Default::default()
+        }
     }
 }
 
@@ -278,9 +293,15 @@ impl Default for Banner {
 }
 
 impl ComponentMeta for Banner {
-    fn label() -> &'static str { "Banner" }
+    fn label() -> &'static str {
+        "Banner"
+    }
     fn editor_default() -> Self {
-        Self { content: "BANNER".into(), size: 2, ..Default::default() }
+        Self {
+            content: "BANNER".into(),
+            size: 2,
+            ..Default::default()
+        }
     }
 }
 
@@ -309,9 +330,14 @@ pub struct LineItem {
 }
 
 impl ComponentMeta for LineItem {
-    fn label() -> &'static str { "Line Item" }
+    fn label() -> &'static str {
+        "Line Item"
+    }
     fn editor_default() -> Self {
-        Self { name: "Item".into(), ..Default::default() }
+        Self {
+            name: "Item".into(),
+            ..Default::default()
+        }
     }
 }
 
@@ -341,8 +367,12 @@ pub struct Total {
 }
 
 impl ComponentMeta for Total {
-    fn label() -> &'static str { "Total" }
-    fn editor_default() -> Self { Self::default() }
+    fn label() -> &'static str {
+        "Total"
+    }
+    fn editor_default() -> Self {
+        Self::default()
+    }
 }
 
 impl Total {
@@ -397,8 +427,12 @@ impl Default for Divider {
 }
 
 impl ComponentMeta for Divider {
-    fn label() -> &'static str { "Divider" }
-    fn editor_default() -> Self { Self::default() }
+    fn label() -> &'static str {
+        "Divider"
+    }
+    fn editor_default() -> Self {
+        Self::default()
+    }
 }
 
 /// Vertical spacer.
@@ -416,9 +450,14 @@ pub struct Spacer {
 }
 
 impl ComponentMeta for Spacer {
-    fn label() -> &'static str { "Spacer" }
+    fn label() -> &'static str {
+        "Spacer"
+    }
     fn editor_default() -> Self {
-        Self { mm: Some(2.0), ..Default::default() }
+        Self {
+            mm: Some(2.0),
+            ..Default::default()
+        }
     }
 }
 
@@ -443,8 +482,12 @@ impl Spacer {
 pub struct BlankLine {}
 
 impl ComponentMeta for BlankLine {
-    fn label() -> &'static str { "Blank Line" }
-    fn editor_default() -> Self { Self {} }
+    fn label() -> &'static str {
+        "Blank Line"
+    }
+    fn editor_default() -> Self {
+        Self {}
+    }
 }
 
 /// Two-column layout.
@@ -463,9 +506,15 @@ pub struct Columns {
 }
 
 impl ComponentMeta for Columns {
-    fn label() -> &'static str { "Columns" }
+    fn label() -> &'static str {
+        "Columns"
+    }
     fn editor_default() -> Self {
-        Self { left: "Left".into(), right: "Right".into(), ..Default::default() }
+        Self {
+            left: "Left".into(),
+            right: "Right".into(),
+            ..Default::default()
+        }
     }
 }
 
@@ -535,7 +584,9 @@ impl Default for Table {
 }
 
 impl ComponentMeta for Table {
-    fn label() -> &'static str { "Table" }
+    fn label() -> &'static str {
+        "Table"
+    }
     fn editor_default() -> Self {
         Self {
             headers: Some(vec!["Col 1".into(), "Col 2".into()]),
@@ -567,9 +618,14 @@ pub struct Markdown {
 }
 
 impl ComponentMeta for Markdown {
-    fn label() -> &'static str { "Markdown" }
+    fn label() -> &'static str {
+        "Markdown"
+    }
     fn editor_default() -> Self {
-        Self { content: "## Heading\n\nParagraph text.".into(), ..Default::default() }
+        Self {
+            content: "## Heading\n\nParagraph text.".into(),
+            ..Default::default()
+        }
     }
 }
 
@@ -601,9 +657,14 @@ pub struct QrCode {
 }
 
 impl ComponentMeta for QrCode {
-    fn label() -> &'static str { "QR Code" }
+    fn label() -> &'static str {
+        "QR Code"
+    }
     fn editor_default() -> Self {
-        Self { data: "https://example.com".into(), ..Default::default() }
+        Self {
+            data: "https://example.com".into(),
+            ..Default::default()
+        }
     }
 }
 
@@ -630,9 +691,14 @@ pub struct Pdf417 {
 }
 
 impl ComponentMeta for Pdf417 {
-    fn label() -> &'static str { "PDF417" }
+    fn label() -> &'static str {
+        "PDF417"
+    }
     fn editor_default() -> Self {
-        Self { data: "PDF417-DATA".into(), ..Default::default() }
+        Self {
+            data: "PDF417-DATA".into(),
+            ..Default::default()
+        }
     }
 }
 
@@ -657,9 +723,15 @@ pub struct Barcode {
 }
 
 impl ComponentMeta for Barcode {
-    fn label() -> &'static str { "Barcode" }
+    fn label() -> &'static str {
+        "Barcode"
+    }
     fn editor_default() -> Self {
-        Self { format: "code128".into(), data: "ABC-123".into(), height: Some(60) }
+        Self {
+            format: "code128".into(),
+            data: "ABC-123".into(),
+            height: Some(60),
+        }
     }
 }
 
@@ -743,7 +815,9 @@ impl Default for Chart {
 }
 
 impl ComponentMeta for Chart {
-    fn label() -> &'static str { "Chart" }
+    fn label() -> &'static str {
+        "Chart"
+    }
     fn editor_default() -> Self {
         Self {
             style: ChartStyle::Bar,
@@ -760,8 +834,12 @@ impl ComponentMeta for Chart {
 // ============================================================================
 
 impl ComponentMeta for Image {
-    fn label() -> &'static str { "Image" }
-    fn editor_default() -> Self { Self::default() }
+    fn label() -> &'static str {
+        "Image"
+    }
+    fn editor_default() -> Self {
+        Self::default()
+    }
 }
 
 /// Image from URL (resolved at compile time).
@@ -794,9 +872,15 @@ pub struct ResolvedImage {
 }
 
 impl ComponentMeta for Pattern {
-    fn label() -> &'static str { "Pattern" }
+    fn label() -> &'static str {
+        "Pattern"
+    }
     fn editor_default() -> Self {
-        Self { name: "estrella".into(), height: Some(80), ..Default::default() }
+        Self {
+            name: "estrella".into(),
+            height: Some(80),
+            ..Default::default()
+        }
     }
 }
 
@@ -815,9 +899,15 @@ pub struct Pattern {
 }
 
 impl ComponentMeta for NvLogo {
-    fn label() -> &'static str { "NV Logo" }
+    fn label() -> &'static str {
+        "NV Logo"
+    }
     fn editor_default() -> Self {
-        Self { key: "A1".into(), center: true, ..Default::default() }
+        Self {
+            key: "A1".into(),
+            center: true,
+            ..Default::default()
+        }
     }
 }
 
@@ -916,9 +1006,14 @@ impl Default for Canvas {
 }
 
 impl ComponentMeta for Canvas {
-    fn label() -> &'static str { "Canvas" }
+    fn label() -> &'static str {
+        "Canvas"
+    }
     fn editor_default() -> Self {
-        Self { height: Some(100), ..Default::default() }
+        Self {
+            height: Some(100),
+            ..Default::default()
+        }
     }
 }
 

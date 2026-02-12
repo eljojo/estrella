@@ -101,7 +101,11 @@ impl Program {
 
         // Get the graphics dimensions
         let (width, total_rows, data, is_band) = match graphics_op {
-            Op::Raster { width, height, data } => (*width, *height as usize, data.clone(), false),
+            Op::Raster {
+                width,
+                height,
+                data,
+            } => (*width, *height as usize, data.clone(), false),
             Op::Band { width_bytes, data } => {
                 let width = (*width_bytes as u16) * 8;
                 let height = data.len() / (*width_bytes as usize);
@@ -292,14 +296,26 @@ mod tests {
         assert_eq!(programs.len(), 2);
 
         // First program should NOT have Feed or Cut
-        let first_has_cut = programs[0].ops.iter().any(|op| matches!(op, Op::Cut { .. }));
-        let first_has_feed = programs[0].ops.iter().any(|op| matches!(op, Op::Feed { .. }));
+        let first_has_cut = programs[0]
+            .ops
+            .iter()
+            .any(|op| matches!(op, Op::Cut { .. }));
+        let first_has_feed = programs[0]
+            .ops
+            .iter()
+            .any(|op| matches!(op, Op::Feed { .. }));
         assert!(!first_has_cut, "First program should not have Cut");
         assert!(!first_has_feed, "First program should not have Feed");
 
         // Last program should have Feed and Cut
-        let last_has_cut = programs[1].ops.iter().any(|op| matches!(op, Op::Cut { .. }));
-        let last_has_feed = programs[1].ops.iter().any(|op| matches!(op, Op::Feed { .. }));
+        let last_has_cut = programs[1]
+            .ops
+            .iter()
+            .any(|op| matches!(op, Op::Cut { .. }));
+        let last_has_feed = programs[1]
+            .ops
+            .iter()
+            .any(|op| matches!(op, Op::Feed { .. }));
         assert!(last_has_cut, "Last program should have Cut");
         assert!(last_has_feed, "Last program should have Feed");
     }
@@ -410,7 +426,9 @@ mod tests {
         program.push(Op::Text("topography".into()));
         program.push(Op::Newline);
         program.push(Op::SetBold(false));
-        program.push(Op::Text("------------------------------------------------".into()));
+        program.push(Op::Text(
+            "------------------------------------------------".into(),
+        ));
         program.push(Op::Newline);
         // Large image that will be split
         program.push(Op::Raster {
@@ -425,10 +443,7 @@ mod tests {
         assert_eq!(programs.len(), 2, "Should split into 2 chunks");
 
         // Second chunk must NOT contain any Text ops (title/divider content)
-        let second_has_text = programs[1]
-            .ops
-            .iter()
-            .any(|op| matches!(op, Op::Text(_)));
+        let second_has_text = programs[1].ops.iter().any(|op| matches!(op, Op::Text(_)));
         assert!(
             !second_has_text,
             "Second chunk should not re-send pre-graphics text content"
@@ -436,10 +451,7 @@ mod tests {
 
         // Second chunk must NOT contain Newline ops from the pre-graphics section
         // (it should only have Init + Raster)
-        let second_has_newline = programs[1]
-            .ops
-            .iter()
-            .any(|op| matches!(op, Op::Newline));
+        let second_has_newline = programs[1].ops.iter().any(|op| matches!(op, Op::Newline));
         assert!(
             !second_has_newline,
             "Second chunk should not re-send pre-graphics newlines"
@@ -450,10 +462,7 @@ mod tests {
             .ops
             .iter()
             .any(|op| matches!(op, Op::Text(s) if s == "topography"));
-        assert!(
-            first_has_text,
-            "First chunk should contain the title text"
-        );
+        assert!(first_has_text, "First chunk should contain the title text");
     }
 
     #[test]

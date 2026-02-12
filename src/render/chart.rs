@@ -6,7 +6,7 @@
 
 use crate::document::types::{Chart, ChartStyle};
 use crate::render::dither::{self, DitheringAlgorithm};
-use spleen_font::{PSF2Font, FONT_6X12, FONT_12X24};
+use spleen_font::{FONT_6X12, FONT_12X24, PSF2Font};
 
 // ============================================================================
 // CONSTANTS
@@ -71,14 +71,20 @@ impl Canvas {
             self.buf[idx] = self.buf[idx].max(intensity);
         }
     }
-
 }
 
 // ============================================================================
 // DRAWING PRIMITIVES
 // ============================================================================
 
-fn draw_hline(canvas: &mut Canvas, x1: usize, x2: usize, y: usize, thickness: usize, intensity: f32) {
+fn draw_hline(
+    canvas: &mut Canvas,
+    x1: usize,
+    x2: usize,
+    y: usize,
+    thickness: usize,
+    intensity: f32,
+) {
     let half = thickness / 2;
     for dy in 0..thickness {
         let py = (y + dy).saturating_sub(half);
@@ -88,7 +94,14 @@ fn draw_hline(canvas: &mut Canvas, x1: usize, x2: usize, y: usize, thickness: us
     }
 }
 
-fn draw_vline(canvas: &mut Canvas, x: usize, y1: usize, y2: usize, thickness: usize, intensity: f32) {
+fn draw_vline(
+    canvas: &mut Canvas,
+    x: usize,
+    y1: usize,
+    y2: usize,
+    thickness: usize,
+    intensity: f32,
+) {
     let half = thickness / 2;
     for dx in 0..thickness {
         let px = (x + dx).saturating_sub(half);
@@ -127,7 +140,14 @@ fn draw_hline_dashed(
     }
 }
 
-fn draw_filled_rect(canvas: &mut Canvas, x1: usize, y1: usize, x2: usize, y2: usize, intensity: f32) {
+fn draw_filled_rect(
+    canvas: &mut Canvas,
+    x1: usize,
+    y1: usize,
+    x2: usize,
+    y2: usize,
+    intensity: f32,
+) {
     for y in y1..y2.min(canvas.height) {
         for x in x1..x2.min(canvas.width) {
             canvas.blend(x, y, intensity);
@@ -161,7 +181,15 @@ fn draw_filled_circle(canvas: &mut Canvas, cx: f32, cy: f32, radius: f32, intens
     }
 }
 
-fn draw_line_thick(canvas: &mut Canvas, x1: f32, y1: f32, x2: f32, y2: f32, thickness: f32, intensity: f32) {
+fn draw_line_thick(
+    canvas: &mut Canvas,
+    x1: f32,
+    y1: f32,
+    x2: f32,
+    y2: f32,
+    thickness: f32,
+    intensity: f32,
+) {
     let dx = x2 - x1;
     let dy = y2 - y1;
     let len = (dx * dx + dy * dy).sqrt();
@@ -200,7 +228,12 @@ fn draw_line_thick(canvas: &mut Canvas, x1: f32, y1: f32, x2: f32, y2: f32, thic
     }
 }
 
-fn fill_below_polyline(canvas: &mut Canvas, points: &[(f32, f32)], baseline_y: usize, intensity: f32) {
+fn fill_below_polyline(
+    canvas: &mut Canvas,
+    points: &[(f32, f32)],
+    baseline_y: usize,
+    intensity: f32,
+) {
     if points.len() < 2 {
         return;
     }
@@ -259,7 +292,14 @@ impl FontSize {
     }
 }
 
-fn draw_text_sized(canvas: &mut Canvas, text: &str, x: usize, y: usize, intensity: f32, size: FontSize) {
+fn draw_text_sized(
+    canvas: &mut Canvas,
+    text: &str,
+    x: usize,
+    y: usize,
+    intensity: f32,
+    size: FontSize,
+) {
     let mut font = PSF2Font::new(size.font_data()).unwrap();
     let char_w = size.char_width();
     let mut cursor_x = x;
@@ -282,13 +322,27 @@ fn text_width_sized(text: &str, size: FontSize) -> usize {
     text.chars().count() * size.char_width()
 }
 
-fn draw_text_right_sized(canvas: &mut Canvas, text: &str, right_x: usize, y: usize, intensity: f32, size: FontSize) {
+fn draw_text_right_sized(
+    canvas: &mut Canvas,
+    text: &str,
+    right_x: usize,
+    y: usize,
+    intensity: f32,
+    size: FontSize,
+) {
     let w = text_width_sized(text, size);
     let x = right_x.saturating_sub(w);
     draw_text_sized(canvas, text, x, y, intensity, size);
 }
 
-fn draw_text_centered_sized(canvas: &mut Canvas, text: &str, center_x: usize, y: usize, intensity: f32, size: FontSize) {
+fn draw_text_centered_sized(
+    canvas: &mut Canvas,
+    text: &str,
+    center_x: usize,
+    y: usize,
+    intensity: f32,
+    size: FontSize,
+) {
     let w = text_width_sized(text, size);
     let x = center_x.saturating_sub(w / 2);
     draw_text_sized(canvas, text, x, y, intensity, size);
@@ -401,12 +455,7 @@ fn compute_layout(
 // DATA MAPPING
 // ============================================================================
 
-fn map_data_points(
-    values: &[f64],
-    y_min: f64,
-    y_max: f64,
-    layout: &Layout,
-) -> Vec<(f32, f32)> {
+fn map_data_points(values: &[f64], y_min: f64, y_max: f64, layout: &Layout) -> Vec<(f32, f32)> {
     let n = values.len();
     if n == 0 {
         return Vec::new();
@@ -457,18 +506,35 @@ pub fn render(chart: &Chart, width: usize, dithering: DitheringAlgorithm) -> (Ve
 
     // Compute Y range with padding
     let v_min = chart.values.iter().cloned().fold(f64::INFINITY, f64::min);
-    let v_max = chart.values.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+    let v_max = chart
+        .values
+        .iter()
+        .cloned()
+        .fold(f64::NEG_INFINITY, f64::max);
     let ticks = compute_nice_ticks(v_min, v_max, 4);
     let y_min = ticks.first().copied().unwrap_or(v_min);
     let y_max = ticks.last().copied().unwrap_or(v_max);
 
     // Compute Y-axis label widths
-    let y_labels: Vec<String> = ticks.iter().map(|&v| format_y_label(v, prefix, suffix)).collect();
-    let y_label_max_chars = y_labels.iter().map(|l| l.chars().count()).max().unwrap_or(0);
+    let y_labels: Vec<String> = ticks
+        .iter()
+        .map(|&v| format_y_label(v, prefix, suffix))
+        .collect();
+    let y_label_max_chars = y_labels
+        .iter()
+        .map(|l| l.chars().count())
+        .max()
+        .unwrap_or(0);
 
     let has_title = chart.title.is_some();
     let has_x_labels = !chart.labels.is_empty();
-    let layout = compute_layout(width, total_height, y_label_max_chars, has_title, has_x_labels);
+    let layout = compute_layout(
+        width,
+        total_height,
+        y_label_max_chars,
+        has_title,
+        has_x_labels,
+    );
 
     let mut canvas = Canvas::new(width, total_height);
 
@@ -511,8 +577,22 @@ pub fn render(chart: &Chart, width: usize, dithering: DitheringAlgorithm) -> (Ve
     }
 
     // Axes
-    draw_vline(&mut canvas, layout.data_left, layout.data_top, layout.data_bottom, AXIS_THICKNESS, 1.0);
-    draw_hline(&mut canvas, layout.data_left, layout.data_right, layout.data_bottom, AXIS_THICKNESS, 1.0);
+    draw_vline(
+        &mut canvas,
+        layout.data_left,
+        layout.data_top,
+        layout.data_bottom,
+        AXIS_THICKNESS,
+        1.0,
+    );
+    draw_hline(
+        &mut canvas,
+        layout.data_left,
+        layout.data_right,
+        layout.data_bottom,
+        AXIS_THICKNESS,
+        1.0,
+    );
 
     // X-axis labels (small font)
     if has_x_labels {
@@ -520,7 +600,12 @@ pub fn render(chart: &Chart, width: usize, dithering: DitheringAlgorithm) -> (Ve
         let label_count = chart.labels.len().min(n);
 
         // Determine how many labels we can fit without overlap
-        let max_label_chars = chart.labels.iter().map(|l| l.chars().count()).max().unwrap_or(0);
+        let max_label_chars = chart
+            .labels
+            .iter()
+            .map(|l| l.chars().count())
+            .max()
+            .unwrap_or(0);
         let label_pixel_width = max_label_chars * FONT_SM_W + FONT_SM_W; // +1 char spacing
         let available_width = layout.data_width();
         let max_labels = if label_pixel_width > 0 {
@@ -542,8 +627,17 @@ pub fn render(chart: &Chart, width: usize, dithering: DitheringAlgorithm) -> (Ve
             };
             // Clamp so label text doesn't overflow canvas edges
             let label_half_w = text_width_sized(&chart.labels[i], FontSize::Small) / 2;
-            let px_x = px_x.max(label_half_w).min(width.saturating_sub(label_half_w));
-            draw_text_centered_sized(&mut canvas, &chart.labels[i], px_x, label_y, 1.0, FontSize::Small);
+            let px_x = px_x
+                .max(label_half_w)
+                .min(width.saturating_sub(label_half_w));
+            draw_text_centered_sized(
+                &mut canvas,
+                &chart.labels[i],
+                px_x,
+                label_y,
+                1.0,
+                FontSize::Small,
+            );
         }
     }
 
@@ -559,7 +653,12 @@ pub fn render(chart: &Chart, width: usize, dithering: DitheringAlgorithm) -> (Ve
     }
 
     // Dither to 1-bit raster
-    let raster = dither::generate_raster(width, total_height, |x, y, _w, _h| canvas.buf[y * width + x], dithering);
+    let raster = dither::generate_raster(
+        width,
+        total_height,
+        |x, y, _w, _h| canvas.buf[y * width + x],
+        dithering,
+    );
 
     (raster, width as u16, total_height as u16)
 }
@@ -571,7 +670,15 @@ pub fn render(chart: &Chart, width: usize, dithering: DitheringAlgorithm) -> (Ve
 fn draw_line_style(canvas: &mut Canvas, points: &[(f32, f32)]) {
     // Lines
     for pair in points.windows(2) {
-        draw_line_thick(canvas, pair[0].0, pair[0].1, pair[1].0, pair[1].1, LINE_THICKNESS, 1.0);
+        draw_line_thick(
+            canvas,
+            pair[0].0,
+            pair[0].1,
+            pair[1].0,
+            pair[1].1,
+            LINE_THICKNESS,
+            1.0,
+        );
     }
     // Markers
     for &(x, y) in points {
@@ -619,14 +726,35 @@ fn draw_bar_style(canvas: &mut Canvas, values: &[f64], y_min: f64, y_max: f64, l
         let bar_top = raw_top.min(layout.data_bottom.saturating_sub(min_bar_h));
 
         // Filled bar
-        draw_filled_rect(canvas, bar_left, bar_top, bar_right, layout.data_bottom, BAR_FILL_INTENSITY);
+        draw_filled_rect(
+            canvas,
+            bar_left,
+            bar_top,
+            bar_right,
+            layout.data_bottom,
+            BAR_FILL_INTENSITY,
+        );
 
         // Black outline
         draw_vline(canvas, bar_left, bar_top, layout.data_bottom, 1, 1.0);
         if bar_right > 0 {
-            draw_vline(canvas, bar_right.saturating_sub(1), bar_top, layout.data_bottom, 1, 1.0);
+            draw_vline(
+                canvas,
+                bar_right.saturating_sub(1),
+                bar_top,
+                layout.data_bottom,
+                1,
+                1.0,
+            );
         }
-        draw_hline(canvas, bar_left, bar_right.saturating_sub(1), bar_top, 1, 1.0);
+        draw_hline(
+            canvas,
+            bar_left,
+            bar_right.saturating_sub(1),
+            bar_top,
+            1,
+            1.0,
+        );
     }
 }
 
@@ -737,7 +865,10 @@ mod tests {
         };
         let (data, _, _) = render(&chart, 576, DitheringAlgorithm::Bayer);
         // Should have some black pixels
-        assert!(data.iter().any(|&b| b != 0), "Chart should not be all white");
+        assert!(
+            data.iter().any(|&b| b != 0),
+            "Chart should not be all white"
+        );
     }
 
     #[test]
@@ -767,7 +898,12 @@ mod tests {
 
     #[test]
     fn test_render_all_styles() {
-        for style in [ChartStyle::Line, ChartStyle::Area, ChartStyle::Bar, ChartStyle::Dot] {
+        for style in [
+            ChartStyle::Line,
+            ChartStyle::Area,
+            ChartStyle::Bar,
+            ChartStyle::Dot,
+        ] {
             let chart = Chart {
                 style,
                 values: vec![1.0, 3.0, 2.0, 5.0, 4.0],
@@ -779,7 +915,11 @@ mod tests {
             let (data, w, h) = render(&chart, 576, DitheringAlgorithm::Bayer);
             assert_eq!(w, 576);
             assert_eq!(h, 150);
-            assert!(data.iter().any(|&b| b != 0), "Style {:?} should not be all white", style);
+            assert!(
+                data.iter().any(|&b| b != 0),
+                "Style {:?} should not be all white",
+                style
+            );
         }
     }
 

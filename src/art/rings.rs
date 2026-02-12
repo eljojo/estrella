@@ -12,8 +12,8 @@
 //! ```
 
 use crate::shader::{center_coords, clamp01, dist, gamma, wave_cos, wave_sin};
-use rand::Rng;
 use async_trait::async_trait;
+use rand::Rng;
 use std::fmt;
 
 /// Parameters for the rings effect.
@@ -66,8 +66,12 @@ impl fmt::Display for Params {
         write!(
             f,
             "ring={:.1} drift={:.1} diag={:.1} weights=({:.2},{:.2}) gamma={:.2}",
-            self.ring_freq, self.drift, self.diag_freq,
-            self.ring_weight, self.diag_weight, self.gamma
+            self.ring_freq,
+            self.drift,
+            self.diag_freq,
+            self.ring_weight,
+            self.diag_weight,
+            self.gamma
         )
     }
 }
@@ -114,11 +118,15 @@ impl Default for Rings {
 
 impl Rings {
     pub fn golden() -> Self {
-        Self { params: Params::default() }
+        Self {
+            params: Params::default(),
+        }
     }
 
     pub fn random() -> Self {
-        Self { params: Params::random() }
+        Self {
+            params: Params::random(),
+        }
     }
 }
 
@@ -137,7 +145,10 @@ impl super::Pattern for Rings {
     }
 
     fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
-        let parse_f32 = |v: &str| v.parse::<f32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        let parse_f32 = |v: &str| {
+            v.parse::<f32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
         match name {
             "ring_freq" => self.params.ring_freq = parse_f32(value)?,
             "drift" => self.params.drift = parse_f32(value)?,

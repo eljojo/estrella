@@ -48,7 +48,11 @@ impl RippleLogo {
             dither::DitheringAlgorithm::Bayer,
         );
 
-        LogoRaster { width, height, data }
+        LogoRaster {
+            width,
+            height,
+            data,
+        }
     }
 }
 

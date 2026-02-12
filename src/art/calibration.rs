@@ -87,7 +87,9 @@ impl Default for Calibration {
 
 impl Calibration {
     pub fn golden() -> Self {
-        Self { params: Params::default() }
+        Self {
+            params: Params::default(),
+        }
     }
 
     // No randomization for calibration - it's a diagnostic pattern
@@ -111,7 +113,10 @@ impl super::Pattern for Calibration {
     }
 
     fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
-        let parse_usize = |v: &str| v.parse::<usize>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        let parse_usize = |v: &str| {
+            v.parse::<usize>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
         match name {
             "border_width" => self.params.border_width = parse_usize(value)?,
             "diagonal_thickness" => self.params.diagonal_thickness = parse_usize(value)?,
@@ -126,7 +131,10 @@ impl super::Pattern for Calibration {
     fn list_params(&self) -> Vec<(&'static str, String)> {
         vec![
             ("border_width", self.params.border_width.to_string()),
-            ("diagonal_thickness", self.params.diagonal_thickness.to_string()),
+            (
+                "diagonal_thickness",
+                self.params.diagonal_thickness.to_string(),
+            ),
             ("bar_column_width", self.params.bar_column_width.to_string()),
             ("bar_base_width", self.params.bar_base_width.to_string()),
             ("bar_margin", self.params.bar_margin.to_string()),

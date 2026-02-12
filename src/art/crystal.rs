@@ -9,8 +9,8 @@
 //! dendrites with configurable symmetry and branching characteristics.
 
 use crate::shader::*;
-use rand::Rng;
 use async_trait::async_trait;
+use rand::Rng;
 use std::fmt;
 
 /// Parameters for the crystal growth pattern.
@@ -72,11 +72,12 @@ impl fmt::Display for Params {
     }
 }
 
-
 /// Recursively check distance to crystal branches.
 fn crystal_distance(
-    px: f32, py: f32,
-    cx: f32, cy: f32,
+    px: f32,
+    py: f32,
+    cx: f32,
+    cy: f32,
     angle: f32,
     length: f32,
     level: usize,
@@ -116,12 +117,32 @@ fn crystal_distance(
         let bx = cx + angle.cos() * length * t;
         let by = cy + angle.sin() * length * t;
 
-        let d = crystal_distance(px, py, bx, by, branch_angle, next_length, level - 1, params, rng_state);
+        let d = crystal_distance(
+            px,
+            py,
+            bx,
+            by,
+            branch_angle,
+            next_length,
+            level - 1,
+            params,
+            rng_state,
+        );
         min_dist = min_dist.min(d);
     }
 
     // Also continue the main branch
-    let d = crystal_distance(px, py, ex, ey, angle, next_length * 0.8, level - 1, params, rng_state);
+    let d = crystal_distance(
+        px,
+        py,
+        ex,
+        ey,
+        angle,
+        next_length * 0.8,
+        level - 1,
+        params,
+        rng_state,
+    );
     min_dist.min(d)
 }
 
@@ -141,7 +162,17 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
         let base_angle = s as f32 * std::f32::consts::TAU / params.symmetry as f32;
         let mut rng_state = params.seed.wrapping_add(s as u32 * 12345);
 
-        let d = crystal_distance(xf, yf, cx, cy, base_angle, base_length, params.levels, params, &mut rng_state);
+        let d = crystal_distance(
+            xf,
+            yf,
+            cx,
+            cy,
+            base_angle,
+            base_length,
+            params.levels,
+            params,
+            &mut rng_state,
+        );
         min_dist = min_dist.min(d);
     }
 
@@ -170,11 +201,15 @@ impl Default for Crystal {
 
 impl Crystal {
     pub fn golden() -> Self {
-        Self { params: Params::default() }
+        Self {
+            params: Params::default(),
+        }
     }
 
     pub fn random() -> Self {
-        Self { params: Params::random() }
+        Self {
+            params: Params::random(),
+        }
     }
 }
 
@@ -193,9 +228,18 @@ impl super::Pattern for Crystal {
     }
 
     fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
-        let parse_f32 = |v: &str| v.parse::<f32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
-        let parse_usize = |v: &str| v.parse::<usize>().map_err(|e| format!("Invalid value '{}': {}", v, e));
-        let parse_u32 = |v: &str| v.parse::<u32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        let parse_f32 = |v: &str| {
+            v.parse::<f32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
+        let parse_usize = |v: &str| {
+            v.parse::<usize>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
+        let parse_u32 = |v: &str| {
+            v.parse::<u32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
         match name {
             "symmetry" => self.params.symmetry = parse_usize(value)?,
             "levels" => self.params.levels = parse_usize(value)?,

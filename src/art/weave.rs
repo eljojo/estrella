@@ -9,8 +9,8 @@
 //! of warp and weft threads.
 
 use crate::shader::*;
-use rand::Rng;
 use async_trait::async_trait;
+use rand::Rng;
 use std::fmt;
 
 /// Weave pattern type.
@@ -181,11 +181,8 @@ pub fn shade(x: usize, y: usize, _width: usize, _height: usize, params: &Params)
     let warp_top = warp_on_top(cell_x, cell_y, params.weave_type, params.shift);
 
     // Thread texture noise
-    let texture_noise = hash2_f32(
-        (xf * 2.0) as u32,
-        (yf * 2.0) as u32,
-        params.seed,
-    ) * params.texture;
+    let texture_noise =
+        hash2_f32((xf * 2.0) as u32, (yf * 2.0) as u32, params.seed) * params.texture;
 
     if in_warp && in_weft {
         // Intersection - show whichever is on top
@@ -223,11 +220,15 @@ impl Default for Weave {
 
 impl Weave {
     pub fn golden() -> Self {
-        Self { params: Params::default() }
+        Self {
+            params: Params::default(),
+        }
     }
 
     pub fn random() -> Self {
-        Self { params: Params::random() }
+        Self {
+            params: Params::random(),
+        }
     }
 }
 
@@ -246,9 +247,18 @@ impl super::Pattern for Weave {
     }
 
     fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
-        let parse_f32 = |v: &str| v.parse::<f32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
-        let parse_usize = |v: &str| v.parse::<usize>().map_err(|e| format!("Invalid value '{}': {}", v, e));
-        let parse_u32 = |v: &str| v.parse::<u32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        let parse_f32 = |v: &str| {
+            v.parse::<f32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
+        let parse_usize = |v: &str| {
+            v.parse::<usize>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
+        let parse_u32 = |v: &str| {
+            v.parse::<u32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
 
         match name {
             "thread_width" => self.params.thread_width = parse_f32(value)?,
@@ -296,10 +306,13 @@ impl super::Pattern for Weave {
         vec![
             ParamSpec::slider("thread_width", "Thread Width", 4.0, 10.0, 0.5)
                 .with_description("Thread width"),
-            ParamSpec::slider("gap", "Gap", 0.5, 2.0, 0.1)
-                .with_description("Gap between threads"),
-            ParamSpec::select("weave_type", "Weave Type", vec!["plain", "twill", "satin", "basket", "herringbone"])
-                .with_description("Weave type"),
+            ParamSpec::slider("gap", "Gap", 0.5, 2.0, 0.1).with_description("Gap between threads"),
+            ParamSpec::select(
+                "weave_type",
+                "Weave Type",
+                vec!["plain", "twill", "satin", "basket", "herringbone"],
+            )
+            .with_description("Weave type"),
             ParamSpec::int("shift", "Shift", Some(1), Some(4))
                 .with_description("Twill/satin shift amount"),
             ParamSpec::slider("texture", "Texture", 0.1, 0.4, 0.05)
@@ -324,7 +337,13 @@ mod tests {
         for y in (0..500).step_by(50) {
             for x in (0..576).step_by(50) {
                 let v = shade(x, y, 576, 500, &params);
-                assert!(v >= 0.0 && v <= 1.0, "value {} out of range at ({}, {})", v, x, y);
+                assert!(
+                    v >= 0.0 && v <= 1.0,
+                    "value {} out of range at ({}, {})",
+                    v,
+                    x,
+                    y
+                );
             }
         }
     }

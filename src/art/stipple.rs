@@ -9,8 +9,8 @@
 //! and pointillism techniques.
 
 use crate::shader::*;
-use rand::Rng;
 use async_trait::async_trait;
+use rand::Rng;
 use std::fmt;
 
 /// Parameters for stipple pattern.
@@ -87,8 +87,12 @@ pub fn shade(x: usize, y: usize, _width: usize, _height: usize, params: &Params)
             let cy = cell_y + dy;
 
             // Dot center with jitter
-            let jitter_x = (hash2_f32(cx as u32, cy as u32, params.seed) - 0.5) * params.jitter * params.spacing;
-            let jitter_y = (hash2_f32(cx as u32, cy as u32, params.seed.wrapping_add(1000)) - 0.5) * params.jitter * params.spacing;
+            let jitter_x = (hash2_f32(cx as u32, cy as u32, params.seed) - 0.5)
+                * params.jitter
+                * params.spacing;
+            let jitter_y = (hash2_f32(cx as u32, cy as u32, params.seed.wrapping_add(1000)) - 0.5)
+                * params.jitter
+                * params.spacing;
 
             let dot_x = (cx as f32 + 0.5) * params.spacing + jitter_x;
             let dot_y = (cy as f32 + 0.5) * params.spacing + jitter_y;
@@ -105,7 +109,8 @@ pub fn shade(x: usize, y: usize, _width: usize, _height: usize, params: &Params)
             let adjusted_tone = contrast(tone, 0.5, params.contrast);
 
             // Dot radius based on tone (darker = larger dot)
-            let radius = params.min_radius + adjusted_tone * (params.max_radius - params.min_radius);
+            let radius =
+                params.min_radius + adjusted_tone * (params.max_radius - params.min_radius);
 
             // Distance to dot center
             let d = dist(xf, yf, dot_x, dot_y);
@@ -136,11 +141,15 @@ impl Default for Stipple {
 
 impl Stipple {
     pub fn golden() -> Self {
-        Self { params: Params::default() }
+        Self {
+            params: Params::default(),
+        }
     }
 
     pub fn random() -> Self {
-        Self { params: Params::random() }
+        Self {
+            params: Params::random(),
+        }
     }
 }
 
@@ -159,8 +168,14 @@ impl super::Pattern for Stipple {
     }
 
     fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
-        let parse_f32 = |v: &str| v.parse::<f32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
-        let parse_u32 = |v: &str| v.parse::<u32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        let parse_f32 = |v: &str| {
+            v.parse::<f32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
+        let parse_u32 = |v: &str| {
+            v.parse::<u32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
 
         match name {
             "spacing" => self.params.spacing = parse_f32(value)?,
@@ -218,7 +233,13 @@ mod tests {
         for y in (0..500).step_by(50) {
             for x in (0..576).step_by(50) {
                 let v = shade(x, y, 576, 500, &params);
-                assert!(v >= 0.0 && v <= 1.0, "value {} out of range at ({}, {})", v, x, y);
+                assert!(
+                    v >= 0.0 && v <= 1.0,
+                    "value {} out of range at ({}, {})",
+                    v,
+                    x,
+                    y
+                );
             }
         }
     }

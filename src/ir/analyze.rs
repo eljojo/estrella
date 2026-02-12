@@ -252,8 +252,16 @@ mod tests {
             println!("\n{}", "=".repeat(60));
             println!("=== {} ===", name.to_uppercase());
             println!("{}", "=".repeat(60));
-            println!("Unoptimized: {} ops, {} bytes", unopt.len(), unopt.to_bytes().len());
-            println!("Optimized:   {} ops, {} bytes", opt.len(), opt.to_bytes().len());
+            println!(
+                "Unoptimized: {} ops, {} bytes",
+                unopt.len(),
+                unopt.to_bytes().len()
+            );
+            println!(
+                "Optimized:   {} ops, {} bytes",
+                opt.len(),
+                opt.to_bytes().len()
+            );
             println!(
                 "Reduction:   {} ops removed, {} bytes saved\n",
                 unopt.len() - opt.len(),

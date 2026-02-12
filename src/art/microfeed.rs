@@ -67,7 +67,9 @@ impl Default for Microfeed {
 
 impl Microfeed {
     pub fn golden() -> Self {
-        Self { params: Params::default() }
+        Self {
+            params: Params::default(),
+        }
     }
 
     // No randomization for microfeed - it's a diagnostic pattern
@@ -87,7 +89,10 @@ impl super::Pattern for Microfeed {
     }
 
     fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
-        let parse_usize = |v: &str| v.parse::<usize>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        let parse_usize = |v: &str| {
+            v.parse::<usize>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
         match name {
             "start_gap" => self.params.start_gap = parse_usize(value)?,
             "gap_increment" => self.params.gap_increment = parse_usize(value)?,

@@ -2,7 +2,7 @@
 
 use super::types::{Header, LineItem, Text, Total};
 use crate::ir::Op;
-use crate::preview::{emoji, generate_glyph, ttf_font, FontMetrics};
+use crate::preview::{FontMetrics, emoji, generate_glyph, ttf_font};
 use crate::protocol::text::{Alignment, Font};
 use crate::render::dither;
 
@@ -290,7 +290,11 @@ impl Text {
         // Second pass: render glyphs into buffer
         for glyph in &glyphs {
             match glyph {
-                GlyphData::Emoji { width, height, data } => {
+                GlyphData::Emoji {
+                    width,
+                    height,
+                    data,
+                } => {
                     // Copy emoji sprite to buffer
                     for y in 0..*height {
                         for x in 0..*width {
@@ -307,7 +311,12 @@ impl Text {
                     }
                     cursor_x += width;
                 }
-                GlyphData::Char { width, height, data, scale } => {
+                GlyphData::Char {
+                    width,
+                    height,
+                    data,
+                    scale,
+                } => {
                     // Copy scaled character glyph to buffer
                     for src_y in 0..*height {
                         for src_x in 0..*width {
@@ -416,16 +425,12 @@ impl Text {
                     );
                     rendered.width
                 }
-                ContentSegment::Emoji(ch) => {
-                    emoji::get_emoji_grayscale(*ch, target_height)
-                        .map(|s| s.width)
-                        .unwrap_or(0)
-                }
-                ContentSegment::Keycap(seq) => {
-                    emoji::get_keycap_grayscale(seq, target_height)
-                        .map(|s| s.width)
-                        .unwrap_or(0)
-                }
+                ContentSegment::Emoji(ch) => emoji::get_emoji_grayscale(*ch, target_height)
+                    .map(|s| s.width)
+                    .unwrap_or(0),
+                ContentSegment::Keycap(seq) => emoji::get_keycap_grayscale(seq, target_height)
+                    .map(|s| s.width)
+                    .unwrap_or(0),
             };
             segment_widths.push(width);
             total_width += width;
@@ -466,7 +471,8 @@ impl Text {
                             let dst_x = cursor_x + x;
                             if dst_x < print_width {
                                 let dst_idx = y * print_width + dst_x;
-                                buffer[dst_idx] = rendered.data.get(src_idx).copied().unwrap_or(0.0);
+                                buffer[dst_idx] =
+                                    rendered.data.get(src_idx).copied().unwrap_or(0.0);
                             }
                         }
                     }
@@ -480,7 +486,8 @@ impl Text {
                                 let dst_x = cursor_x + x;
                                 if dst_x < print_width {
                                     let dst_idx = y * print_width + dst_x;
-                                    buffer[dst_idx] = sprite.data.get(src_idx).copied().unwrap_or(0.0);
+                                    buffer[dst_idx] =
+                                        sprite.data.get(src_idx).copied().unwrap_or(0.0);
                                 }
                             }
                         }
@@ -495,7 +502,8 @@ impl Text {
                                 let dst_x = cursor_x + x;
                                 if dst_x < print_width {
                                     let dst_idx = y * print_width + dst_x;
-                                    buffer[dst_idx] = sprite.data.get(src_idx).copied().unwrap_or(0.0);
+                                    buffer[dst_idx] =
+                                        sprite.data.get(src_idx).copied().unwrap_or(0.0);
                                 }
                             }
                         }
@@ -716,7 +724,11 @@ mod tests {
         header.emit(&mut ops);
         assert!(ops.iter().any(|op| *op == Op::SetAlign(Alignment::Center)));
         assert!(ops.iter().any(|op| *op == Op::SetBold(true)));
-        assert!(ops.iter().any(|op| *op == Op::SetSize { height: 1, width: 1 }));
+        assert!(ops.iter().any(|op| *op
+            == Op::SetSize {
+                height: 1,
+                width: 1
+            }));
     }
 
     #[test]
@@ -855,7 +867,10 @@ mod tests {
         let mut ops = Vec::new();
         text.emit(&mut ops);
         assert!(ops.contains(&Op::SetFont(Font::A)));
-        assert!(ops.contains(&Op::SetSize { height: 2, width: 2 }));
+        assert!(ops.contains(&Op::SetSize {
+            height: 2,
+            width: 2
+        }));
     }
 
     #[test]
@@ -869,7 +884,10 @@ mod tests {
         text.emit(&mut ops);
         assert!(ops.contains(&Op::SetFont(Font::A)));
         // [3, 1] → ESC i [2, 0] — height expansion only
-        assert!(ops.contains(&Op::SetSize { height: 2, width: 0 }));
+        assert!(ops.contains(&Op::SetSize {
+            height: 2,
+            width: 0
+        }));
     }
 
     // ============================================================================
@@ -945,7 +963,12 @@ mod tests {
         let mut ops = Vec::new();
         text.emit(&mut ops);
 
-        if let Some(Op::Raster { width, height, data }) = ops.iter().find(|op| matches!(op, Op::Raster { .. })) {
+        if let Some(Op::Raster {
+            width,
+            height,
+            data,
+        }) = ops.iter().find(|op| matches!(op, Op::Raster { .. }))
+        {
             assert!(*width > 0, "Raster should have non-zero width");
             assert!(*height > 0, "Raster should have non-zero height");
             // Should have some black pixels

@@ -11,9 +11,9 @@
 //! - Blush marks on cheeks
 //! - Shine highlights
 
-use async_trait::async_trait;
 use super::ParamSpec;
 use crate::shader::*;
+use async_trait::async_trait;
 use rand::Rng;
 use std::f32::consts::PI;
 use std::fmt;
@@ -143,9 +143,17 @@ fn star_radius(angle: f32, r_outer: f32, r_inner: f32, points: u32, roundness: f
     let corner_size_valley = roundness * 0.95;
 
     let is_tip_start = segment_idx % 2 == 0;
-    let corner_size_start = if is_tip_start { corner_size_tip } else { corner_size_valley };
+    let corner_size_start = if is_tip_start {
+        corner_size_tip
+    } else {
+        corner_size_valley
+    };
     let is_tip_end = !is_tip_start;
-    let corner_size_end = if is_tip_end { corner_size_tip } else { corner_size_valley };
+    let corner_size_end = if is_tip_end {
+        corner_size_tip
+    } else {
+        corner_size_valley
+    };
 
     // Check if we're in a corner zone
     if pos < corner_size_start {
@@ -388,12 +396,16 @@ impl Default for Estrella {
 impl Estrella {
     /// Create with golden (deterministic) params for reproducible output.
     pub fn golden() -> Self {
-        Self { params: Params::default() }
+        Self {
+            params: Params::default(),
+        }
     }
 
     /// Create with randomized params for unique prints.
     pub fn random() -> Self {
-        Self { params: Params::random() }
+        Self {
+            params: Params::random(),
+        }
     }
 }
 
@@ -416,9 +428,18 @@ impl super::Pattern for Estrella {
     }
 
     fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
-        let parse_f32 = |v: &str| v.parse::<f32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
-        let parse_u32 = |v: &str| v.parse::<u32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
-        let parse_bool = |v: &str| v.parse::<bool>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        let parse_f32 = |v: &str| {
+            v.parse::<f32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
+        let parse_u32 = |v: &str| {
+            v.parse::<u32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
+        let parse_bool = |v: &str| {
+            v.parse::<bool>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
         match name {
             "center_x" => self.params.center_x = parse_f32(value)?,
             "center_y" => self.params.center_y = parse_f32(value)?,
@@ -462,8 +483,7 @@ impl super::Pattern for Estrella {
                 .with_description("Star size relative to image"),
             ParamSpec::slider("outline", "Outline", 0.01, 0.1, 0.005)
                 .with_description("Outline thickness"),
-            ParamSpec::bool("show_face", "Show Face")
-                .with_description("Display face features"),
+            ParamSpec::bool("show_face", "Show Face").with_description("Display face features"),
             ParamSpec::slider("eye_size", "Eye Size", 0.05, 0.2, 0.01)
                 .with_description("Eye size relative to star"),
             ParamSpec::slider("center_x", "Center X", 0.0, 1.0, 0.01)

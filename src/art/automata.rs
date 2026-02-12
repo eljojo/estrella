@@ -10,8 +10,8 @@
 //! create fascinating emergent patterns.
 
 use crate::shader::*;
-use rand::Rng;
 use async_trait::async_trait;
+use rand::Rng;
 use std::fmt;
 
 /// Parameters for cellular automata pattern.
@@ -102,7 +102,6 @@ impl fmt::Display for Params {
     }
 }
 
-
 /// Compute cellular automaton.
 struct CellularAutomaton {
     grid: Vec<Vec<bool>>,
@@ -135,9 +134,17 @@ impl CellularAutomaton {
         // Evolve
         for y in 1..height {
             for x in 0..width {
-                let left = if x > 0 { grid[y - 1][x - 1] } else { grid[y - 1][width - 1] };
+                let left = if x > 0 {
+                    grid[y - 1][x - 1]
+                } else {
+                    grid[y - 1][width - 1]
+                };
                 let center = grid[y - 1][x];
-                let right = if x < width - 1 { grid[y - 1][x + 1] } else { grid[y - 1][0] };
+                let right = if x < width - 1 {
+                    grid[y - 1][x + 1]
+                } else {
+                    grid[y - 1][0]
+                };
 
                 // Convert neighborhood to index (0-7)
                 let idx = (left as u8) << 2 | (center as u8) << 1 | (right as u8);
@@ -147,7 +154,11 @@ impl CellularAutomaton {
             }
         }
 
-        Self { grid, width, height }
+        Self {
+            grid,
+            width,
+            height,
+        }
     }
 
     fn get(&self, x: usize, y: usize) -> bool {
@@ -196,11 +207,7 @@ pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -
 
         let value = if is_alive { 1.0 } else { 0.0 };
 
-        if params.invert {
-            1.0 - value
-        } else {
-            value
-        }
+        if params.invert { 1.0 - value } else { value }
     })
 }
 
@@ -218,11 +225,15 @@ impl Default for Automata {
 
 impl Automata {
     pub fn golden() -> Self {
-        Self { params: Params::default() }
+        Self {
+            params: Params::default(),
+        }
     }
 
     pub fn random() -> Self {
-        Self { params: Params::random() }
+        Self {
+            params: Params::random(),
+        }
     }
 }
 
@@ -241,18 +252,37 @@ impl super::Pattern for Automata {
     }
 
     fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
-        let parse_u8 = |v: &str| v.parse::<u8>().map_err(|e| format!("Invalid value '{}': {}", v, e));
-        let parse_usize = |v: &str| v.parse::<usize>().map_err(|e| format!("Invalid value '{}': {}", v, e));
-        let parse_f32 = |v: &str| v.parse::<f32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
-        let parse_u32 = |v: &str| v.parse::<u32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
-        let parse_bool = |v: &str| v.parse::<bool>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        let parse_u8 = |v: &str| {
+            v.parse::<u8>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
+        let parse_usize = |v: &str| {
+            v.parse::<usize>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
+        let parse_f32 = |v: &str| {
+            v.parse::<f32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
+        let parse_u32 = |v: &str| {
+            v.parse::<u32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
+        let parse_bool = |v: &str| {
+            v.parse::<bool>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
 
         match name {
             "rule" => self.params.rule = parse_u8(value)?,
             "cell_size" => self.params.cell_size = parse_usize(value)?,
             "init" => {
-                self.params.init = InitType::from_str(value)
-                    .ok_or_else(|| format!("Invalid init type '{}'. Use: single, random, alternating", value))?;
+                self.params.init = InitType::from_str(value).ok_or_else(|| {
+                    format!(
+                        "Invalid init type '{}'. Use: single, random, alternating",
+                        value
+                    )
+                })?;
             }
             "density" => self.params.density = parse_f32(value)?,
             "seed" => self.params.seed = parse_u32(value)?,
@@ -291,8 +321,7 @@ impl super::Pattern for Automata {
                 .with_description("Random initial density"),
             ParamSpec::int("seed", "Seed", Some(0), Some(999999))
                 .with_description("Seed for random init"),
-            ParamSpec::bool("invert", "Invert")
-                .with_description("Invert output"),
+            ParamSpec::bool("invert", "Invert").with_description("Invert output"),
         ]
     }
 }
@@ -307,7 +336,13 @@ mod tests {
         for y in (0..500).step_by(50) {
             for x in (0..576).step_by(50) {
                 let v = shade(x, y, 576, 500, &params);
-                assert!(v >= 0.0 && v <= 1.0, "value {} out of range at ({}, {})", v, x, y);
+                assert!(
+                    v >= 0.0 && v <= 1.0,
+                    "value {} out of range at ({}, {})",
+                    v,
+                    x,
+                    y
+                );
             }
         }
     }

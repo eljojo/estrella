@@ -8,7 +8,7 @@
 //! with no special-casing — the caller just calls `prepare()` + `intensity()`.
 
 use async_trait::async_trait;
-use image::{imageops::FilterType, DynamicImage};
+use image::{DynamicImage, imageops::FilterType};
 
 use super::{ParamSpec, ParamType, Pattern};
 use crate::document::resolve::fetch_image_with_ctx;

@@ -605,7 +605,13 @@ mod tests {
         ];
         let result = remove_redundant_styles(ops);
         assert_eq!(result.len(), 4); // Init, SetSmoothing(true), Text, Text
-        assert!(result.iter().filter(|op| matches!(op, Op::SetSmoothing(true))).count() == 1);
+        assert!(
+            result
+                .iter()
+                .filter(|op| matches!(op, Op::SetSmoothing(true)))
+                .count()
+                == 1
+        );
     }
 
     #[test]
@@ -669,9 +675,9 @@ mod tests {
     fn test_remove_empty_text() {
         let ops = vec![
             Op::Init,
-            Op::Text("".into()),  // Empty - should be removed
+            Op::Text("".into()), // Empty - should be removed
             Op::Text("hello".into()),
-            Op::Text("".into()),  // Empty - should be removed
+            Op::Text("".into()), // Empty - should be removed
             Op::Newline,
         ];
         let result = remove_empty_text(ops);
@@ -685,7 +691,7 @@ mod tests {
             Op::SetBold(true),
             Op::Text("hello".into()),
             Op::Newline,
-            Op::SetBold(false),  // Dead - before Cut with no content
+            Op::SetBold(false), // Dead - before Cut with no content
             Op::Feed { units: 10 },
             Op::Cut { partial: false },
         ];
@@ -727,30 +733,40 @@ mod tests {
     fn test_remove_redundant_absolute_position() {
         let ops = vec![
             Op::Init,
-            Op::SetAbsolutePosition(0),  // Redundant - default is 0
+            Op::SetAbsolutePosition(0), // Redundant - default is 0
             Op::Text("hello".into()),
             Op::Newline,
-            Op::SetAbsolutePosition(0),  // Redundant - newline resets to 0
+            Op::SetAbsolutePosition(0), // Redundant - newline resets to 0
             Op::Text("world".into()),
         ];
         let result = remove_redundant_styles(ops);
         assert_eq!(result.len(), 4); // Init, Text, Newline, Text
-        assert!(!result.iter().any(|op| matches!(op, Op::SetAbsolutePosition(_))));
+        assert!(
+            !result
+                .iter()
+                .any(|op| matches!(op, Op::SetAbsolutePosition(_)))
+        );
     }
 
     #[test]
     fn test_absolute_position_kept_when_needed() {
         let ops = vec![
             Op::Init,
-            Op::SetAbsolutePosition(100),  // Not redundant - moving from 0
+            Op::SetAbsolutePosition(100), // Not redundant - moving from 0
             Op::Text("indented".into()),
             Op::Newline,
-            Op::SetAbsolutePosition(100),  // Not redundant - newline reset to 0
+            Op::SetAbsolutePosition(100), // Not redundant - newline reset to 0
             Op::Text("indented again".into()),
         ];
         let result = remove_redundant_styles(ops);
         assert_eq!(result.len(), 6); // All kept
-        assert_eq!(result.iter().filter(|op| matches!(op, Op::SetAbsolutePosition(100))).count(), 2);
+        assert_eq!(
+            result
+                .iter()
+                .filter(|op| matches!(op, Op::SetAbsolutePosition(100)))
+                .count(),
+            2
+        );
     }
 
     // ========== Word Wrap Tests ==========
@@ -810,11 +826,20 @@ mod tests {
         let result = wrap_long_text(ops);
         // Should be split into multiple Text + Newline ops
         let text_count = result.iter().filter(|op| matches!(op, Op::Text(_))).count();
-        assert!(text_count > 1, "Long text should be split: got {} text ops", text_count);
+        assert!(
+            text_count > 1,
+            "Long text should be split: got {} text ops",
+            text_count
+        );
         // Each text op should fit within 48 chars (Font A default)
         for op in &result {
             if let Op::Text(s) = op {
-                assert!(s.len() <= 48, "Text '{}' exceeds 48 chars (len={})", s, s.len());
+                assert!(
+                    s.len() <= 48,
+                    "Text '{}' exceeds 48 chars (len={})",
+                    s,
+                    s.len()
+                );
             }
         }
     }
@@ -824,27 +849,35 @@ mod tests {
         // Size 2 = width_mult 1, so 48 / 2 = 24 chars per line
         let ops = vec![
             Op::Init,
-            Op::SetSize { height: 1, width: 1 },
+            Op::SetSize {
+                height: 1,
+                width: 1,
+            },
             Op::Text("Continuous Low of 3 feels like -1".into()),
             Op::Newline,
         ];
         let result = wrap_long_text(ops);
         let text_count = result.iter().filter(|op| matches!(op, Op::Text(_))).count();
-        assert!(text_count > 1, "Size-2 text should be wrapped: got {} text ops", text_count);
+        assert!(
+            text_count > 1,
+            "Size-2 text should be wrapped: got {} text ops",
+            text_count
+        );
         for op in &result {
             if let Op::Text(s) = op {
-                assert!(s.len() <= 24, "Text '{}' exceeds 24 chars (len={})", s, s.len());
+                assert!(
+                    s.len() <= 24,
+                    "Text '{}' exceeds 24 chars (len={})",
+                    s,
+                    s.len()
+                );
             }
         }
     }
 
     #[test]
     fn test_wrap_long_text_with_newline_in_text() {
-        let ops = vec![
-            Op::Init,
-            Op::Text("Line one\nLine two".into()),
-            Op::Newline,
-        ];
+        let ops = vec![Op::Init, Op::Text("Line one\nLine two".into()), Op::Newline];
         let result = wrap_long_text(ops);
         // Should produce: Init, Text("Line one"), Newline, Text("Line two"), Newline
         assert_eq!(result.len(), 5);
@@ -857,11 +890,7 @@ mod tests {
 
     #[test]
     fn test_wrap_short_text_unchanged() {
-        let ops = vec![
-            Op::Init,
-            Op::Text("Short text".into()),
-            Op::Newline,
-        ];
+        let ops = vec![Op::Init, Op::Text("Short text".into()), Op::Newline];
         let result = wrap_long_text(ops.clone());
         assert_eq!(result, ops);
     }

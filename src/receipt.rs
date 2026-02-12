@@ -60,8 +60,7 @@ const RECEIPT_FULL_JSON: &str = include_str!("fixtures/receipt-full.json");
 
 /// Load a receipt Document from a JSON fixture, injecting the datetime variable.
 fn load_fixture(json: &str, datetime: &str) -> Document {
-    let mut doc: Document =
-        serde_json::from_str(json).expect("Invalid receipt fixture JSON");
+    let mut doc: Document = serde_json::from_str(json).expect("Invalid receipt fixture JSON");
     doc.variables
         .insert("datetime".to_string(), datetime.to_string());
     doc
@@ -215,9 +214,7 @@ pub fn by_name(name: &str) -> Option<Vec<u8>> {
 pub fn program_by_name(name: &str) -> Option<crate::ir::Program> {
     match name.to_lowercase().as_str() {
         "receipt" => Some(demo_receipt_doc(&current_datetime()).compile()),
-        "receipt-full" | "receipt_full" => {
-            Some(full_receipt_doc(&current_datetime()).compile())
-        }
+        "receipt-full" | "receipt_full" => Some(full_receipt_doc(&current_datetime()).compile()),
         "markdown" => Some(markdown_demo_doc(&current_date()).compile()),
         _ => None,
     }
@@ -227,9 +224,7 @@ pub fn program_by_name(name: &str) -> Option<crate::ir::Program> {
 pub fn program_by_name_golden(name: &str) -> Option<crate::ir::Program> {
     match name.to_lowercase().as_str() {
         "receipt" => Some(demo_receipt_doc(GOLDEN_TEST_DATETIME).compile()),
-        "receipt-full" | "receipt_full" => {
-            Some(full_receipt_doc(GOLDEN_TEST_DATETIME).compile())
-        }
+        "receipt-full" | "receipt_full" => Some(full_receipt_doc(GOLDEN_TEST_DATETIME).compile()),
         "markdown" => Some(markdown_demo_doc(GOLDEN_TEST_DATE).compile()),
         _ => None,
     }

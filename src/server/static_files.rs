@@ -2,10 +2,10 @@
 
 use axum::{
     extract::{Path, State},
-    http::{header, StatusCode},
+    http::{StatusCode, header},
     response::{Html, IntoResponse},
 };
-use include_dir::{include_dir, Dir};
+use include_dir::{Dir, include_dir};
 use std::sync::Arc;
 
 use crate::document;
@@ -55,7 +55,10 @@ pub async fn asset_handler(Path(path): Path<String>) -> impl IntoResponse {
             (
                 [
                     (header::CONTENT_TYPE, mime),
-                    (header::CACHE_CONTROL, "public, max-age=31536000".to_string()),
+                    (
+                        header::CACHE_CONTROL,
+                        "public, max-age=31536000".to_string(),
+                    ),
                 ],
                 file.contents().to_vec(),
             )

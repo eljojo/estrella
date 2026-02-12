@@ -9,8 +9,8 @@
 //! glitched aesthetic reminiscent of corrupted video feeds.
 
 use crate::shader::*;
-use rand::Rng;
 use async_trait::async_trait;
+use rand::Rng;
 use std::fmt;
 
 /// Parameters for scanline tear pattern.
@@ -90,7 +90,11 @@ fn get_tear_displacement(y: usize, height: usize, params: &Params) -> f32 {
 
     // Calculate displacement amount
     let displacement_hash = hash_f32(zone_index as u32, params.seed.wrapping_add(100));
-    let direction = if hash(zone_index as u32 + params.seed) % 2 == 0 { 1.0 } else { -1.0 };
+    let direction = if hash(zone_index as u32 + params.seed) % 2 == 0 {
+        1.0
+    } else {
+        -1.0
+    };
 
     displacement_hash * params.max_displacement * direction
 }
@@ -168,11 +172,15 @@ impl Default for ScanlineTear {
 
 impl ScanlineTear {
     pub fn golden() -> Self {
-        Self { params: Params::default() }
+        Self {
+            params: Params::default(),
+        }
     }
 
     pub fn random() -> Self {
-        Self { params: Params::random() }
+        Self {
+            params: Params::random(),
+        }
     }
 }
 
@@ -191,9 +199,18 @@ impl super::Pattern for ScanlineTear {
     }
 
     fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
-        let parse_f32 = |v: &str| v.parse::<f32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
-        let parse_usize = |v: &str| v.parse::<usize>().map_err(|e| format!("Invalid value '{}': {}", v, e));
-        let parse_u32 = |v: &str| v.parse::<u32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        let parse_f32 = |v: &str| {
+            v.parse::<f32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
+        let parse_usize = |v: &str| {
+            v.parse::<usize>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
+        let parse_u32 = |v: &str| {
+            v.parse::<u32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
         match name {
             "pattern_freq" => self.params.pattern_freq = parse_f32(value)?,
             "tear_intensity" => self.params.tear_intensity = parse_f32(value)?,
@@ -210,9 +227,15 @@ impl super::Pattern for ScanlineTear {
     fn list_params(&self) -> Vec<(&'static str, String)> {
         vec![
             ("pattern_freq", format!("{:.3}", self.params.pattern_freq)),
-            ("tear_intensity", format!("{:.2}", self.params.tear_intensity)),
+            (
+                "tear_intensity",
+                format!("{:.2}", self.params.tear_intensity),
+            ),
             ("tear_zones", self.params.tear_zones.to_string()),
-            ("max_displacement", format!("{:.0}", self.params.max_displacement)),
+            (
+                "max_displacement",
+                format!("{:.0}", self.params.max_displacement),
+            ),
             ("tear_thickness", self.params.tear_thickness.to_string()),
             ("static_noise", format!("{:.2}", self.params.static_noise)),
             ("seed", self.params.seed.to_string()),
@@ -250,7 +273,13 @@ mod tests {
         for y in (0..500).step_by(50) {
             for x in (0..576).step_by(50) {
                 let v = shade(x, y, 576, 500, &params);
-                assert!(v >= 0.0 && v <= 1.0, "value {} out of range at ({}, {})", v, x, y);
+                assert!(
+                    v >= 0.0 && v <= 1.0,
+                    "value {} out of range at ({}, {})",
+                    v,
+                    x,
+                    y
+                );
             }
         }
     }

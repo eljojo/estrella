@@ -143,7 +143,9 @@ pub fn absolute_position(dots: u16) -> Vec<u8> {
 // ============================================================================
 
 /// Available fonts
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Default, Hash, serde::Serialize, serde::Deserialize,
+)]
 pub enum Font {
     /// Font A: 12×24 dots, 48 columns on 72mm paper
     #[default]

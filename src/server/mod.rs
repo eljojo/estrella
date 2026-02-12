@@ -17,9 +17,9 @@ mod static_files;
 pub use state::{CachedIntensity, IntensityCacheKey, PhotoSession, ServerConfig};
 
 use axum::{
+    Router,
     extract::DefaultBodyLimit,
     routing::{get, post},
-    Router,
 };
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -57,14 +57,23 @@ pub async fn serve(config: ServerConfig) -> Result<(), EstrellaError> {
         // JSON API
         .route("/api/json/preview", post(handlers::json_api::preview))
         .route("/api/json/print", post(handlers::json_api::print))
-        .route("/api/json/canvas-layout", post(handlers::json_api::canvas_layout))
-        .route("/api/json/component/:type/default", get(handlers::json_api::component_default))
+        .route(
+            "/api/json/canvas-layout",
+            post(handlers::json_api::canvas_layout),
+        )
+        .route(
+            "/api/json/component/:type/default",
+            get(handlers::json_api::component_default),
+        )
         // Receipt API
         .route("/api/receipt/print", post(handlers::receipt::print))
         .route("/api/receipt/preview", post(handlers::receipt::preview))
         // Pattern API
         .route("/api/patterns", get(handlers::patterns::list))
-        .route("/api/patterns/:name/params", get(handlers::patterns::params))
+        .route(
+            "/api/patterns/:name/params",
+            get(handlers::patterns::params),
+        )
         .route(
             "/api/patterns/:name/preview",
             get(handlers::patterns::preview),
@@ -73,10 +82,7 @@ pub async fn serve(config: ServerConfig) -> Result<(), EstrellaError> {
             "/api/patterns/:name/randomize",
             post(handlers::patterns::randomize),
         )
-        .route(
-            "/api/patterns/:name/print",
-            post(handlers::patterns::print),
-        )
+        .route("/api/patterns/:name/print", post(handlers::patterns::print))
         // Weave API
         .route("/api/weave/preview", post(handlers::weave::preview))
         .route("/api/weave/print", post(handlers::weave::print))

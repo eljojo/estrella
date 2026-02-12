@@ -9,8 +9,8 @@
 //! web structures with variable density and organic flow.
 
 use crate::shader::*;
-use rand::Rng;
 use async_trait::async_trait;
+use rand::Rng;
 use std::fmt;
 
 /// Parameters for the mycelium pattern.
@@ -79,7 +79,12 @@ pub fn shade(x: usize, y: usize, _width: usize, _height: usize, params: &Params)
 
     // Primary structure from noise
     let n1 = fbm(nx, ny, 4, params.seed);
-    let n2 = fbm(nx * 1.7 + 50.0, ny * 1.7 + 50.0, 3, params.seed.wrapping_add(100));
+    let n2 = fbm(
+        nx * 1.7 + 50.0,
+        ny * 1.7 + 50.0,
+        3,
+        params.seed.wrapping_add(100),
+    );
     let n3 = fbm(nx * 2.3 + 100.0, ny * 2.3, 3, params.seed.wrapping_add(200));
 
     // Create branching structure using domain warping
@@ -125,11 +130,15 @@ impl Default for Mycelium {
 
 impl Mycelium {
     pub fn golden() -> Self {
-        Self { params: Params::default() }
+        Self {
+            params: Params::default(),
+        }
     }
 
     pub fn random() -> Self {
-        Self { params: Params::random() }
+        Self {
+            params: Params::random(),
+        }
     }
 }
 
@@ -148,8 +157,14 @@ impl super::Pattern for Mycelium {
     }
 
     fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
-        let parse_f32 = |v: &str| v.parse::<f32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
-        let parse_u32 = |v: &str| v.parse::<u32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        let parse_f32 = |v: &str| {
+            v.parse::<f32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
+        let parse_u32 = |v: &str| {
+            v.parse::<u32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
         match name {
             "noise_scale" => self.params.noise_scale = parse_f32(value)?,
             "density" => self.params.density = parse_f32(value)?,

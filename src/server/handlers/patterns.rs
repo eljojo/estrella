@@ -1,10 +1,10 @@
 //! Pattern API handlers.
 
 use axum::{
-    extract::{Path, Query, State},
-    http::{header, StatusCode},
-    response::IntoResponse,
     Json,
+    extract::{Path, Query, State},
+    http::{StatusCode, header},
+    response::IntoResponse,
 };
 use image::{GrayImage, Luma};
 use serde::{Deserialize, Serialize};
@@ -118,8 +118,10 @@ pub async fn preview(
     Path(name): Path<String>,
     Query(query): Query<PreviewQuery>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-    let mut pattern = patterns::by_name_golden(&name)
-        .ok_or((StatusCode::NOT_FOUND, format!("Pattern '{}' not found", name)))?;
+    let mut pattern = patterns::by_name_golden(&name).ok_or((
+        StatusCode::NOT_FOUND,
+        format!("Pattern '{}' not found", name),
+    ))?;
 
     // Apply custom params (skip the known query params)
     for (param_name, param_value) in &query.params {
@@ -140,13 +142,19 @@ pub async fn preview(
         reqwest::Client::builder()
             .user_agent("estrella/0.1")
             .build()
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("HTTP client error: {}", e)))?,
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("HTTP client error: {}", e),
+                )
+            })?,
         state.photo_sessions.clone(),
         state.intensity_cache.clone(),
     );
-    pattern.prepare(width, height, &ctx).await.map_err(|e| {
-        (StatusCode::BAD_REQUEST, format!("Prepare failed: {}", e))
-    })?;
+    pattern
+        .prepare(width, height, &ctx)
+        .await
+        .map_err(|e| (StatusCode::BAD_REQUEST, format!("Prepare failed: {}", e)))?;
 
     // Parse dithering algorithm
     let dither_algo = match query.dither.to_lowercase().as_str() {
@@ -175,7 +183,12 @@ pub async fn preview(
 
     let mut png_bytes = Vec::new();
     img.write_to(&mut Cursor::new(&mut png_bytes), image::ImageFormat::Png)
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("PNG encoding failed: {}", e)))?;
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("PNG encoding failed: {}", e),
+            )
+        })?;
 
     Ok(([(header::CONTENT_TYPE, "image/png")], png_bytes))
 }

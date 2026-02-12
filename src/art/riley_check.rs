@@ -8,8 +8,8 @@
 //! appear to undulate and breathe. Inspired by Riley's "Movement in Squares"
 //! and similar pieces where rigid geometry seems to gain organic life.
 
-use async_trait::async_trait;
 use crate::shader::*;
+use async_trait::async_trait;
 use rand::Rng;
 use std::f32::consts::PI;
 use std::fmt;
@@ -67,8 +67,11 @@ impl fmt::Display for Params {
         write!(
             f,
             "cell={:.0} wave=({:.2},{:.3}) compress=({:.2},{:.3})",
-            self.cell_size, self.wave_amplitude, self.wave_freq,
-            self.compress_amplitude, self.compress_freq
+            self.cell_size,
+            self.wave_amplitude,
+            self.wave_freq,
+            self.compress_amplitude,
+            self.compress_freq
         )
     }
 }
@@ -98,11 +101,7 @@ pub fn shade(x: usize, y: usize, _width: usize, _height: usize, params: &Params)
     let (gx, gy) = grid_cell(distorted_x, distorted_y, params.cell_size);
 
     // Alternating black/white
-    if checkerboard(gx, gy) {
-        0.0
-    } else {
-        1.0
-    }
+    if checkerboard(gx, gy) { 0.0 } else { 1.0 }
 }
 
 /// Riley checkerboard op-art pattern.
@@ -119,11 +118,15 @@ impl Default for RileyCheck {
 
 impl RileyCheck {
     pub fn golden() -> Self {
-        Self { params: Params::default() }
+        Self {
+            params: Params::default(),
+        }
     }
 
     pub fn random() -> Self {
-        Self { params: Params::random() }
+        Self {
+            params: Params::random(),
+        }
     }
 }
 
@@ -142,8 +145,14 @@ impl super::Pattern for RileyCheck {
     }
 
     fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
-        let parse_f32 = |v: &str| v.parse::<f32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
-        let parse_bool = |v: &str| v.parse::<bool>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        let parse_f32 = |v: &str| {
+            v.parse::<f32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
+        let parse_bool = |v: &str| {
+            v.parse::<bool>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
         match name {
             "cell_size" => self.params.cell_size = parse_f32(value)?,
             "wave_amplitude" => self.params.wave_amplitude = parse_f32(value)?,
@@ -160,9 +169,15 @@ impl super::Pattern for RileyCheck {
     fn list_params(&self) -> Vec<(&'static str, String)> {
         vec![
             ("cell_size", format!("{:.1}", self.params.cell_size)),
-            ("wave_amplitude", format!("{:.2}", self.params.wave_amplitude)),
+            (
+                "wave_amplitude",
+                format!("{:.2}", self.params.wave_amplitude),
+            ),
             ("wave_freq", format!("{:.3}", self.params.wave_freq)),
-            ("compress_amplitude", format!("{:.2}", self.params.compress_amplitude)),
+            (
+                "compress_amplitude",
+                format!("{:.2}", self.params.compress_amplitude),
+            ),
             ("compress_freq", format!("{:.3}", self.params.compress_freq)),
             ("phase", format!("{:.2}", self.params.phase)),
             ("diagonal_wave", self.params.diagonal_wave.to_string()),

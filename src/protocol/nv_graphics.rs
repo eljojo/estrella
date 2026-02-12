@@ -79,7 +79,7 @@ pub fn validate_key(key: &str) -> Option<(u8, u8)> {
 pub fn erase_all() -> Vec<u8> {
     vec![
         ESC, GS, b'(', b'L', // Command prefix
-        5, 0,   // pL=5, pH=0
+        5, 0, // pL=5, pH=0
         48, 65, // m=48, fn=65
         67, 76, 82, // d1='C', d2='L', d3='R'
     ]
@@ -114,8 +114,8 @@ pub fn erase(key: &str) -> Option<Vec<u8>> {
     let (kc1, kc2) = validate_key(key)?;
     Some(vec![
         ESC, GS, b'(', b'L', // Command prefix
-        4, 0,    // pL=4, pH=0
-        48, 66,  // m=48, fn=66
+        4, 0, // pL=4, pH=0
+        48, 66, // m=48, fn=66
         kc1, kc2, // Key characters
     ])
 }
@@ -237,8 +237,8 @@ pub fn print(key: &str, scale_x: u8, scale_y: u8) -> Option<Vec<u8>> {
 
     Some(vec![
         ESC, GS, b'(', b'L', // Command prefix
-        6, 0,    // pL=6, pH=0
-        48, 69,  // m=48, fn=69
+        6, 0, // pL=6, pH=0
+        48, 69, // m=48, fn=69
         kc1, kc2, // Key characters
         scale_x, scale_y,
     ])
@@ -322,13 +322,19 @@ mod tests {
     #[test]
     fn test_print() {
         let cmd = print("A0", 1, 1).unwrap();
-        assert_eq!(cmd, vec![0x1B, 0x1D, 0x28, 0x4C, 6, 0, 48, 69, b'A', b'0', 1, 1]);
+        assert_eq!(
+            cmd,
+            vec![0x1B, 0x1D, 0x28, 0x4C, 6, 0, 48, 69, b'A', b'0', 1, 1]
+        );
     }
 
     #[test]
     fn test_print_scaled() {
         let cmd = print("LG", 2, 2).unwrap();
-        assert_eq!(cmd, vec![0x1B, 0x1D, 0x28, 0x4C, 6, 0, 48, 69, b'L', b'G', 2, 2]);
+        assert_eq!(
+            cmd,
+            vec![0x1B, 0x1D, 0x28, 0x4C, 6, 0, 48, 69, b'L', b'G', 2, 2]
+        );
     }
 
     #[test]

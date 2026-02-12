@@ -35,10 +35,7 @@ use std::io::{self, Write};
 use std::path::PathBuf;
 
 use estrella::{
-    EstrellaError,
-    document,
-    logos,
-    preview,
+    EstrellaError, document, logos, preview,
     printer::PrinterConfig,
     protocol::{commands, nv_graphics},
     receipt,
@@ -395,7 +392,9 @@ fn run() -> Result<(), EstrellaError> {
                         band,
                         !no_params && !golden,
                     );
-                    let print_data = program.optimize().to_bytes_with_config(&PrinterConfig::TSP650II);
+                    let print_data = program
+                        .optimize()
+                        .to_bytes_with_config(&PrinterConfig::TSP650II);
                     print_raw_to_device(&device, &print_data)?;
                 }
 
@@ -417,9 +416,8 @@ fn run() -> Result<(), EstrellaError> {
                     let png_bytes = program.to_preview_png().map_err(|e| {
                         EstrellaError::Image(format!("Failed to render preview: {}", e))
                     })?;
-                    std::fs::write(&png_path, &png_bytes).map_err(|e| {
-                        EstrellaError::Image(format!("Failed to write PNG: {}", e))
-                    })?;
+                    std::fs::write(&png_path, &png_bytes)
+                        .map_err(|e| EstrellaError::Image(format!("Failed to write PNG: {}", e)))?;
                     println!("Saved to {}", png_path.display());
                     return Ok(());
                 }
@@ -458,9 +456,9 @@ fn run() -> Result<(), EstrellaError> {
                         param_str
                     )));
                 }
-                pattern_impl.set_param(parts[0], parts[1]).map_err(|e| {
-                    EstrellaError::Pattern(e)
-                })?;
+                pattern_impl
+                    .set_param(parts[0], parts[1])
+                    .map_err(|e| EstrellaError::Pattern(e))?;
             }
 
             // Use pattern's default dimensions if user didn't specify
@@ -474,7 +472,10 @@ fn run() -> Result<(), EstrellaError> {
 
             let params_desc = pattern_impl.params_description();
             if !params_desc.is_empty() && !golden {
-                println!("Generating {} pattern ({}x{}) with params: {}...", name, width, height, params_desc);
+                println!(
+                    "Generating {} pattern ({}x{}) with params: {}...",
+                    name, width, height, params_desc
+                );
             } else {
                 println!("Generating {} pattern ({}x{})...", name, width, height);
             }
@@ -512,12 +513,13 @@ fn run() -> Result<(), EstrellaError> {
                 let png_bytes = program.to_preview_png().map_err(|e| {
                     EstrellaError::Image(format!("Failed to render preview: {}", e))
                 })?;
-                std::fs::write(&png_path, &png_bytes).map_err(|e| {
-                    EstrellaError::Image(format!("Failed to write PNG: {}", e))
-                })?;
+                std::fs::write(&png_path, &png_bytes)
+                    .map_err(|e| EstrellaError::Image(format!("Failed to write PNG: {}", e)))?;
                 println!("Saved to {}", png_path.display());
             } else {
-                let print_data = program.optimize().to_bytes_with_config(&PrinterConfig::TSP650II);
+                let print_data = program
+                    .optimize()
+                    .to_bytes_with_config(&PrinterConfig::TSP650II);
                 print_raw_to_device(&device, &print_data)?;
                 println!("Printed successfully!");
             }
@@ -557,7 +559,9 @@ fn run() -> Result<(), EstrellaError> {
 
             // Create tokio runtime and run the server
             tokio::runtime::Runtime::new()
-                .map_err(|e| EstrellaError::Transport(format!("Failed to create tokio runtime: {}", e)))?
+                .map_err(|e| {
+                    EstrellaError::Transport(format!("Failed to create tokio runtime: {}", e))
+                })?
                 .block_on(server::serve(config))?;
         }
 
@@ -585,7 +589,12 @@ fn run() -> Result<(), EstrellaError> {
             )?;
         }
 
-        Commands::SetupRfcomm { mac, channel, retry_interval, max_retries } => {
+        Commands::SetupRfcomm {
+            mac,
+            channel,
+            retry_interval,
+            max_retries,
+        } => {
             setup_rfcomm_command(&mac, channel, retry_interval, max_retries)?;
         }
     }
@@ -669,7 +678,12 @@ fn print_raw_to_device(device: &str, data: &[u8]) -> Result<(), EstrellaError> {
 }
 
 /// Set up RFCOMM device for a Bluetooth MAC address.
-fn setup_rfcomm_command(mac: &str, channel: u8, retry_interval: u64, max_retries: u32) -> Result<(), EstrellaError> {
+fn setup_rfcomm_command(
+    mac: &str,
+    channel: u8,
+    retry_interval: u64,
+    max_retries: u32,
+) -> Result<(), EstrellaError> {
     use estrella::transport::bluetooth::{find_rfcomm_for_mac, is_valid_mac, setup_rfcomm};
     use std::time::Duration;
 
@@ -699,7 +713,8 @@ fn setup_rfcomm_command(mac: &str, channel: u8, retry_interval: u64, max_retries
             }
             Err(e) => {
                 // Check if we should retry
-                let should_retry = retry_interval > 0 && (max_retries == 0 || attempts < max_retries);
+                let should_retry =
+                    retry_interval > 0 && (max_retries == 0 || attempts < max_retries);
 
                 if should_retry {
                     eprintln!(
@@ -731,7 +746,9 @@ fn parse_length_mm(length: &str) -> Result<usize, EstrellaError> {
         ))
     })?;
     if mm <= 0.0 {
-        return Err(EstrellaError::Pattern("Length must be positive".to_string()));
+        return Err(EstrellaError::Pattern(
+            "Length must be positive".to_string(),
+        ));
     }
     Ok(PrinterConfig::TSP650II.mm_to_dots(mm) as usize)
 }
@@ -740,22 +757,29 @@ fn parse_length_mm(length: &str) -> Result<usize, EstrellaError> {
 ///
 /// This renders the receipt to a pixel buffer and prints it as a single raster image.
 /// Useful for testing raster quality vs normal text mode printing.
-fn print_as_raster(name: &str, png_path: Option<&PathBuf>, device: &str) -> Result<(), EstrellaError> {
+fn print_as_raster(
+    name: &str,
+    png_path: Option<&PathBuf>,
+    device: &str,
+) -> Result<(), EstrellaError> {
     use image::{GrayImage, Luma};
 
     println!("Rendering {} as raster (576px, no margins)...", name);
 
     // Get the program for this receipt
-    let program = receipt::program_by_name(name).ok_or_else(|| {
-        EstrellaError::Pattern(format!("Unknown receipt '{}'", name))
-    })?;
+    let program = receipt::program_by_name(name)
+        .ok_or_else(|| EstrellaError::Pattern(format!("Unknown receipt '{}'", name)))?;
 
     // Render to raw pixel buffer (no margins)
-    let raw = preview::render_raw(&program).map_err(|e| {
-        EstrellaError::Image(format!("Failed to render: {}", e))
-    })?;
+    let raw = preview::render_raw(&program)
+        .map_err(|e| EstrellaError::Image(format!("Failed to render: {}", e)))?;
 
-    println!("Rendered {}x{} pixels ({} bytes)", raw.width, raw.height, raw.data.len());
+    println!(
+        "Rendered {}x{} pixels ({} bytes)",
+        raw.width,
+        raw.height,
+        raw.data.len()
+    );
 
     // Save to PNG if requested
     if let Some(png_path) = png_path {
@@ -772,9 +796,8 @@ fn print_as_raster(name: &str, png_path: Option<&PathBuf>, device: &str) -> Resu
             }
         }
 
-        img.save(png_path).map_err(|e| {
-            EstrellaError::Image(format!("Failed to save PNG: {}", e))
-        })?;
+        img.save(png_path)
+            .map_err(|e| EstrellaError::Image(format!("Failed to save PNG: {}", e)))?;
         println!("Saved raster preview to {}", png_path.display());
     }
 
@@ -818,7 +841,10 @@ fn logo_list() -> Result<(), EstrellaError> {
         println!("Registered logos:");
         for logo in all_logos {
             let raster = logo.raster();
-            println!("  {} - {} ({}x{})", logo.key, logo.name, raster.width, raster.height);
+            println!(
+                "  {} - {} ({}x{})",
+                logo.key, logo.name, raster.width, raster.height
+            );
         }
     }
     Ok(())
@@ -827,11 +853,12 @@ fn logo_list() -> Result<(), EstrellaError> {
 /// Sync registry logos to the printer's NV memory.
 fn logo_sync(device: &str, key: Option<&str>) -> Result<(), EstrellaError> {
     let logos_to_sync: Vec<_> = if let Some(k) = key {
-        logos::by_key(k)
-            .map(|l| vec![l])
-            .ok_or_else(|| {
-                EstrellaError::Pattern(format!("Unknown logo key '{}'. Run 'logo list' to see available logos.", k))
-            })?
+        logos::by_key(k).map(|l| vec![l]).ok_or_else(|| {
+            EstrellaError::Pattern(format!(
+                "Unknown logo key '{}'. Run 'logo list' to see available logos.",
+                k
+            ))
+        })?
     } else {
         logos::all().iter().collect()
     };
@@ -845,11 +872,20 @@ fn logo_sync(device: &str, key: Option<&str>) -> Result<(), EstrellaError> {
         let raster = logo.raster();
         let cmd = nv_graphics::define(logo.key, raster.width, raster.height, &raster.data)
             .ok_or_else(|| {
-                EstrellaError::Pattern(format!("Failed to generate NV store command for '{}'", logo.key))
+                EstrellaError::Pattern(format!(
+                    "Failed to generate NV store command for '{}'",
+                    logo.key
+                ))
             })?;
 
-        println!("Syncing '{}' ({}) - {}x{} ({} bytes)...",
-            logo.name, logo.key, raster.width, raster.height, cmd.len());
+        println!(
+            "Syncing '{}' ({}) - {}x{} ({} bytes)...",
+            logo.name,
+            logo.key,
+            raster.width,
+            raster.height,
+            cmd.len()
+        );
 
         let mut data = commands::init();
         data.extend(cmd);
@@ -865,7 +901,10 @@ fn logo_preview(key: &str, png_path: &PathBuf, scale: u8) -> Result<(), Estrella
     use image::{GrayImage, Luma};
 
     let logo = logos::by_key(key).ok_or_else(|| {
-        EstrellaError::Pattern(format!("Unknown logo key '{}'. Run 'logo list' to see available logos.", key))
+        EstrellaError::Pattern(format!(
+            "Unknown logo key '{}'. Run 'logo list' to see available logos.",
+            key
+        ))
     })?;
 
     let raster = logo.raster();
@@ -894,11 +933,15 @@ fn logo_preview(key: &str, png_path: &PathBuf, scale: u8) -> Result<(), Estrella
         }
     }
 
-    img.save(png_path).map_err(|e| {
-        EstrellaError::Image(format!("Failed to save PNG: {}", e))
-    })?;
+    img.save(png_path)
+        .map_err(|e| EstrellaError::Image(format!("Failed to save PNG: {}", e)))?;
 
-    println!("Saved {} ({}) preview to {}", logo.name, logo.key, png_path.display());
+    println!(
+        "Saved {} ({}) preview to {}",
+        logo.name,
+        logo.key,
+        png_path.display()
+    );
     Ok(())
 }
 
@@ -909,8 +952,8 @@ fn logo_store(
     device: &str,
     target_width: usize,
 ) -> Result<(), EstrellaError> {
-    use image::ImageReader;
     use image::GenericImageView;
+    use image::ImageReader;
 
     // Validate key
     if nv_graphics::validate_key(key).is_none() {
@@ -946,10 +989,7 @@ fn logo_store(
         image::imageops::FilterType::Lanczos3,
     );
 
-    println!(
-        "Scaled to {}x{} for printer",
-        target_width, scaled_height
-    );
+    println!("Scaled to {}x{} for printer", target_width, scaled_height);
 
     // Dither the image
     let width_bytes = target_width.div_ceil(8);
@@ -973,19 +1013,27 @@ fn logo_store(
     }
 
     // Generate NV store command
-    let store_cmd = nv_graphics::define(key, target_width as u16, scaled_height as u16, &raster_data)
-        .ok_or_else(|| {
-            EstrellaError::Pattern("Failed to generate NV store command".to_string())
-        })?;
+    let store_cmd =
+        nv_graphics::define(key, target_width as u16, scaled_height as u16, &raster_data)
+            .ok_or_else(|| {
+                EstrellaError::Pattern("Failed to generate NV store command".to_string())
+            })?;
 
     // Send to printer with init
-    println!("Storing logo with key '{}' ({} bytes)...", key, store_cmd.len());
+    println!(
+        "Storing logo with key '{}' ({} bytes)...",
+        key,
+        store_cmd.len()
+    );
     let mut data = commands::init();
     data.extend(store_cmd);
 
     print_raw_to_device(device, &data)?;
     println!("Logo stored successfully!");
-    println!("Use 'NvLogo::new(\"{}\")' in code or print with scale: estrella logo print --key {}", key, key);
+    println!(
+        "Use 'NvLogo::new(\"{}\")' in code or print with scale: estrella logo print --key {}",
+        key, key
+    );
 
     Ok(())
 }
@@ -1147,9 +1195,8 @@ fn weave_patterns(
             }
         }
 
-        img.save(png_path).map_err(|e| {
-            EstrellaError::Image(format!("Failed to save PNG: {}", e))
-        })?;
+        img.save(png_path)
+            .map_err(|e| EstrellaError::Image(format!("Failed to save PNG: {}", e)))?;
         println!("Saved to {}", png_path.display());
     } else {
         // Print to device

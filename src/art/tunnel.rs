@@ -9,8 +9,8 @@
 //! that appears to pull the viewer into the image.
 
 use crate::shader::*;
-use rand::Rng;
 use async_trait::async_trait;
+use rand::Rng;
 use std::fmt;
 
 /// Parameters for the tunnel pattern.
@@ -66,7 +66,9 @@ impl fmt::Display for Params {
         write!(
             f,
             "frame={:.0} gap={:.0} persp={:.2} shape={}",
-            self.frame_thickness, self.gap_thickness, self.perspective,
+            self.frame_thickness,
+            self.gap_thickness,
+            self.perspective,
             if self.rectangular { "rect" } else { "circle" }
         )
     }
@@ -134,11 +136,15 @@ impl Default for Tunnel {
 
 impl Tunnel {
     pub fn golden() -> Self {
-        Self { params: Params::default() }
+        Self {
+            params: Params::default(),
+        }
     }
 
     pub fn random() -> Self {
-        Self { params: Params::random() }
+        Self {
+            params: Params::random(),
+        }
     }
 }
 
@@ -157,8 +163,14 @@ impl super::Pattern for Tunnel {
     }
 
     fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
-        let parse_f32 = |v: &str| v.parse::<f32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
-        let parse_bool = |v: &str| v.parse::<bool>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        let parse_f32 = |v: &str| {
+            v.parse::<f32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
+        let parse_bool = |v: &str| {
+            v.parse::<bool>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
         match name {
             "frame_thickness" => self.params.frame_thickness = parse_f32(value)?,
             "gap_thickness" => self.params.gap_thickness = parse_f32(value)?,
@@ -174,7 +186,10 @@ impl super::Pattern for Tunnel {
 
     fn list_params(&self) -> Vec<(&'static str, String)> {
         vec![
-            ("frame_thickness", format!("{:.1}", self.params.frame_thickness)),
+            (
+                "frame_thickness",
+                format!("{:.1}", self.params.frame_thickness),
+            ),
             ("gap_thickness", format!("{:.1}", self.params.gap_thickness)),
             ("perspective", format!("{:.2}", self.params.perspective)),
             ("center_x", format!("{:.2}", self.params.center_x)),
@@ -215,7 +230,13 @@ mod tests {
         for y in (0..500).step_by(50) {
             for x in (0..576).step_by(50) {
                 let v = shade(x, y, 576, 500, &params);
-                assert!(v >= 0.0 && v <= 1.0, "value {} out of range at ({}, {})", v, x, y);
+                assert!(
+                    v >= 0.0 && v <= 1.0,
+                    "value {} out of range at ({}, {})",
+                    v,
+                    x,
+                    y
+                );
             }
         }
     }

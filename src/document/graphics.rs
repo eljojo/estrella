@@ -8,7 +8,9 @@ use crate::render::{chart, dither, patterns};
 pub(crate) fn parse_dither_algorithm(s: &str) -> Option<dither::DitheringAlgorithm> {
     match s.to_lowercase().as_str() {
         "bayer" => Some(dither::DitheringAlgorithm::Bayer),
-        "floyd-steinberg" | "floyd_steinberg" | "fs" => Some(dither::DitheringAlgorithm::FloydSteinberg),
+        "floyd-steinberg" | "floyd_steinberg" | "fs" => {
+            Some(dither::DitheringAlgorithm::FloydSteinberg)
+        }
         "atkinson" => Some(dither::DitheringAlgorithm::Atkinson),
         "jarvis" | "jjn" => Some(dither::DitheringAlgorithm::Jarvis),
         "none" | "threshold" => Some(dither::DitheringAlgorithm::None),
@@ -109,16 +111,8 @@ impl NvLogo {
     /// Emit IR ops for this NV logo component.
     pub fn emit(&self, ops: &mut Vec<Op>) {
         // Resolve scale: scale_x/scale_y take precedence over uniform scale
-        let scale_x = self
-            .scale_x
-            .or(self.scale)
-            .unwrap_or(1)
-            .clamp(1, 2);
-        let scale_y = self
-            .scale_y
-            .or(self.scale)
-            .unwrap_or(1)
-            .clamp(1, 2);
+        let scale_x = self.scale_x.or(self.scale).unwrap_or(1).clamp(1, 2);
+        let scale_y = self.scale_y.or(self.scale).unwrap_or(1).clamp(1, 2);
 
         // If centering is enabled, look up logo dimensions and position
         if self.center {

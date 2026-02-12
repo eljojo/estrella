@@ -3,16 +3,16 @@
 //! Accepts JSON documents using the unified Document model.
 
 use axum::{
-    extract::{Path, State},
-    http::{header, StatusCode},
-    response::{Html, IntoResponse, Response},
     Json,
+    extract::{Path, State},
+    http::{StatusCode, header},
+    response::{Html, IntoResponse, Response},
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use crate::document::{self, Component, Document, ImageResolver};
 use crate::document::canvas::ElementLayout;
+use crate::document::{self, Component, Document, ImageResolver};
 use crate::ir::{Op, Program};
 use crate::preview::{measure_cursor_y, measure_preview};
 use crate::transport::BluetoothTransport;
@@ -26,10 +26,12 @@ pub async fn preview(
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
     // Resolve images from URLs before compilation
     let resolver = ImageResolver::new(state.photo_sessions.clone());
-    resolver
-        .resolve(&mut doc)
-        .await
-        .map_err(|e| (StatusCode::BAD_REQUEST, format!("Image resolution failed: {}", e)))?;
+    resolver.resolve(&mut doc).await.map_err(|e| {
+        (
+            StatusCode::BAD_REQUEST,
+            format!("Image resolution failed: {}", e),
+        )
+    })?;
 
     let program = doc.compile();
     let png_bytes = program.to_preview_png().map_err(|e| {
@@ -76,7 +78,7 @@ pub async fn canvas_layout(
             return Err((
                 StatusCode::BAD_REQUEST,
                 "Component at canvas_index is not a canvas".to_string(),
-            ))
+            ));
         }
     };
 
@@ -110,10 +112,7 @@ pub async fn canvas_layout(
 }
 
 /// Handle POST /api/json/print - print JSON document to device.
-pub async fn print(
-    State(state): State<Arc<AppState>>,
-    Json(mut doc): Json<Document>,
-) -> Response {
+pub async fn print(State(state): State<Arc<AppState>>, Json(mut doc): Json<Document>) -> Response {
     // Resolve images from URLs before compilation
     let resolver = ImageResolver::new(state.photo_sessions.clone());
     if let Err(e) = resolver.resolve(&mut doc).await {

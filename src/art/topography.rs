@@ -12,8 +12,8 @@
 //! ```
 
 use crate::shader::*;
-use rand::Rng;
 use async_trait::async_trait;
+use rand::Rng;
 use std::fmt;
 
 /// Parameters for the topography effect.
@@ -70,7 +70,8 @@ pub fn shade(x: usize, y: usize, _width: usize, _height: usize, params: &Params)
     let xf = x as f32;
     let yf = y as f32;
 
-    let t = (xf / params.freq1).sin() + (yf / params.freq2).sin() + ((xf + yf) / params.freq3).sin();
+    let t =
+        (xf / params.freq1).sin() + (yf / params.freq2).sin() + ((xf + yf) / params.freq3).sin();
 
     // Create contour lines by mapping to periodic bands
     let t_wrapped = t - t.floor(); // fmod to [0, 1)
@@ -94,11 +95,15 @@ impl Default for Topography {
 
 impl Topography {
     pub fn golden() -> Self {
-        Self { params: Params::default() }
+        Self {
+            params: Params::default(),
+        }
     }
 
     pub fn random() -> Self {
-        Self { params: Params::random() }
+        Self {
+            params: Params::random(),
+        }
     }
 }
 
@@ -117,7 +122,10 @@ impl super::Pattern for Topography {
     }
 
     fn set_param(&mut self, name: &str, value: &str) -> Result<(), String> {
-        let parse_f32 = |v: &str| v.parse::<f32>().map_err(|e| format!("Invalid value '{}': {}", v, e));
+        let parse_f32 = |v: &str| {
+            v.parse::<f32>()
+                .map_err(|e| format!("Invalid value '{}': {}", v, e))
+        };
         match name {
             "freq1" => self.params.freq1 = parse_f32(value)?,
             "freq2" => self.params.freq2 = parse_f32(value)?,

@@ -1,10 +1,10 @@
 //! Weave API handlers - blending multiple patterns with crossfade transitions.
 
 use axum::{
-    extract::State,
-    http::{header, StatusCode},
-    response::IntoResponse,
     Json,
+    extract::State,
+    http::{StatusCode, header},
+    response::IntoResponse,
 };
 use image::{GrayImage, Luma};
 use serde::Deserialize;
@@ -89,7 +89,12 @@ pub async fn preview(
         reqwest::Client::builder()
             .user_agent("estrella/0.1")
             .build()
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("HTTP client error: {}", e)))?,
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("HTTP client error: {}", e),
+                )
+            })?,
         state.photo_sessions.clone(),
         state.intensity_cache.clone(),
     );
@@ -110,14 +115,15 @@ pub async fn preview(
         })?;
 
         for (param_name, param_value) in &entry.params {
-            pattern.set_param(param_name, param_value).map_err(|e| {
-                (StatusCode::BAD_REQUEST, format!("Invalid param: {}", e))
-            })?;
+            pattern
+                .set_param(param_name, param_value)
+                .map_err(|e| (StatusCode::BAD_REQUEST, format!("Invalid param: {}", e)))?;
         }
 
-        pattern.prepare(width, height, &ctx).await.map_err(|e| {
-            (StatusCode::BAD_REQUEST, format!("Prepare failed: {}", e))
-        })?;
+        pattern
+            .prepare(width, height, &ctx)
+            .await
+            .map_err(|e| (StatusCode::BAD_REQUEST, format!("Prepare failed: {}", e)))?;
 
         pattern_impls.push(pattern);
     }
@@ -165,7 +171,12 @@ pub async fn preview(
 
     let mut png_bytes = Vec::new();
     img.write_to(&mut Cursor::new(&mut png_bytes), image::ImageFormat::Png)
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("PNG encoding failed: {}", e)))?;
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("PNG encoding failed: {}", e),
+            )
+        })?;
 
     Ok(([(header::CONTENT_TYPE, "image/png")], png_bytes))
 }
@@ -178,7 +189,9 @@ pub async fn print(
     if req.patterns.len() < 2 {
         return Err((
             StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({"success": false, "error": "Weave requires at least 2 patterns"})),
+            Json(
+                serde_json::json!({"success": false, "error": "Weave requires at least 2 patterns"}),
+            ),
         ));
     }
 
@@ -322,7 +335,10 @@ pub async fn print(
 
     println!(
         "[weave] Print request: {} patterns, {}x{} pixels, mode={}",
-        pattern_names.len(), width, height, req.mode
+        pattern_names.len(),
+        width,
+        height,
+        req.mode
     );
 
     let print_result = tokio::task::spawn_blocking(move || {
