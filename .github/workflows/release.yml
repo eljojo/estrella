@@ -106,24 +106,19 @@ jobs:
         run: |
           mkdir -p repo && cd repo
 
-          # Fetch existing Packages index (if any) instead of re-downloading all .debs
+          # Download all .deb files from the apt release to rebuild Packages from scratch
           gh release download apt \
             --repo "${{ github.repository }}" \
-            --pattern 'Packages' \
-            --output old-Packages 2>/dev/null || true
+            --pattern '*.deb' \
+            --dir . 2>/dev/null || true
 
-          # Generate entry for the new .deb only
+          # Also include the newly built .deb (overwrites if same version)
           cp ../estrella_${{ steps.version.outputs.version }}_arm64.deb .
-          dpkg-scanpackages --multiversion . > new-entry
-          sed -i 's|Filename: \./|Filename: |' new-entry
-          rm estrella_*.deb
 
-          # Merge: old entries + new entry
-          if [ -f old-Packages ]; then
-            cat old-Packages new-entry > Packages
-          else
-            cp new-entry Packages
-          fi
+          # Generate Packages from all .debs
+          dpkg-scanpackages --multiversion . > Packages
+          sed -i 's|Filename: \./|Filename: |' Packages
+          rm -f *.deb
           gzip -k -f Packages
 
           # Generate Release file
@@ -137,9 +132,6 @@ jobs:
 
           # Export public key
           gpg --armor --export "${{ secrets.GPG_KEY_ID }}" > gpg.key
-
-          # Clean up temp files
-          rm -f old-Packages new-entry
 
       - name: Upload apt metadata to release
         env:
