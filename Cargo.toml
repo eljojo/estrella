@@ -13,7 +13,7 @@ thiserror = "1"
 image = "0.25"
 libc = "0.2"
 qrcode = "0.14"
-pdf417 = { git = "https://github.com/Sofiman/pdf417" }
+pdf417 = { git = "https://github.com/Sofiman/pdf417", rev = "8a59902e" }
 rand = "0.9"
 spleen-font = { version = "0.2", features = ["s6x12", "s8x16", "s12x24"] }
 ab_glyph = "0.2"

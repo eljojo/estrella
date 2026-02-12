@@ -60,7 +60,12 @@
           pname = "estrella";
           version = "0.1.0";
           src = ./.;
-          cargoLock.lockFile = ./Cargo.lock;
+          cargoLock = {
+            lockFile = ./Cargo.lock;
+            outputHashes = {
+              "pdf417-0.3.0" = "sha256-9qyCrRWync4hasSblYJUBXBbbFvservSeXJOjOcu0r0=";
+            };
+          };
           nativeBuildInputs = [ pkg-config ];
           buildInputs = [ libheif ];
 
@@ -73,25 +78,46 @@
 
         # Static musl build for .deb packaging (no libheif, no openssl)
         # Use `nix build .#static` on Linux ARM CI runners
+        #
+        # Why musl? We need a single static binary with zero runtime deps
+        # so it runs on any Raspberry Pi regardless of what's installed.
+        # Building for aarch64-unknown-linux-musl produces that.
+        #
+        # Why Zig? Some Rust crates (e.g. TLS) contain C code that must be
+        # compiled for musl. The "proper" way is a GCC cross-compiler
+        # (aarch64-unknown-linux-musl-gcc), but nobody pre-builds that for
+        # the Nix binary cache, so Nix would compile GCC from source (~20 min).
+        # Zig ships a C compiler with musl built-in for every target, and IS
+        # cached in nixpkgs. So we use `zig cc` as a drop-in musl CC instead.
         packages.static =
           let
-            muslPkgs = pkgs.pkgsCross.aarch64-multiplatform-musl;
-            muslCC = muslPkgs.stdenv.cc;
+            target = "aarch64-unknown-linux-musl";
+            zigCC = pkgs.writeShellScriptBin "zigcc" ''
+              exec ${pkgs.zig}/bin/zig cc -target aarch64-linux-musl "$@"
+            '';
           in
           rustPlatform.buildRustPackage {
             pname = "estrella-static";
             version = "0.1.0";
             src = ./.;
-            cargoLock.lockFile = ./Cargo.lock;
+            cargoLock = {
+              lockFile = ./Cargo.lock;
+              outputHashes = {
+                "pdf417-0.3.0" = "sha256-9qyCrRWync4hasSblYJUBXBbbFvservSeXJOjOcu0r0=";
+              };
+            };
             buildNoDefaultFeatures = true;
             doCheck = false;
 
-            depsBuildBuild = [ muslCC ];
+            nativeBuildInputs = [ pkgs.zig ];
 
-            cargoBuildTarget = "aarch64-unknown-linux-musl";
-            CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER = "${muslCC}/bin/${muslCC.targetPrefix}cc";
+            cargoBuildTarget = target;
+            CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER = "${zigCC}/bin/zigcc";
+            CC_aarch64_unknown_linux_musl = "${zigCC}/bin/zigcc";
 
             preBuild = ''
+              export ZIG_GLOBAL_CACHE_DIR="$TMPDIR/zig-cache"
+              mkdir -p "$ZIG_GLOBAL_CACHE_DIR"
               mkdir -p frontend/dist
               cp -r ${frontendDeps}/* frontend/dist/ || true
             '';

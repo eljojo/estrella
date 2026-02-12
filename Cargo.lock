@@ -1508,7 +1508,7 @@ checksum = "35fb2e5f958ec131621fdd531e9fc186ed768cbe395337403ae56c17a74c68ec"
 [[package]]
 name = "pdf417"
 version = "0.3.0"
-source = "git+https://github.com/Sofiman/pdf417#8a59902e831ee69b66f911c332b51a5b3e524384"
+source = "git+https://github.com/Sofiman/pdf417?rev=8a59902e#8a59902e831ee69b66f911c332b51a5b3e524384"
 dependencies = [
  "awint_core",
 ]
