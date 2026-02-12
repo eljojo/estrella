@@ -1,7 +1,7 @@
 name: estrella
 arch: arm64
 platform: linux
-version: v${VERSION:-0.0.0}
+version: ${VERSION:-0.0.0}
 section: utils
 priority: optional
 maintainer: eljojo
