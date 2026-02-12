@@ -8,7 +8,7 @@ env:
 
 jobs:
   check:
-    name: Check, lint & test
+    name: Check, lint, test & e2e
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
@@ -31,22 +31,6 @@ jobs:
 
       - name: Run tests
         run: nix develop --command cargo test
-
-  e2e:
-    name: End-to-end tests
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install Nix
-        uses: cachix/install-nix-action@v31
-
-      - name: Nix cache
-        uses: DeterminateSystems/magic-nix-cache-action@v8
-
-      - name: Install frontend dependencies
-        run: nix develop --command bash -c "cd frontend && npm ci"
 
       - name: Run e2e tests
         run: nix develop --command bash -c "cd frontend && npx playwright test"
