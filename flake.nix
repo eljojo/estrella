@@ -36,24 +36,6 @@
         pkgs = import nixpkgs {
           inherit system overlays;
         };
-        rustToolchain = pkgs.rust-bin.selectLatestNightlyWith (
-          toolchain:
-          toolchain.default.override {
-            extensions = [
-              "rust-src"
-              "rust-analyzer"
-            ];
-            targets = [
-              "wasm32-unknown-unknown"
-              "aarch64-unknown-linux-musl"
-              "x86_64-unknown-linux-musl"
-            ];
-          }
-        );
-        rustPlatform = pkgs.makeRustPlatform {
-          cargo = rustToolchain;
-          rustc = rustToolchain;
-        };
 
         # Frontend build
         frontendDeps = pkgs.buildNpmPackage {
@@ -73,6 +55,7 @@
       in
       with pkgs;
       {
+        # Uses nixpkgs' cached Rust — no toolchain compilation needed
         packages.default = rustPlatform.buildRustPackage {
           pname = "estrella";
           version = "0.1.0";
@@ -120,13 +103,17 @@
               pkg-config
               cacert
               cargo-make
-              cargo
-              rustfmt
               libheif
               gnupg
-              rustToolchain
               nodejs
               playwright-test
+              # Stable Rust from rust-overlay for dev (includes rust-analyzer)
+              (rust-bin.stable.latest.default.override {
+                extensions = [
+                  "rust-src"
+                  "rust-analyzer"
+                ];
+              })
             ];
           shellHook = ''
             export CARGO_TARGET_DIR="$PWD/.cargo/target"
@@ -149,5 +136,4 @@
       nixosModules.default = import ./nix/modules/estrella.nix;
       nixosModules.estrella = import ./nix/modules/estrella.nix;
     };
-    # based on https://github.com/hiveboardgame/hive/blob/50b3804378012ee4ecf62f6e47ca348454eb066b/flake.nix
 }
