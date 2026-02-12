@@ -8,7 +8,7 @@ A Rust library for [Star Micronics TSP650II](https://star-m.jp/eng/products/s_pr
 
 The web UI supports printing photos with real-time dithered preview:
 
-- **Formats:** JPEG, PNG, GIF, WEBP, HEIC (iPhone photos)
+- **Formats:** JPEG, PNG, GIF, WEBP, HEIC (iPhone photos — requires Nix build; `.deb` users convert to JPEG first)
 - **Adjustments:** Rotation, brightness, contrast
 - **Dithering:** Choose algorithm for best results
 - Auto-resize to 576px printer width
@@ -319,9 +319,50 @@ Text("B")
 
 - **Printer:** Star Micronics TSP650II (or compatible StarPRNT printer)
 - **Connection:** Bluetooth, paired to create `/dev/rfcomm0`
-- **Build:** Nix (recommended) or Rust 1.75+
+- **Install:** `.deb` package (Raspberry Pi / Debian), Nix (NixOS), or Rust nightly
 
-### Quick Start
+### Install on Raspberry Pi (Debian/Ubuntu)
+
+Pre-built arm64 `.deb` packages are published for Raspberry Pi 3, 4, and 5 running a 64-bit OS. The binary is fully statically linked — no runtime dependencies beyond `bluez` for Bluetooth.
+
+**Add the apt repository:**
+
+```bash
+# Import signing key
+curl -fsSL https://github.com/eljojo/estrella/releases/download/apt/gpg.key \
+  | sudo gpg --dearmor -o /usr/share/keyrings/estrella.gpg
+
+# Add repository
+echo "deb [arch=arm64 signed-by=/usr/share/keyrings/estrella.gpg] https://github.com/eljojo/estrella/releases/download/apt ./" \
+  | sudo tee /etc/apt/sources.list.d/estrella.list
+
+# Install
+sudo apt update
+sudo apt install estrella
+```
+
+**Configure your printer:**
+
+```bash
+# Set your printer's Bluetooth MAC address
+sudo nano /etc/estrella/estrella.conf
+```
+
+**Pair your printer first** (see [Bluetooth Setup](#bluetooth-setup) below), then start the services:
+
+```bash
+sudo systemctl enable --now estrella-rfcomm estrella
+```
+
+Open `http://your-pi-ip:8080` in your browser.
+
+The package includes two systemd services:
+- `estrella-rfcomm.service` — sets up the Bluetooth RFCOMM device (runs as root)
+- `estrella.service` — the HTTP daemon on port 8080 (runs as unprivileged `estrella` user)
+
+To check status: `sudo systemctl status estrella`
+
+### Quick Start (from source)
 
 ```bash
 # With Nix
@@ -329,7 +370,7 @@ nix develop
 cargo run -- serve
 # Open http://localhost:8080
 
-# Without Nix
+# Without Nix (requires Rust nightly)
 cargo build --release
 ./target/release/estrella serve --device /dev/rfcomm0
 ```

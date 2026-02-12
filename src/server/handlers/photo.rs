@@ -6,7 +6,10 @@ use axum::{
     response::IntoResponse,
     Json,
 };
-use image::{imageops::FilterType, DynamicImage, RgbImage};
+use image::{imageops::FilterType, DynamicImage};
+#[cfg(feature = "heif")]
+use image::RgbImage;
+#[cfg(feature = "heif")]
 use libheif_rs::{ColorSpace, HeifContext, LibHeif, RgbChroma};
 use serde::{Deserialize, Serialize};
 use std::{sync::Arc, time::Instant};
@@ -473,6 +476,7 @@ fn is_heic(data: &[u8]) -> bool {
 }
 
 /// Decode a HEIC/HEIF image using libheif.
+#[cfg(feature = "heif")]
 fn decode_heic(data: &[u8]) -> Result<DynamicImage, String> {
     let lib_heif = LibHeif::new();
     let ctx = HeifContext::read_from_bytes(data).map_err(|e| format!("Failed to read HEIC: {}", e))?;
@@ -510,6 +514,12 @@ fn decode_heic(data: &[u8]) -> Result<DynamicImage, String> {
     }
 
     Ok(DynamicImage::ImageRgb8(rgb_image))
+}
+
+/// Stub when built without HEIC support.
+#[cfg(not(feature = "heif"))]
+fn decode_heic(_data: &[u8]) -> Result<DynamicImage, String> {
+    Err("HEIC/HEIF images are not supported in this build. Please convert to JPEG or PNG first.".to_string())
 }
 
 #[cfg(test)]

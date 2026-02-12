@@ -30,10 +30,14 @@ serde_json = "1"
 include_dir = "0.7"
 mime_guess = "2"
 uuid = { version = "1", features = ["v4"] }
-reqwest = { version = "0.12", features = ["gzip", "brotli", "deflate"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "gzip", "brotli", "deflate"] }
 async-trait = "0.1"
 flate2 = "1"
-libheif-rs = "1"
+libheif-rs = { version = "1", optional = true }
+
+[features]
+default = ["heif"]
+heif = ["dep:libheif-rs"]
 
 [dev-dependencies]
 pretty_assertions = "1"

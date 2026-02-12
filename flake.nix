@@ -43,7 +43,11 @@
               "rust-src"
               "rust-analyzer"
             ];
-            targets = [ "wasm32-unknown-unknown" ];
+            targets = [
+              "wasm32-unknown-unknown"
+              "aarch64-unknown-linux-musl"
+              "x86_64-unknown-linux-musl"
+            ];
           }
         );
         rustPlatform = pkgs.makeRustPlatform {
@@ -75,7 +79,7 @@
           src = ./.;
           cargoLock.lockFile = ./Cargo.lock;
           nativeBuildInputs = [ pkg-config ];
-          buildInputs = [ openssl libheif ];
+          buildInputs = [ libheif ];
 
           # Copy frontend build before cargo build
           preBuild = ''
@@ -83,6 +87,28 @@
             cp -r ${frontendDeps}/* frontend/dist/ || true
           '';
         };
+
+        # Static musl build for .deb packaging (no libheif, no openssl)
+        # Use `nix build .#static` on Linux ARM CI runners
+        packages.static =
+          let
+            staticRustPlatform = pkgs.pkgsStatic.makeRustPlatform {
+              cargo = rustToolchain;
+              rustc = rustToolchain;
+            };
+          in
+          staticRustPlatform.buildRustPackage {
+            pname = "estrella";
+            version = "0.1.0";
+            src = ./.;
+            cargoLock.lockFile = ./Cargo.lock;
+            buildNoDefaultFeatures = true;
+
+            preBuild = ''
+              mkdir -p frontend/dist
+              cp -r ${frontendDeps}/* frontend/dist/ || true
+            '';
+          };
 
         devShells.default = mkShell rec {
           buildInputs =
@@ -92,14 +118,17 @@
               cargo-make
               cargo
               rustfmt
-              openssl
               libheif
+              gnupg
               rustToolchain
               nodejs
               playwright-test
             ];
           shellHook = ''
             export CARGO_TARGET_DIR="$PWD/.cargo/target"
+            export GNUPGHOME="$PWD/.gnupg"
+            mkdir -p "$GNUPGHOME"
+            chmod 700 "$GNUPGHOME"
             export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
             export PLAYWRIGHT_BROWSERS_PATH="${pkgs.playwright-driver.browsers}"
           '';
