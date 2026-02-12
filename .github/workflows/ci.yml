@@ -6,28 +6,6 @@ on:
   pull_request:
     branches: [main]
 
-env:
-  CARGO_TERM_COLOR: always
-
 jobs:
   check:
-    name: Check, lint & test
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install Nix
-        uses: cachix/install-nix-action@v31
-
-      - name: Nix cache
-        uses: DeterminateSystems/magic-nix-cache-action@v8
-
-      - name: Check formatting
-        run: nix develop --command cargo fmt --check
-
-      - name: Clippy
-        run: nix develop --command cargo clippy -- -D warnings
-
-      - name: Run tests
-        run: nix develop --command cargo test
+    uses: ./.github/workflows/check.yml
