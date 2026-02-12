@@ -50,7 +50,7 @@ jobs:
             --target estrella_${{ steps.version.outputs.version }}_arm64.deb
 
       - name: Upload .deb artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: deb-package
           path: estrella_${{ steps.version.outputs.version }}_arm64.deb
