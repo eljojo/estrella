@@ -106,20 +106,29 @@
                 "pdf417-0.3.0" = "sha256-9qyCrRWync4hasSblYJUBXBbbFvservSeXJOjOcu0r0=";
               };
             };
-            buildNoDefaultFeatures = true;
             doCheck = false;
 
             nativeBuildInputs = [ pkgs.zig ];
 
-            cargoBuildTarget = target;
             CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER = "${zigCC}/bin/zigcc";
             CC_aarch64_unknown_linux_musl = "${zigCC}/bin/zigcc";
 
-            preBuild = ''
+            # Override build/install phases to explicitly pass --target,
+            # because nixpkgs' cargo hooks ignore cargoBuildTarget in
+            # non-cross builds and silently build for the native glibc target.
+            buildPhase = ''
               export ZIG_GLOBAL_CACHE_DIR="$TMPDIR/zig-cache"
               mkdir -p "$ZIG_GLOBAL_CACHE_DIR"
               mkdir -p frontend/dist
               cp -r ${frontendDeps}/* frontend/dist/ || true
+              cargo build -j $NIX_BUILD_CORES \
+                --release --frozen --no-default-features \
+                --target ${target}
+            '';
+
+            installPhase = ''
+              mkdir -p $out/bin
+              cp target/${target}/release/estrella $out/bin/
             '';
           };
 
