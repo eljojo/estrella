@@ -92,11 +92,26 @@
         packages.static =
           let
             target = "aarch64-unknown-linux-musl";
+            # Stable Rust with musl target (nixpkgs' Rust doesn't include it)
+            rustToolchainMusl = pkgs.rust-bin.stable.latest.default.override {
+              targets = [ target ];
+            };
+            muslRustPlatform = pkgs.makeRustPlatform {
+              cargo = rustToolchainMusl;
+              rustc = rustToolchainMusl;
+            };
             zigCC = pkgs.writeShellScriptBin "zigcc" ''
-              exec ${pkgs.zig}/bin/zig cc -target aarch64-linux-musl "$@"
+              args=()
+              for arg in "$@"; do
+                case "$arg" in
+                  --target=*) ;; # strip: cc crate passes --target=aarch64-unknown-linux-musl but Zig needs aarch64-linux-musl
+                  *) args+=("$arg") ;;
+                esac
+              done
+              exec ${pkgs.zig}/bin/zig cc -target aarch64-linux-musl "''${args[@]}"
             '';
           in
-          rustPlatform.buildRustPackage {
+          muslRustPlatform.buildRustPackage {
             pname = "estrella-static";
             version = "0.1.0";
             src = ./.;
@@ -107,10 +122,10 @@
               };
             };
             doCheck = false;
+            auditable = false; # cargo-auditable passes --undefined which Zig's linker doesn't support
 
             nativeBuildInputs = [ pkgs.zig ];
 
-            CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER = "${zigCC}/bin/zigcc";
             CC_aarch64_unknown_linux_musl = "${zigCC}/bin/zigcc";
 
             # Override build/install phases to explicitly pass --target,
