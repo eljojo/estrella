@@ -64,17 +64,17 @@ fn build_receipt(form: &ReceiptForm) -> Program {
     let mut components = Vec::new();
 
     // Add title if provided
-    if let Some(title) = &form.title {
-        if !title.trim().is_empty() {
-            components.push(Component::Text(Text {
-                content: title.trim().to_string(),
-                center: true,
-                bold: true,
-                size: [3, 2],
-                ..Default::default()
-            }));
-            components.push(Component::Spacer(Spacer::mm(2.0)));
-        }
+    if let Some(title) = &form.title
+        && !title.trim().is_empty()
+    {
+        components.push(Component::Text(Text {
+            content: title.trim().to_string(),
+            center: true,
+            bold: true,
+            size: [3, 2],
+            ..Default::default()
+        }));
+        components.push(Component::Spacer(Spacer::mm(2.0)));
     }
 
     // Parse body as Markdown

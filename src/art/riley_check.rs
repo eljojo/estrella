@@ -197,7 +197,7 @@ impl super::Pattern for RileyCheck {
                 .with_description("Vertical compression wave strength"),
             ParamSpec::slider("compress_freq", "Compress Frequency", 0.005, 0.015, 0.001)
                 .with_description("Vertical compression wave frequency"),
-            ParamSpec::slider("phase", "Phase", 0.0, 6.28, 0.1)
+            ParamSpec::slider("phase", "Phase", 0.0, std::f32::consts::TAU, 0.1)
                 .with_description("Phase offset for wave"),
             ParamSpec::bool("diagonal_wave", "Diagonal Wave")
                 .with_description("Add secondary diagonal wave"),

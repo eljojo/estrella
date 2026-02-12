@@ -72,7 +72,7 @@ fn barcode_value(bar_index: usize, seed: u32) -> bool {
     // Generate seemingly random but deterministic bar pattern
     let h = hash((bar_index as u32).wrapping_add(seed));
     // Use multiple bits to create varied patterns
-    (h % 3) != 0 || ((h >> 8) % 5) < 2
+    !h.is_multiple_of(3) || ((h >> 8) % 5) < 2
 }
 
 pub fn shade(x: usize, y: usize, width: usize, height: usize, params: &Params) -> f32 {

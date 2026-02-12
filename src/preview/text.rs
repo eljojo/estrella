@@ -40,13 +40,7 @@ impl PreviewRenderer {
                         0
                     }
                 }
-                Alignment::Right => {
-                    if text_width < self.print_width {
-                        self.print_width - text_width
-                    } else {
-                        0
-                    }
-                }
+                Alignment::Right => self.print_width.saturating_sub(text_width),
             };
 
             self.state.x = start_x;
@@ -120,7 +114,7 @@ impl PreviewRenderer {
                 // Only draw if there's something to draw
                 // (for invert, we already filled background, now we "erase" the glyph shape)
                 // (for normal, we just draw the black pixels)
-                if (self.state.style.invert && pixel_on) || (!self.state.style.invert && pixel_on) {
+                if pixel_on {
                     // Calculate destination coordinates for upside-down (180° rotation)
                     // Flip both X and Y to achieve full 180° rotation
                     let dest_gx = if upside_down {

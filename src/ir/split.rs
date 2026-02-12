@@ -133,7 +133,7 @@ impl Program {
         // Calculate bytes per row for splitting
         let width_bytes = width.div_ceil(8) as usize;
 
-        let num_chunks = (total_rows + effective_chunk_rows - 1) / effective_chunk_rows;
+        let num_chunks = total_rows.div_ceil(effective_chunk_rows);
         let total_bytes = total_rows * width_bytes;
         let chunk_bytes = effective_chunk_rows * width_bytes;
         println!(

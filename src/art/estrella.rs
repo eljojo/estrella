@@ -132,7 +132,7 @@ fn star_radius(angle: f32, r_outer: f32, r_inner: f32, points: u32, roundness: f
     let pos = (a - seg_start) / segment; // 0 to 1 within segment
 
     // Vertices at segment boundaries
-    let (r1, r2) = if segment_idx % 2 == 0 {
+    let (r1, r2) = if segment_idx.is_multiple_of(2) {
         (r_outer, r_inner) // tip to valley
     } else {
         (r_inner, r_outer) // valley to tip
@@ -142,7 +142,7 @@ fn star_radius(angle: f32, r_outer: f32, r_inner: f32, points: u32, roundness: f
     let corner_size_tip = roundness * 0.45;
     let corner_size_valley = roundness * 0.95;
 
-    let is_tip_start = segment_idx % 2 == 0;
+    let is_tip_start = segment_idx.is_multiple_of(2);
     let corner_size_start = if is_tip_start {
         corner_size_tip
     } else {

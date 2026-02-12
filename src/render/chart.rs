@@ -614,7 +614,7 @@ pub fn render(chart: &Chart, width: usize, dithering: DitheringAlgorithm) -> (Ve
             label_count
         };
         let step = if label_count > max_labels {
-            (label_count + max_labels - 1) / max_labels
+            label_count.div_ceil(max_labels)
         } else {
             1
         };

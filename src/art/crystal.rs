@@ -73,6 +73,7 @@ impl fmt::Display for Params {
 }
 
 /// Recursively check distance to crystal branches.
+#[allow(clippy::too_many_arguments)]
 fn crystal_distance(
     px: f32,
     py: f32,

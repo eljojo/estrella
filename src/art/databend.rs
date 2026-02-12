@@ -121,7 +121,7 @@ pub fn shade(x: usize, y: usize, _width: usize, _height: usize, params: &Params)
             }
             _ => {
                 // Solid block (stuck bit)
-                if hash(effective_block_x as u32 + block_y as u32 + params.seed) % 2 == 0 {
+                if hash(effective_block_x as u32 + block_y as u32 + params.seed).is_multiple_of(2) {
                     1.0
                 } else {
                     0.0

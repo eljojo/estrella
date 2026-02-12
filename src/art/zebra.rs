@@ -200,7 +200,8 @@ impl super::Pattern for Zebra {
                 .with_description("Tertiary wave frequency"),
             ParamSpec::slider("direction", "Direction", 0.0, 180.0, 15.0)
                 .with_description("Base stripe direction in degrees"),
-            ParamSpec::slider("phase", "Phase", 0.0, 6.28, 0.1).with_description("Phase offset"),
+            ParamSpec::slider("phase", "Phase", 0.0, std::f32::consts::TAU, 0.1)
+                .with_description("Phase offset"),
         ]
     }
 }

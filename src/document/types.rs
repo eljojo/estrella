@@ -977,7 +977,7 @@ pub struct CanvasElement {
 ///   ]
 /// }
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Canvas {
     /// Canvas width in dots (default: 576).
     #[serde(default)]
@@ -992,17 +992,6 @@ pub struct Canvas {
     /// Elements to composite onto the canvas.
     #[serde(default, deserialize_with = "super::deserialize_canvas_elements")]
     pub elements: Vec<CanvasElement>,
-}
-
-impl Default for Canvas {
-    fn default() -> Self {
-        Self {
-            width: None,
-            height: None,
-            dither: None,
-            elements: Vec::new(),
-        }
-    }
 }
 
 impl ComponentMeta for Canvas {

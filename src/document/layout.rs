@@ -33,10 +33,8 @@ impl Spacer {
             (mm * 4.0).round().clamp(0.0, 255.0) as u8
         } else if let Some(lines) = self.lines {
             (lines as f32 * 3.0 * 4.0).round().clamp(0.0, 255.0) as u8
-        } else if let Some(units) = self.units {
-            units
         } else {
-            0
+            self.units.unwrap_or_default()
         };
 
         if units > 0 {
@@ -58,9 +56,10 @@ impl Columns {
         let width = self.width.unwrap_or(48);
         let padding = width.saturating_sub(self.left.len() + self.right.len());
         let line = format!(
-            "{}{}",
+            "{}{:>width$}",
             self.left,
-            format!("{:>width$}", self.right, width = padding + self.right.len())
+            self.right,
+            width = padding + self.right.len()
         );
 
         // Reset to Font A to ensure correct width (48 chars × 12 dots = 576 = full print width)
@@ -165,7 +164,7 @@ impl Banner {
         let pad_left = pad / 2;
         let pad_right = pad - pad_left;
 
-        let h_bar: String = std::iter::repeat(horiz).take(inner).collect();
+        let h_bar: String = std::iter::repeat_n(horiz, inner).collect();
         let top = format!("{}{}{}", tl, h_bar, tr);
         let bot = format!("{}{}{}", bl, h_bar, br);
         let empty_line = format!("{}{}{}", vert, " ".repeat(inner), vert);
@@ -235,7 +234,7 @@ impl Banner {
         let pad_left = pad / 2;
         let pad_right = pad - pad_left;
 
-        let h_bar: String = std::iter::repeat('\u{2500}').take(inner).collect();
+        let h_bar: String = std::iter::repeat_n('\u{2500}', inner).collect();
         let top = format!("\u{250C}{}\u{2510}", h_bar);
         let bot_with_shadow = format!("\u{2514}{}\u{2518}{}", h_bar, shadow);
         let empty_with_shadow = format!("\u{2502}{}\u{2502}{}", " ".repeat(inner), shadow);
@@ -248,9 +247,7 @@ impl Banner {
         );
         let shadow_bottom: String = format!(
             " {}",
-            std::iter::repeat(shadow)
-                .take(box_width)
-                .collect::<String>()
+            std::iter::repeat_n(shadow, box_width).collect::<String>()
         );
 
         // Top border (no shadow — creates depth illusion)
@@ -569,9 +566,8 @@ fn data_row(
 ) -> String {
     let mut line = String::new();
     line.push(vert);
-    for i in 0..num_cols {
+    for (i, &w) in col_widths.iter().enumerate().take(num_cols) {
         let cell = cells.get(i).map(|s| s.as_str()).unwrap_or("");
-        let w = col_widths[i];
         let truncated = if cell.len() > w { &cell[..w] } else { cell };
         let alignment = align.get(i).copied().unwrap_or(ColumnAlign::Left);
         let padded = match alignment {

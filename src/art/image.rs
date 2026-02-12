@@ -80,14 +80,13 @@ impl Pattern for ImagePattern {
     }
 
     fn intensity(&self, x: usize, y: usize, width: usize, _height: usize) -> f32 {
-        if let Some(ref buffer) = self.buffer {
-            if let Some((bw, _bh)) = self.prepared_dims {
-                if bw == width {
-                    let idx = y * width + x;
-                    if idx < buffer.len() {
-                        return buffer[idx];
-                    }
-                }
+        if let Some(ref buffer) = self.buffer
+            && let Some((bw, _bh)) = self.prepared_dims
+            && bw == width
+        {
+            let idx = y * width + x;
+            if idx < buffer.len() {
+                return buffer[idx];
             }
         }
         // Not prepared or dimensions mismatch — return white
@@ -101,10 +100,11 @@ impl Pattern for ImagePattern {
         ctx: &RenderContext,
     ) -> Result<(), String> {
         // Skip if already prepared at these dimensions
-        if let Some((bw, bh)) = self.prepared_dims {
-            if bw == width && bh == height {
-                return Ok(());
-            }
+        if let Some((bw, bh)) = self.prepared_dims
+            && bw == width
+            && bh == height
+        {
+            return Ok(());
         }
 
         // Fetch image (uses context's HTTP client and cache)

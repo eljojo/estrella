@@ -458,7 +458,7 @@ fn run() -> Result<(), EstrellaError> {
                 }
                 pattern_impl
                     .set_param(parts[0], parts[1])
-                    .map_err(|e| EstrellaError::Pattern(e))?;
+                    .map_err(EstrellaError::Pattern)?;
             }
 
             // Use pattern's default dimensions if user didn't specify
@@ -1092,6 +1092,7 @@ fn logo_delete_all(device: &str, force: bool) -> Result<(), EstrellaError> {
 // ============================================================================
 
 /// Blend multiple patterns together with crossfade transitions.
+#[allow(clippy::too_many_arguments)]
 fn weave_patterns(
     pattern_names: &[String],
     length: &str,

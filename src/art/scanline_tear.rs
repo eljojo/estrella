@@ -90,7 +90,7 @@ fn get_tear_displacement(y: usize, height: usize, params: &Params) -> f32 {
 
     // Calculate displacement amount
     let displacement_hash = hash_f32(zone_index as u32, params.seed.wrapping_add(100));
-    let direction = if hash(zone_index as u32 + params.seed) % 2 == 0 {
+    let direction = if hash(zone_index as u32 + params.seed).is_multiple_of(2) {
         1.0
     } else {
         -1.0

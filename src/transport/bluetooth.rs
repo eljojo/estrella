@@ -369,13 +369,13 @@ pub fn find_rfcomm_for_mac(mac: &str) -> Result<Option<String>, EstrellaError> {
     // Try /proc/net/rfcomm first (format: "rfcomm0: XX:XX:XX:XX:XX:XX channel N ...")
     if let Ok(contents) = fs::read_to_string("/proc/net/rfcomm") {
         for line in contents.lines() {
-            if line.to_uppercase().contains(&mac_upper) {
-                if let Some(dev_name) = line.split(':').next() {
-                    let dev_name = dev_name.trim();
-                    let device_path = format!("/dev/{}", dev_name);
-                    if Path::new(&device_path).exists() {
-                        return Ok(Some(device_path));
-                    }
+            if line.to_uppercase().contains(&mac_upper)
+                && let Some(dev_name) = line.split(':').next()
+            {
+                let dev_name = dev_name.trim();
+                let device_path = format!("/dev/{}", dev_name);
+                if Path::new(&device_path).exists() {
+                    return Ok(Some(device_path));
                 }
             }
         }
@@ -389,13 +389,13 @@ pub fn find_rfcomm_for_mac(mac: &str) -> Result<Option<String>, EstrellaError> {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     for line in stdout.lines() {
-        if line.to_uppercase().contains(&mac_upper) {
-            if let Some(dev_name) = line.split(':').next() {
-                let dev_name = dev_name.trim();
-                let device_path = format!("/dev/{}", dev_name);
-                if Path::new(&device_path).exists() {
-                    return Ok(Some(device_path));
-                }
+        if line.to_uppercase().contains(&mac_upper)
+            && let Some(dev_name) = line.split(':').next()
+        {
+            let dev_name = dev_name.trim();
+            let device_path = format!("/dev/{}", dev_name);
+            if Path::new(&device_path).exists() {
+                return Ok(Some(device_path));
             }
         }
     }

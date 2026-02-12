@@ -115,14 +115,14 @@ impl NvLogo {
         let scale_y = self.scale_y.or(self.scale).unwrap_or(1).clamp(1, 2);
 
         // If centering is enabled, look up logo dimensions and position
-        if self.center {
-            if let Some(raster) = crate::logos::get_raster(&self.key) {
-                let print_width: u32 = 576; // DEFAULT_PRINT_WIDTH
-                let scaled_width = (raster.width as u32) * (scale_x as u32);
-                if scaled_width < print_width {
-                    let position = (print_width - scaled_width) / 2;
-                    ops.push(Op::SetAbsolutePosition(position as u16));
-                }
+        if self.center
+            && let Some(raster) = crate::logos::get_raster(&self.key)
+        {
+            let print_width: u32 = 576; // DEFAULT_PRINT_WIDTH
+            let scaled_width = (raster.width as u32) * (scale_x as u32);
+            if scaled_width < print_width {
+                let position = (print_width - scaled_width) / 2;
+                ops.push(Op::SetAbsolutePosition(position as u16));
             }
         }
 

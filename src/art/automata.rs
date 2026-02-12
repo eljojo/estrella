@@ -119,14 +119,14 @@ impl CellularAutomaton {
                 grid[0][width / 2] = true;
             }
             InitType::Random => {
-                for x in 0..width {
+                for (x, cell) in grid[0].iter_mut().enumerate().take(width) {
                     let h = hash((x as u32).wrapping_add(params.seed));
-                    grid[0][x] = (h as f32 / u32::MAX as f32) < params.density;
+                    *cell = (h as f32 / u32::MAX as f32) < params.density;
                 }
             }
             InitType::Alternating => {
-                for x in 0..width {
-                    grid[0][x] = x % 2 == 0;
+                for (x, cell) in grid[0].iter_mut().enumerate().take(width) {
+                    *cell = x % 2 == 0;
                 }
             }
         }
@@ -172,6 +172,7 @@ impl CellularAutomaton {
 
 // Thread-local cache for automaton computation.
 thread_local! {
+    #[allow(clippy::type_complexity)]
     static CACHE: std::cell::RefCell<Option<(usize, usize, u8, u32, CellularAutomaton)>> =
         const { std::cell::RefCell::new(None) };
 }

@@ -121,35 +121,34 @@ fn warp_on_top(cell_x: usize, cell_y: usize, weave_type: WeaveType, shift: usize
     match weave_type {
         WeaveType::Plain => {
             // Simple checkerboard
-            (cell_x + cell_y) % 2 == 0
+            (cell_x + cell_y).is_multiple_of(2)
         }
         WeaveType::Twill => {
             // Diagonal pattern
-            (cell_x + cell_y * shift) % (shift + 1) == 0
+            (cell_x + cell_y * shift).is_multiple_of(shift + 1)
         }
         WeaveType::Satin => {
             // Scattered pattern to hide diagonal
             let pattern_size = shift + 2;
             let offset = (cell_y * 2) % pattern_size;
-            (cell_x + offset) % pattern_size == 0
+            (cell_x + offset).is_multiple_of(pattern_size)
         }
         WeaveType::Basket => {
             // Groups of 2
             let group_x = cell_x / 2;
             let group_y = cell_y / 2;
-            (group_x + group_y) % 2 == 0
+            (group_x + group_y).is_multiple_of(2)
         }
         WeaveType::Herringbone => {
             // Zigzag pattern
             let period = (shift + 1) * 2;
             let phase = cell_y % period;
             let going_right = phase < period / 2;
-            let base = if going_right {
-                (cell_x + phase) % (shift + 1) == 0
+            if going_right {
+                (cell_x + phase).is_multiple_of(shift + 1)
             } else {
-                (cell_x + period - phase) % (shift + 1) == 0
-            };
-            base
+                (cell_x + period - phase).is_multiple_of(shift + 1)
+            }
         }
     }
 }

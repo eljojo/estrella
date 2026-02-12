@@ -192,7 +192,8 @@ impl super::Pattern for Riley {
                 .with_description("Line thickness"),
             ParamSpec::slider("y_freq", "Y Frequency", 0.005, 0.02, 0.001)
                 .with_description("Vertical wave component"),
-            ParamSpec::slider("phase", "Phase", 0.0, 6.28, 0.1).with_description("Phase offset"),
+            ParamSpec::slider("phase", "Phase", 0.0, std::f32::consts::TAU, 0.1)
+                .with_description("Phase offset"),
         ]
     }
 }

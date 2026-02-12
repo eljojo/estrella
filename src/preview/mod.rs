@@ -88,8 +88,10 @@ impl PreviewRenderer {
         let initial_height = 100;
         let buffer = vec![0u8; paper_width * initial_height];
 
-        let mut state = RenderState::default();
-        state.y = top_margin;
+        let state = RenderState {
+            y: top_margin,
+            ..Default::default()
+        };
 
         Self {
             paper_width,
@@ -448,13 +450,7 @@ impl PreviewRenderer {
                     0
                 }
             }
-            Alignment::Right => {
-                if pixel_size < self.print_width {
-                    self.print_width - pixel_size
-                } else {
-                    0
-                }
-            }
+            Alignment::Right => self.print_width.saturating_sub(pixel_size),
         };
 
         self.ensure_height(self.state.y + pixel_size);
@@ -535,13 +531,7 @@ impl PreviewRenderer {
                     0
                 }
             }
-            Alignment::Right => {
-                if pixel_width < self.print_width {
-                    self.print_width - pixel_width
-                } else {
-                    0
-                }
-            }
+            Alignment::Right => self.print_width.saturating_sub(pixel_width),
         };
 
         self.ensure_height(self.state.y + pixel_height);

@@ -231,7 +231,7 @@ pub fn print(key: &str, scale_x: u8, scale_y: u8) -> Option<Vec<u8>> {
     let (kc1, kc2) = validate_key(key)?;
 
     // Validate scale (must be 1 or 2)
-    if scale_x < 1 || scale_x > 2 || scale_y < 1 || scale_y > 2 {
+    if !(1..=2).contains(&scale_x) || !(1..=2).contains(&scale_y) {
         return None;
     }
 

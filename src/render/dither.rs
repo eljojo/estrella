@@ -144,6 +144,7 @@
 /// Dithering algorithm selection.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum DitheringAlgorithm {
     /// No dithering - simple threshold at 50%. Use for already-dithered or 1-bit images.
     None,
@@ -151,17 +152,12 @@ pub enum DitheringAlgorithm {
     Bayer,
     /// Floyd-Steinberg error diffusion (slower, organic look)
     #[serde(alias = "floyd-steinberg")]
+    #[default]
     FloydSteinberg,
     /// Atkinson dithering (classic Macintosh look, higher contrast)
     Atkinson,
     /// Jarvis-Judice-Ninke dithering (smoother gradients, larger diffusion)
     Jarvis,
-}
-
-impl Default for DitheringAlgorithm {
-    fn default() -> Self {
-        Self::FloydSteinberg
-    }
 }
 
 // ============================================================================
@@ -448,6 +444,7 @@ where
 /// ```
 ///
 /// Where X is the current pixel being processed.
+#[allow(clippy::needless_range_loop)]
 fn generate_raster_floyd_steinberg<F>(width: usize, height: usize, intensity_fn: F) -> Vec<u8>
 where
     F: Fn(usize, usize, usize, usize) -> f32,
@@ -531,6 +528,7 @@ where
 /// ```
 ///
 /// Note: 2/8 of the error is intentionally discarded, creating higher contrast.
+#[allow(clippy::needless_range_loop)]
 fn generate_raster_atkinson<F>(width: usize, height: usize, intensity_fn: F) -> Vec<u8>
 where
     F: Fn(usize, usize, usize, usize) -> f32,
@@ -624,6 +622,7 @@ where
 ///   3/48  5/48  7/48  5/48  3/48
 ///   1/48  3/48  5/48  3/48  1/48
 /// ```
+#[allow(clippy::needless_range_loop)]
 fn generate_raster_jarvis<F>(width: usize, height: usize, intensity_fn: F) -> Vec<u8>
 where
     F: Fn(usize, usize, usize, usize) -> f32,

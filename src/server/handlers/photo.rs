@@ -416,11 +416,7 @@ fn apply_brightness_contrast(img: &DynamicImage, brightness: i32, contrast: i32)
     // At -100: factor = 0 (all gray)
     // At 0: factor = 1 (no change)
     // At 100: factor = 2 (max contrast)
-    let contrast_factor = if contrast >= 0 {
-        1.0 + (contrast as f32 / 100.0)
-    } else {
-        1.0 + (contrast as f32 / 100.0)
-    };
+    let contrast_factor = 1.0 + (contrast as f32 / 100.0);
 
     for pixel in rgba.pixels_mut() {
         for c in 0..3 {

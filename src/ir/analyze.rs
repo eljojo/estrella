@@ -66,8 +66,10 @@ fn is_content_op(op: &Op) -> bool {
 
 /// Analyze an IR program for optimization opportunities
 pub fn analyze(program: &Program) -> AnalysisResults {
-    let mut results = AnalysisResults::default();
-    results.total_ops = program.ops.len();
+    let mut results = AnalysisResults {
+        total_ops: program.ops.len(),
+        ..Default::default()
+    };
 
     let mut state = StyleState::default();
     let mut pending_styles: Vec<(usize, Op)> = Vec::new(); // (index, op) pairs of unused styles

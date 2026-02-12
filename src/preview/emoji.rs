@@ -508,7 +508,7 @@ fn get_sprite_at_position(row: usize, col: usize, target_height: usize) -> Optio
     let src_y = row * STRIDE;
 
     // Extract the 12x12 cell
-    let mut cell = vec![0u8; CELL_SIZE * CELL_SIZE];
+    let mut cell = [0u8; CELL_SIZE * CELL_SIZE];
     for dy in 0..CELL_SIZE {
         for dx in 0..CELL_SIZE {
             let sx = src_x + dx;

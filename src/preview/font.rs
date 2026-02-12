@@ -48,21 +48,11 @@ impl FontMetrics {
 }
 
 /// Render state tracking current style and position.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct RenderState {
     pub style: StyleState,
     pub x: usize,
     pub y: usize,
-}
-
-impl Default for RenderState {
-    fn default() -> Self {
-        Self {
-            style: StyleState::default(),
-            x: 0,
-            y: 0,
-        }
-    }
 }
 
 impl RenderState {

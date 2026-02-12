@@ -163,10 +163,10 @@ fn process_image(
     let mut resized = source.resize_exact(target_width as u32, scaled_height, FilterType::Lanczos3);
 
     // Apply max height constraint
-    if let Some(max_h) = max_height {
-        if scaled_height > max_h as u32 {
-            resized = resized.resize(target_width as u32, max_h as u32, FilterType::Lanczos3);
-        }
+    if let Some(max_h) = max_height
+        && scaled_height > max_h as u32
+    {
+        resized = resized.resize(target_width as u32, max_h as u32, FilterType::Lanczos3);
     }
 
     let width = resized.width() as usize;
