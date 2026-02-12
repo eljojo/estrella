@@ -101,10 +101,11 @@
             src = ./.;
             cargoLock.lockFile = ./Cargo.lock;
             buildNoDefaultFeatures = true;
+            doCheck = false;
 
             depsBuildBuild = [ muslCC ];
 
-            CARGO_BUILD_TARGET = "aarch64-unknown-linux-musl";
+            cargoBuildTarget = "aarch64-unknown-linux-musl";
             CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER = "${muslCC}/bin/${muslCC.targetPrefix}cc";
 
             preBuild = ''
