@@ -102,7 +102,7 @@ version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "40c48f72fd53cd289104fc64099abca73db4166ad86ea0b4341abe65af83dadc"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -113,7 +113,7 @@ checksum = "291e6a250ff86cd4a820112fb8898808a366d8f9f58ce16d1f538353ad55747d"
 dependencies = [
  "anstyle",
  "once_cell_polyfill",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -645,7 +645,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -1266,9 +1266,9 @@ dependencies = [
 
 [[package]]
 name = "libheif-rs"
-version = "2.6.1"
+version = "2.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5de2912bca071d0f609cd6cb8d348c475439f69e808726374bea9e079591559e"
+checksum = "6a125c096e3959b4bf27f07c7bb649d5ad5f2f5601bceb647c7feb0cc1c0e1b3"
 dependencies = [
  "cfg-if",
  "enumn",
@@ -1279,9 +1279,9 @@ dependencies = [
 
 [[package]]
 name = "libheif-sys"
-version = "5.1.1+1.21.2"
+version = "5.0.0+1.20.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "03b69722f9386e24ae14655f8faddff28cb6a9a5511d7ffdde3a4499b51cca07"
+checksum = "99e20d554f655767996b08f1c74398410444e5d250c8439c5862fd7959b66f6b"
 dependencies = [
  "cfg-if",
  "libc",
@@ -2694,7 +2694,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
