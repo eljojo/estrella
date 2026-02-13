@@ -11,7 +11,7 @@
 
 use crate::shader::*;
 use async_trait::async_trait;
-use rand::Rng;
+use rand::RngExt;
 use std::fmt;
 
 /// Parameters for the scintillating grid pattern.

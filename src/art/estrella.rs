@@ -14,7 +14,7 @@
 use super::ParamSpec;
 use crate::shader::*;
 use async_trait::async_trait;
-use rand::Rng;
+use rand::RngExt;
 use std::f32::consts::PI;
 use std::fmt;
 

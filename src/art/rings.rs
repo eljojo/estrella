@@ -13,7 +13,7 @@
 
 use crate::shader::{center_coords, clamp01, dist, gamma, wave_cos, wave_sin};
 use async_trait::async_trait;
-use rand::Rng;
+use rand::RngExt;
 use std::fmt;
 
 /// Parameters for the rings effect.
