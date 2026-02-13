@@ -33,7 +33,7 @@ uuid = { version = "1", features = ["v4"] }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "gzip", "brotli", "deflate"] }
 async-trait = "0.1"
 flate2 = "1"
-libheif-rs = { version = "2", optional = true }
+libheif-rs = { version = "~2.5", optional = true }
 
 [features]
 default = ["heif"]
