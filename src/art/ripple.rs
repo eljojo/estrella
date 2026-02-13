@@ -13,7 +13,7 @@
 
 use crate::shader::{clamp01, dist, gamma, lerp, wave_cos, wave_sin};
 use async_trait::async_trait;
-use rand::Rng;
+use rand::RngExt;
 use std::fmt;
 
 /// Parameters for the ripple effect.
