@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "preact": "^10.28.4",
-    "@preact/signals": "^2.7.1"
+    "@preact/signals": "^2.8.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
