@@ -18,7 +18,7 @@ jobs:
         uses: cachix/install-nix-action@v31
 
       - name: Nix cache
-        uses: DeterminateSystems/magic-nix-cache-action@v8
+        uses: DeterminateSystems/magic-nix-cache-action@v13
 
       - name: Build frontend
         run: nix develop --command bash -c "cd frontend && npm ci && npm run build"
