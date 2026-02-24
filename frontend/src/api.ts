@@ -51,7 +51,9 @@ export function buildPreviewUrl(
   lengthMm: number,
   params: Record<string, string>,
   dither: string,
-  mode: string
+  mode: string,
+  width?: number,
+  height?: number
 ): string {
   const searchParams = new URLSearchParams({
     length_mm: lengthMm.toString(),
@@ -59,6 +61,8 @@ export function buildPreviewUrl(
     mode,
     ...params,
   })
+  if (width) searchParams.set('width', width.toString())
+  if (height) searchParams.set('height', height.toString())
   return `/api/patterns/${name}/preview?${searchParams.toString()}`
 }
 

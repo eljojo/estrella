@@ -13,6 +13,8 @@ const selectedPattern = signal('estrella')
 const params = signal<Record<string, string>>({})
 const specs = signal<ParamSpec[]>([])
 const lengthMm = signal(100)
+const pixelWidth = signal<number | null>(null)
+const pixelHeight = signal<number | null>(null)
 const dithering = signal<'bayer' | 'floyd-steinberg' | 'atkinson' | 'jarvis'>('floyd-steinberg')
 const renderMode = signal<'raster' | 'band'>('raster')
 export const cut = signal(true)
@@ -42,7 +44,9 @@ export const patternPreviewUrl = computed(() => {
     lengthMm.value,
     params.value,
     dithering.value,
-    renderMode.value
+    renderMode.value,
+    pixelWidth.value ?? undefined,
+    pixelHeight.value ?? undefined
   )
 })
 
@@ -305,12 +309,63 @@ export function PatternForm() {
           min="10"
           max="500"
           value={lengthMm.value}
+          disabled={pixelHeight.value !== null}
           onInput={(e) => {
             lengthMm.value = parseInt((e.target as HTMLInputElement).value) || 50
             handleSettingChange()
           }}
         />
         <p class="hint">Pattern height in millimeters (10-500mm)</p>
+      </div>
+
+      <div class="form-group">
+        <label>
+          <input
+            type="checkbox"
+            checked={pixelWidth.value !== null}
+            onChange={(e) => {
+              if ((e.target as HTMLInputElement).checked) {
+                pixelWidth.value = 1200
+                pixelHeight.value = 1800
+              } else {
+                pixelWidth.value = null
+                pixelHeight.value = null
+              }
+              handleSettingChange()
+            }}
+          />
+          {' '}Custom pixel dimensions
+        </label>
+        {pixelWidth.value !== null && (
+          <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+            <div>
+              <label for="px-width">Width (px)</label>
+              <input
+                type="number"
+                id="px-width"
+                min="1"
+                value={pixelWidth.value}
+                onInput={(e) => {
+                  pixelWidth.value = parseInt((e.target as HTMLInputElement).value) || 576
+                  handleSettingChange()
+                }}
+              />
+            </div>
+            <div>
+              <label for="px-height">Height (px)</label>
+              <input
+                type="number"
+                id="px-height"
+                min="1"
+                value={pixelHeight.value!}
+                onInput={(e) => {
+                  pixelHeight.value = parseInt((e.target as HTMLInputElement).value) || 800
+                  handleSettingChange()
+                }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       <div class="form-group">

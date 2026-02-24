@@ -37,6 +37,10 @@ pub struct PreviewQuery {
     #[serde(default = "default_mode")]
     #[allow(dead_code)]
     pub mode: String,
+    /// Override width in pixels (bypasses printer config).
+    pub width: Option<usize>,
+    /// Override height in pixels (bypasses length_mm calculation).
+    pub height: Option<usize>,
     #[serde(flatten)]
     pub params: HashMap<String, String>,
 }
@@ -132,10 +136,10 @@ pub async fn preview(
         }
     }
 
-    // Calculate dimensions
+    // Calculate dimensions (use overrides if provided, otherwise printer config)
     let config = PrinterConfig::TSP650II;
-    let width = config.width_dots as usize;
-    let height = config.mm_to_dots(query.length_mm) as usize;
+    let width = query.width.unwrap_or(config.width_dots as usize);
+    let height = query.height.unwrap_or(config.mm_to_dots(query.length_mm) as usize);
 
     // Prepare pattern (async — handles I/O like image downloads)
     let ctx = RenderContext::new(
