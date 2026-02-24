@@ -1,5 +1,45 @@
 /// API client functions for the Estrella backend.
 
+// ===== Profile API =====
+
+export interface DeviceProfile {
+  type: 'printer' | 'canvas'
+  name: string
+  width: number
+  dpi?: number
+  height?: number | null
+}
+
+/// Fetch built-in profiles.
+export async function fetchProfiles(): Promise<DeviceProfile[]> {
+  const response = await fetch('/api/profiles')
+  if (!response.ok) throw new Error('Failed to fetch profiles')
+  return response.json()
+}
+
+/// Fetch the active profile.
+export async function fetchActiveProfile(): Promise<DeviceProfile> {
+  const response = await fetch('/api/profiles/active')
+  if (!response.ok) throw new Error('Failed to fetch active profile')
+  return response.json()
+}
+
+/// Set the active profile.
+export async function setActiveProfile(body: { name: string } | DeviceProfile): Promise<DeviceProfile> {
+  const response = await fetch('/api/profiles/active', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!response.ok) {
+    const text = await response.text()
+    throw new Error(text || 'Failed to set active profile')
+  }
+  return response.json()
+}
+
+// ===== Pattern Types =====
+
 export interface ParamSpec {
   name: string
   label: string

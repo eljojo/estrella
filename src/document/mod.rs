@@ -41,6 +41,50 @@ use crate::printer::PrinterConfig;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+// ============================================================================
+// EMIT CONTEXT
+// ============================================================================
+
+/// Context passed to component `emit()` methods, carrying the ops buffer
+/// and the target print width. Eliminates hardcoded `576` and `48` throughout
+/// the document system.
+pub struct EmitContext {
+    /// The IR ops buffer being built.
+    pub ops: Vec<Op>,
+    /// Target print width in dots (e.g. 576 for TSP650II, 1200 for a canvas).
+    pub print_width: usize,
+}
+
+impl EmitContext {
+    /// Create a new context with the given print width.
+    pub fn new(print_width: usize) -> Self {
+        Self {
+            ops: Vec::new(),
+            print_width,
+        }
+    }
+
+    /// Push a single op.
+    pub fn push(&mut self, op: Op) {
+        self.ops.push(op);
+    }
+
+    /// Extend with multiple ops.
+    pub fn extend(&mut self, ops: impl IntoIterator<Item = Op>) {
+        self.ops.extend(ops);
+    }
+
+    /// Characters per line with Font A (12 dots/char).
+    pub fn chars_per_line(&self) -> usize {
+        self.print_width / 12
+    }
+
+    /// Characters per line with Font B (9 dots/char).
+    pub fn chars_per_line_b(&self) -> usize {
+        self.print_width / 9
+    }
+}
+
 fn default_true() -> bool {
     true
 }
@@ -213,6 +257,10 @@ pub struct Document {
     /// the result as a single raster image. Experimental.
     #[serde(default)]
     pub raster: bool,
+    /// Target print width in dots. Default: 576 (TSP650II).
+    /// Set this to render at a different width (e.g. 1200 for a virtual canvas).
+    #[serde(default)]
+    pub width: Option<usize>,
 }
 
 impl Default for Document {
@@ -223,6 +271,7 @@ impl Default for Document {
             variables: HashMap::new(),
             interpolate: true,
             raster: false,
+            width: None,
         }
     }
 }
@@ -254,17 +303,20 @@ impl Document {
             }
         }
 
-        let mut ops = vec![Op::Init, Op::SetCodepage(1)];
+        let print_width = doc.width.unwrap_or(576);
+        let mut ctx = EmitContext::new(print_width);
+        ctx.push(Op::Init);
+        ctx.push(Op::SetCodepage(1));
 
         for component in &doc.document {
-            component.emit(&mut ops);
+            component.emit(&mut ctx);
         }
 
         if doc.cut {
-            ops.push(Op::Cut { partial: true });
+            ctx.push(Op::Cut { partial: true });
         }
 
-        let program = Program { ops };
+        let program = Program { ops: ctx.ops };
         program.optimize()
     }
 
@@ -325,8 +377,8 @@ macro_rules! define_components {
 
         impl Component {
             /// Emit IR ops for this component.
-            pub fn emit(&self, ops: &mut Vec<Op>) {
-                match self { $(Component::$variant(c) => c.emit(ops),)+ }
+            pub fn emit(&self, ctx: &mut EmitContext) {
+                match self { $(Component::$variant(c) => c.emit(ctx),)+ }
             }
 
             /// Interpolate template variables in this component's text fields.

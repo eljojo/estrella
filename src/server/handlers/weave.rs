@@ -11,7 +11,6 @@ use serde::Deserialize;
 use std::{collections::HashMap, io::Cursor, sync::Arc};
 
 use crate::{
-    printer::PrinterConfig,
     render::{
         context::RenderContext,
         dither,
@@ -100,9 +99,17 @@ pub async fn preview(
     );
 
     // Calculate dimensions (needed for prepare)
-    let config = PrinterConfig::TSP650II;
-    let width = config.width_dots as usize;
-    let height = config.mm_to_dots(req.length_mm) as usize;
+    let profile = state.active_profile.read().await;
+    let width = profile.width_dots();
+    let height = profile
+        .mm_to_dots(req.length_mm)
+        .map(|d| d as usize)
+        .unwrap_or(req.length_mm.round() as usize);
+    let crossfade_pixels = profile
+        .mm_to_dots(req.crossfade_mm)
+        .map(|d| d as usize)
+        .unwrap_or(req.crossfade_mm.round() as usize);
+    drop(profile);
 
     // Load, configure, and prepare patterns
     let mut pattern_impls: Vec<Box<dyn Pattern>> = Vec::new();
@@ -127,8 +134,6 @@ pub async fn preview(
 
         pattern_impls.push(pattern);
     }
-
-    let crossfade_pixels = config.mm_to_dots(req.crossfade_mm) as usize;
 
     // Parse curve
     let blend_curve = BlendCurve::from_str(&req.curve).unwrap_or(BlendCurve::Smooth);
@@ -207,11 +212,24 @@ pub async fn print(
         state.intensity_cache.clone(),
     );
 
-    // Calculate dimensions (needed for prepare)
-    let config = PrinterConfig::TSP650II;
-    let width = config.width_dots as usize;
-    let height = config.mm_to_dots(req.length_mm) as usize;
-    let crossfade_pixels = config.mm_to_dots(req.crossfade_mm) as usize;
+    // Check that the active profile can print
+    let profile = state.active_profile.read().await;
+    if !profile.can_print() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"success": false, "error": "Cannot print: active profile is a virtual canvas"})),
+        ));
+    }
+    let width = profile.width_dots();
+    let height = profile
+        .mm_to_dots(req.length_mm)
+        .map(|d| d as usize)
+        .unwrap_or(req.length_mm.round() as usize);
+    let crossfade_pixels = profile
+        .mm_to_dots(req.crossfade_mm)
+        .map(|d| d as usize)
+        .unwrap_or(req.crossfade_mm.round() as usize);
+    drop(profile);
 
     // Load, configure, and prepare patterns
     let mut pattern_impls: Vec<Box<dyn Pattern>> = Vec::new();
@@ -269,7 +287,7 @@ pub async fn print(
     );
 
     // Build print command based on mode
-    use crate::document::{Divider, Text};
+    use crate::document::{Divider, EmitContext, Text};
     use crate::ir::{Op, Program};
 
     let mut program = Program::new();
@@ -295,9 +313,9 @@ pub async fn print(
     // Print details at bottom if enabled
     if req.print_details {
         let divider = Divider::default();
-        let mut divider_ops = Vec::new();
-        divider.emit(&mut divider_ops);
-        program.extend(divider_ops);
+        let mut ctx = EmitContext::new(width);
+        divider.emit(&mut ctx);
+        program.extend(ctx.ops);
 
         // Each pattern with its params
         for (i, entry) in req.patterns.iter().enumerate() {
@@ -317,9 +335,9 @@ pub async fn print(
                 size: [0, 0],
                 ..Default::default()
             };
-            let mut text_ops = Vec::new();
-            text.emit(&mut text_ops);
-            program.extend(text_ops);
+            let mut ctx = EmitContext::new(width);
+            text.emit(&mut ctx);
+            program.extend(ctx.ops);
             program.push(Op::Newline);
         }
     }

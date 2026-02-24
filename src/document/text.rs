@@ -1,5 +1,6 @@
 //! Emit logic for text components: Text, Header, LineItem, Total.
 
+use super::EmitContext;
 use super::types::{Header, LineItem, Text, Total};
 use crate::ir::Op;
 use crate::preview::{FontMetrics, emoji, generate_glyph, ttf_font};
@@ -8,21 +9,21 @@ use crate::render::dither;
 
 impl Text {
     /// Emit IR ops for this text component.
-    pub fn emit(&self, ops: &mut Vec<Op>) {
+    pub fn emit(&self, ctx: &mut EmitContext) {
         // Priority 1: Custom font specified → TTF rendering
         if let Some(ref font_name) = self.font {
             // With custom font, also handle emoji if present
             if emoji::contains_emoji(&self.content) {
-                self.emit_with_font_and_emoji(font_name, ops);
+                self.emit_with_font_and_emoji(font_name, ctx);
             } else {
-                self.emit_with_custom_font(font_name, ops);
+                self.emit_with_custom_font(font_name, ctx);
             }
             return;
         }
 
         // Priority 2: Contains emoji (no custom font) → bitmap font + emoji sprites
         if emoji::contains_emoji(&self.content) {
-            self.emit_with_emoji(ops);
+            self.emit_with_emoji(ctx);
             return;
         }
 
@@ -72,91 +73,91 @@ impl Text {
 
         // Emit style changes (order matters for compatibility)
         if let Some(align) = alignment {
-            ops.push(Op::SetAlign(align));
+            ctx.push(Op::SetAlign(align));
         }
-        ops.push(Op::SetFont(font));
+        ctx.push(Op::SetFont(font));
         if let Some(enabled) = should_smooth {
-            ops.push(Op::SetSmoothing(enabled));
+            ctx.push(Op::SetSmoothing(enabled));
         }
         if self.bold {
-            ops.push(Op::SetBold(true));
+            ctx.push(Op::SetBold(true));
         }
         if self.underline {
-            ops.push(Op::SetUnderline(true));
+            ctx.push(Op::SetUnderline(true));
         }
         if self.upperline {
-            ops.push(Op::SetUpperline(true));
+            ctx.push(Op::SetUpperline(true));
         }
         if self.invert {
-            ops.push(Op::SetInvert(true));
+            ctx.push(Op::SetInvert(true));
         }
         if self.upside_down {
-            ops.push(Op::SetUpsideDown(true));
+            ctx.push(Op::SetUpsideDown(true));
         }
         if self.reduced {
-            ops.push(Op::SetReduced(true));
+            ctx.push(Op::SetReduced(true));
         }
         if scaled_width > 0 {
-            ops.push(Op::SetExpandedWidth(scaled_width));
+            ctx.push(Op::SetExpandedWidth(scaled_width));
         }
         if scaled_height > 0 {
-            ops.push(Op::SetExpandedHeight(scaled_height));
+            ctx.push(Op::SetExpandedHeight(scaled_height));
         }
         if esc_h > 0 || esc_w > 0 {
-            ops.push(Op::SetSize {
+            ctx.push(Op::SetSize {
                 height: esc_h,
                 width: esc_w,
             });
         }
 
         // Emit text
-        ops.push(Op::Text(self.content.clone()));
+        ctx.push(Op::Text(self.content.clone()));
         if !self.is_inline {
-            ops.push(Op::Newline);
+            ctx.push(Op::Newline);
         }
 
         // Reset styles that were changed (reverse order)
         if esc_h > 0 || esc_w > 0 {
-            ops.push(Op::SetSize {
+            ctx.push(Op::SetSize {
                 height: 0,
                 width: 0,
             });
         }
         if scaled_height > 0 {
-            ops.push(Op::SetExpandedHeight(0));
+            ctx.push(Op::SetExpandedHeight(0));
         }
         if scaled_width > 0 {
-            ops.push(Op::SetExpandedWidth(0));
+            ctx.push(Op::SetExpandedWidth(0));
         }
         if self.reduced {
-            ops.push(Op::SetReduced(false));
+            ctx.push(Op::SetReduced(false));
         }
         if self.upside_down {
-            ops.push(Op::SetUpsideDown(false));
+            ctx.push(Op::SetUpsideDown(false));
         }
         if self.invert {
-            ops.push(Op::SetInvert(false));
+            ctx.push(Op::SetInvert(false));
         }
         if self.upperline {
-            ops.push(Op::SetUpperline(false));
+            ctx.push(Op::SetUpperline(false));
         }
         if self.underline {
-            ops.push(Op::SetUnderline(false));
+            ctx.push(Op::SetUnderline(false));
         }
         if self.bold {
-            ops.push(Op::SetBold(false));
+            ctx.push(Op::SetBold(false));
         }
         // Reset auto-enabled smoothing (but not explicit smoothing)
         if should_smooth == Some(true) && self.smoothing.is_none() {
-            ops.push(Op::SetSmoothing(false));
+            ctx.push(Op::SetSmoothing(false));
         }
         // Note: alignment and font are NOT reset - they persist
     }
 
     /// Emit text rendered with a custom TTF font as a raster image.
-    fn emit_with_custom_font(&self, font_name: &str, ops: &mut Vec<Op>) {
+    fn emit_with_custom_font(&self, font_name: &str, ctx: &mut EmitContext) {
         let pixel_height = ttf_font::size_to_pixel_height(self.size);
-        let print_width: usize = 576;
+        let print_width = ctx.print_width;
 
         let rendered = ttf_font::render_ttf_text(
             &self.content,
@@ -170,7 +171,7 @@ impl Text {
             return;
         }
 
-        // Handle alignment: compute x offset within 576 dots
+        // Handle alignment: compute x offset within print width
         let x_offset = if self.center || self.align.as_deref() == Some("center") {
             (print_width.saturating_sub(rendered.width)) / 2
         } else if self.right || self.align.as_deref() == Some("right") {
@@ -202,7 +203,7 @@ impl Text {
             raster_data
         };
 
-        ops.push(Op::Raster {
+        ctx.push(Op::Raster {
             width: print_width as u16,
             height: rendered.height as u16,
             data: raster_data,
@@ -213,8 +214,8 @@ impl Text {
     ///
     /// Uses the standard bitmap font system (Spleen) for regular characters
     /// and emoji sprites for supported emoji. Both are 1-bit, so no dithering needed.
-    fn emit_with_emoji(&self, ops: &mut Vec<Op>) {
-        let print_width: usize = 576;
+    fn emit_with_emoji(&self, ctx: &mut EmitContext) {
+        let print_width = ctx.print_width;
 
         // Determine font based on size field
         let [h, _w] = self.size;
@@ -374,7 +375,7 @@ impl Text {
             }
         }
 
-        ops.push(Op::Raster {
+        ctx.push(Op::Raster {
             width: print_width as u16,
             height: char_height as u16,
             data: raster_data,
@@ -385,9 +386,9 @@ impl Text {
     ///
     /// Uses TTF rendering for regular characters and emoji sprites for emoji.
     /// Both produce f32 buffers, dithered with Atkinson.
-    fn emit_with_font_and_emoji(&self, font_name: &str, ops: &mut Vec<Op>) {
+    fn emit_with_font_and_emoji(&self, font_name: &str, ctx: &mut EmitContext) {
         let pixel_height = ttf_font::size_to_pixel_height(self.size);
-        let print_width: usize = 576;
+        let print_width = ctx.print_width;
         let target_height = pixel_height.ceil() as usize;
 
         // Parse text into segments (handles both single-char and keycap emoji)
@@ -531,7 +532,7 @@ impl Text {
             raster_data
         };
 
-        ops.push(Op::Raster {
+        ctx.push(Op::Raster {
             width: print_width as u16,
             height: target_height as u16,
             data: raster_data,
@@ -565,7 +566,7 @@ enum ContentSegment {
 
 impl Header {
     /// Emit IR ops for this header component.
-    pub fn emit(&self, ops: &mut Vec<Op>) {
+    pub fn emit(&self, ctx: &mut EmitContext) {
         let variant = self.variant.as_deref().unwrap_or("normal");
         let text = match variant {
             "small" => Text {
@@ -582,14 +583,14 @@ impl Header {
                 ..Default::default()
             },
         };
-        text.emit(ops);
+        text.emit(ctx);
     }
 }
 
 impl LineItem {
     /// Emit IR ops for this line item component.
-    pub fn emit(&self, ops: &mut Vec<Op>) {
-        let width = self.width.unwrap_or(48);
+    pub fn emit(&self, ctx: &mut EmitContext) {
+        let width = self.width.unwrap_or(ctx.chars_per_line());
         let price_str = format!("{:.2}", self.price);
         let name_max_width = width.saturating_sub(price_str.len() + 1);
         let name = if self.name.len() > name_max_width {
@@ -605,17 +606,17 @@ impl LineItem {
             pad = padding + price_str.len()
         );
 
-        // Reset to Font A to ensure correct width (48 chars × 12 dots = 576 = full print width)
-        ops.push(Op::SetFont(Font::A));
-        ops.push(Op::SetAlign(Alignment::Left));
-        ops.push(Op::Text(line));
-        ops.push(Op::Newline);
+        // Reset to Font A to ensure correct width
+        ctx.push(Op::SetFont(Font::A));
+        ctx.push(Op::SetAlign(Alignment::Left));
+        ctx.push(Op::Text(line));
+        ctx.push(Op::Newline);
     }
 }
 
 impl Total {
     /// Emit IR ops for this total component.
-    pub fn emit(&self, ops: &mut Vec<Op>) {
+    pub fn emit(&self, ctx: &mut EmitContext) {
         let label = self.label.as_deref().unwrap_or("TOTAL:");
         let bold = self.bold.unwrap_or(self.label.is_none());
         let right_align = match self.align.as_deref() {
@@ -628,23 +629,23 @@ impl Total {
         let line = format!("{}  {}", label, amount_str);
 
         // Reset to Font A to ensure correct width
-        ops.push(Op::SetFont(Font::A));
+        ctx.push(Op::SetFont(Font::A));
         if right_align {
-            ops.push(Op::SetAlign(Alignment::Right));
+            ctx.push(Op::SetAlign(Alignment::Right));
         }
         if bold {
-            ops.push(Op::SetBold(true));
+            ctx.push(Op::SetBold(true));
         }
         if scaled_width > 0 {
-            ops.push(Op::SetExpandedWidth(scaled_width));
+            ctx.push(Op::SetExpandedWidth(scaled_width));
         }
-        ops.push(Op::Text(line));
-        ops.push(Op::Newline);
+        ctx.push(Op::Text(line));
+        ctx.push(Op::Newline);
         if scaled_width > 0 {
-            ops.push(Op::SetExpandedWidth(0));
+            ctx.push(Op::SetExpandedWidth(0));
         }
         if bold {
-            ops.push(Op::SetBold(false));
+            ctx.push(Op::SetBold(false));
         }
     }
 }
@@ -653,13 +654,17 @@ impl Total {
 mod tests {
     use super::*;
 
+    fn ctx() -> EmitContext {
+        EmitContext::new(576)
+    }
+
     #[test]
     fn test_simple_text() {
         let text = Text::new("Hello");
-        let mut ops = Vec::new();
-        text.emit(&mut ops);
-        assert!(ops.iter().any(|op| *op == Op::Text("Hello".into())));
-        assert!(ops.iter().any(|op| *op == Op::Newline));
+        let mut ctx = ctx();
+        text.emit(&mut ctx);
+        assert!(ctx.ops.iter().any(|op| *op == Op::Text("Hello".into())));
+        assert!(ctx.ops.iter().any(|op| *op == Op::Newline));
     }
 
     #[test]
@@ -669,10 +674,10 @@ mod tests {
             is_inline: true,
             ..Default::default()
         };
-        let mut ops = Vec::new();
-        text.emit(&mut ops);
-        assert!(ops.iter().any(|op| *op == Op::Text("Hello".into())));
-        assert!(!ops.iter().any(|op| *op == Op::Newline));
+        let mut ctx = ctx();
+        text.emit(&mut ctx);
+        assert!(ctx.ops.iter().any(|op| *op == Op::Text("Hello".into())));
+        assert!(!ctx.ops.iter().any(|op| *op == Op::Newline));
     }
 
     #[test]
@@ -682,11 +687,11 @@ mod tests {
             bold: true,
             ..Default::default()
         };
-        let mut ops = Vec::new();
-        text.emit(&mut ops);
-        let bold_on = ops.iter().position(|op| *op == Op::SetBold(true));
-        let text_pos = ops.iter().position(|op| *op == Op::Text("Bold".into()));
-        let bold_off = ops.iter().position(|op| *op == Op::SetBold(false));
+        let mut ctx = ctx();
+        text.emit(&mut ctx);
+        let bold_on = ctx.ops.iter().position(|op| *op == Op::SetBold(true));
+        let text_pos = ctx.ops.iter().position(|op| *op == Op::Text("Bold".into()));
+        let bold_off = ctx.ops.iter().position(|op| *op == Op::SetBold(false));
         assert!(bold_on.unwrap() < text_pos.unwrap());
         assert!(text_pos.unwrap() < bold_off.unwrap());
     }
@@ -698,9 +703,9 @@ mod tests {
             center: true,
             ..Default::default()
         };
-        let mut ops = Vec::new();
-        text.emit(&mut ops);
-        assert!(ops.iter().any(|op| *op == Op::SetAlign(Alignment::Center)));
+        let mut ctx = ctx();
+        text.emit(&mut ctx);
+        assert!(ctx.ops.iter().any(|op| *op == Op::SetAlign(Alignment::Center)));
     }
 
     #[test]
@@ -711,20 +716,20 @@ mod tests {
             center: true, // should be ignored
             ..Default::default()
         };
-        let mut ops = Vec::new();
-        text.emit(&mut ops);
-        assert!(ops.iter().any(|op| *op == Op::SetAlign(Alignment::Right)));
-        assert!(!ops.iter().any(|op| *op == Op::SetAlign(Alignment::Center)));
+        let mut ctx = ctx();
+        text.emit(&mut ctx);
+        assert!(ctx.ops.iter().any(|op| *op == Op::SetAlign(Alignment::Right)));
+        assert!(!ctx.ops.iter().any(|op| *op == Op::SetAlign(Alignment::Center)));
     }
 
     #[test]
     fn test_header_normal() {
         let header = Header::new("STORE");
-        let mut ops = Vec::new();
-        header.emit(&mut ops);
-        assert!(ops.iter().any(|op| *op == Op::SetAlign(Alignment::Center)));
-        assert!(ops.iter().any(|op| *op == Op::SetBold(true)));
-        assert!(ops.iter().any(|op| *op
+        let mut ctx = ctx();
+        header.emit(&mut ctx);
+        assert!(ctx.ops.iter().any(|op| *op == Op::SetAlign(Alignment::Center)));
+        assert!(ctx.ops.iter().any(|op| *op == Op::SetBold(true)));
+        assert!(ctx.ops.iter().any(|op| *op
             == Op::SetSize {
                 height: 1,
                 width: 1
@@ -737,18 +742,18 @@ mod tests {
             content: "small".into(),
             variant: Some("small".into()),
         };
-        let mut ops = Vec::new();
-        header.emit(&mut ops);
-        assert!(ops.iter().any(|op| *op == Op::SetBold(true)));
-        assert!(!ops.iter().any(|op| matches!(op, Op::SetSize { .. })));
+        let mut ctx = ctx();
+        header.emit(&mut ctx);
+        assert!(ctx.ops.iter().any(|op| *op == Op::SetBold(true)));
+        assert!(!ctx.ops.iter().any(|op| matches!(op, Op::SetSize { .. })));
     }
 
     #[test]
     fn test_line_item() {
         let item = LineItem::new("Coffee", 4.50);
-        let mut ops = Vec::new();
-        item.emit(&mut ops);
-        let has_formatted_line = ops.iter().any(|op| {
+        let mut ctx = ctx();
+        item.emit(&mut ctx);
+        let has_formatted_line = ctx.ops.iter().any(|op| {
             if let Op::Text(s) = op {
                 s.contains("Coffee") && s.contains("4.50")
             } else {
@@ -761,11 +766,11 @@ mod tests {
     #[test]
     fn test_total_default() {
         let total = Total::new(19.99);
-        let mut ops = Vec::new();
-        total.emit(&mut ops);
-        assert!(ops.iter().any(|op| *op == Op::SetBold(true)));
-        assert!(ops.iter().any(|op| *op == Op::SetAlign(Alignment::Right)));
-        let has_total = ops.iter().any(|op| {
+        let mut ctx = ctx();
+        total.emit(&mut ctx);
+        assert!(ctx.ops.iter().any(|op| *op == Op::SetBold(true)));
+        assert!(ctx.ops.iter().any(|op| *op == Op::SetAlign(Alignment::Right)));
+        let has_total = ctx.ops.iter().any(|op| {
             if let Op::Text(s) = op {
                 s.contains("TOTAL:") && s.contains("19.99")
             } else {
@@ -783,9 +788,9 @@ mod tests {
             bold: Some(false),
             ..Default::default()
         };
-        let mut ops = Vec::new();
-        total.emit(&mut ops);
-        assert!(!ops.iter().any(|op| *op == Op::SetBold(true)));
+        let mut ctx = ctx();
+        total.emit(&mut ctx);
+        assert!(!ctx.ops.iter().any(|op| *op == Op::SetBold(true)));
     }
 
     #[test]
@@ -795,10 +800,10 @@ mod tests {
             scale: Some([1, 1]),
             ..Default::default()
         };
-        let mut ops = Vec::new();
-        text.emit(&mut ops);
-        assert!(ops.contains(&Op::SetSmoothing(true)));
-        assert!(ops.contains(&Op::SetSmoothing(false)));
+        let mut ctx = ctx();
+        text.emit(&mut ctx);
+        assert!(ctx.ops.contains(&Op::SetSmoothing(true)));
+        assert!(ctx.ops.contains(&Op::SetSmoothing(false)));
     }
 
     #[test]
@@ -808,18 +813,18 @@ mod tests {
             size: [2, 2],
             ..Default::default()
         };
-        let mut ops = Vec::new();
-        text.emit(&mut ops);
-        assert!(ops.contains(&Op::SetSmoothing(true)));
-        assert!(ops.contains(&Op::SetSmoothing(false)));
+        let mut ctx = ctx();
+        text.emit(&mut ctx);
+        assert!(ctx.ops.contains(&Op::SetSmoothing(true)));
+        assert!(ctx.ops.contains(&Op::SetSmoothing(false)));
     }
 
     #[test]
     fn test_no_auto_smoothing_normal_text() {
         let text = Text::new("normal");
-        let mut ops = Vec::new();
-        text.emit(&mut ops);
-        assert!(!ops.iter().any(|op| matches!(op, Op::SetSmoothing(_))));
+        let mut ctx = ctx();
+        text.emit(&mut ctx);
+        assert!(!ctx.ops.iter().any(|op| matches!(op, Op::SetSmoothing(_))));
     }
 
     #[test]
@@ -829,10 +834,10 @@ mod tests {
             smoothing: Some(true),
             ..Default::default()
         };
-        let mut ops = Vec::new();
-        text.emit(&mut ops);
-        assert!(ops.contains(&Op::SetSmoothing(true)));
-        assert!(!ops.contains(&Op::SetSmoothing(false)));
+        let mut ctx = ctx();
+        text.emit(&mut ctx);
+        assert!(ctx.ops.contains(&Op::SetSmoothing(true)));
+        assert!(!ctx.ops.contains(&Op::SetSmoothing(false)));
     }
 
     #[test]
@@ -842,19 +847,19 @@ mod tests {
             size: [0, 0],
             ..Default::default()
         };
-        let mut ops = Vec::new();
-        text.emit(&mut ops);
-        assert!(ops.contains(&Op::SetFont(Font::B)));
-        assert!(!ops.iter().any(|op| matches!(op, Op::SetSize { .. })));
+        let mut ctx = ctx();
+        text.emit(&mut ctx);
+        assert!(ctx.ops.contains(&Op::SetFont(Font::B)));
+        assert!(!ctx.ops.iter().any(|op| matches!(op, Op::SetSize { .. })));
     }
 
     #[test]
     fn test_size_1_uses_font_a_no_expansion() {
         let text = Text::new("normal");
-        let mut ops = Vec::new();
-        text.emit(&mut ops);
-        assert!(ops.contains(&Op::SetFont(Font::A)));
-        assert!(!ops.iter().any(|op| matches!(op, Op::SetSize { .. })));
+        let mut ctx = ctx();
+        text.emit(&mut ctx);
+        assert!(ctx.ops.contains(&Op::SetFont(Font::A)));
+        assert!(!ctx.ops.iter().any(|op| matches!(op, Op::SetSize { .. })));
     }
 
     #[test]
@@ -864,10 +869,10 @@ mod tests {
             size: [3, 3],
             ..Default::default()
         };
-        let mut ops = Vec::new();
-        text.emit(&mut ops);
-        assert!(ops.contains(&Op::SetFont(Font::A)));
-        assert!(ops.contains(&Op::SetSize {
+        let mut ctx = ctx();
+        text.emit(&mut ctx);
+        assert!(ctx.ops.contains(&Op::SetFont(Font::A)));
+        assert!(ctx.ops.contains(&Op::SetSize {
             height: 2,
             width: 2
         }));
@@ -880,11 +885,11 @@ mod tests {
             size: [3, 1],
             ..Default::default()
         };
-        let mut ops = Vec::new();
-        text.emit(&mut ops);
-        assert!(ops.contains(&Op::SetFont(Font::A)));
+        let mut ctx = ctx();
+        text.emit(&mut ctx);
+        assert!(ctx.ops.contains(&Op::SetFont(Font::A)));
         // [3, 1] → ESC i [2, 0] — height expansion only
-        assert!(ops.contains(&Op::SetSize {
+        assert!(ctx.ops.contains(&Op::SetSize {
             height: 2,
             width: 0
         }));
@@ -896,82 +901,69 @@ mod tests {
 
     #[test]
     fn test_text_with_emoji_emits_raster() {
-        // Text with emoji should emit Raster op (not Text op)
         let text = Text {
             content: "Hello ☀ World".into(),
             ..Default::default()
         };
-        let mut ops = Vec::new();
-        text.emit(&mut ops);
-
-        // Should have a Raster op
+        let mut ctx = ctx();
+        text.emit(&mut ctx);
         assert!(
-            ops.iter().any(|op| matches!(op, Op::Raster { .. })),
+            ctx.ops.iter().any(|op| matches!(op, Op::Raster { .. })),
             "Text with emoji should emit Raster op"
         );
-        // Should NOT have a Text op (emoji forces graphics mode)
         assert!(
-            !ops.iter().any(|op| matches!(op, Op::Text(_))),
+            !ctx.ops.iter().any(|op| matches!(op, Op::Text(_))),
             "Text with emoji should not emit Text op"
         );
     }
 
     #[test]
     fn test_text_without_emoji_emits_text() {
-        // Text without emoji should emit normal Text op
         let text = Text::new("Hello World");
-        let mut ops = Vec::new();
-        text.emit(&mut ops);
-
-        // Should have a Text op
+        let mut ctx = ctx();
+        text.emit(&mut ctx);
         assert!(
-            ops.iter().any(|op| matches!(op, Op::Text(_))),
+            ctx.ops.iter().any(|op| matches!(op, Op::Text(_))),
             "Text without emoji should emit Text op"
         );
-        // Should NOT have a Raster op
         assert!(
-            !ops.iter().any(|op| matches!(op, Op::Raster { .. })),
+            !ctx.ops.iter().any(|op| matches!(op, Op::Raster { .. })),
             "Text without emoji should not emit Raster op"
         );
     }
 
     #[test]
     fn test_text_with_emoji_and_custom_font() {
-        // Text with emoji AND custom font should use TTF+emoji path
         let text = Text {
             content: "Heart ❤ love".into(),
             font: Some("ibm".into()),
             ..Default::default()
         };
-        let mut ops = Vec::new();
-        text.emit(&mut ops);
-
-        // Should have a Raster op
+        let mut ctx = ctx();
+        text.emit(&mut ctx);
         assert!(
-            ops.iter().any(|op| matches!(op, Op::Raster { .. })),
+            ctx.ops.iter().any(|op| matches!(op, Op::Raster { .. })),
             "Text with emoji and custom font should emit Raster op"
         );
     }
 
     #[test]
     fn test_emoji_raster_has_content() {
-        // Verify the raster has actual content (non-zero data)
         let text = Text {
             content: "☀".into(),
             ..Default::default()
         };
-        let mut ops = Vec::new();
-        text.emit(&mut ops);
+        let mut ctx = ctx();
+        text.emit(&mut ctx);
 
         if let Some(Op::Raster {
             width,
             height,
             data,
-        }) = ops.iter().find(|op| matches!(op, Op::Raster { .. }))
+        }) = ctx.ops.iter().find(|op| matches!(op, Op::Raster { .. }))
         {
             assert!(*width > 0, "Raster should have non-zero width");
             assert!(*height > 0, "Raster should have non-zero height");
-            // Should have some black pixels
             assert!(
                 data.iter().any(|&b| b != 0),
                 "Emoji raster should have some black pixels"

@@ -12,7 +12,6 @@ use std::{collections::HashMap, io::Cursor, sync::Arc};
 
 use crate::{
     art::ParamSpec,
-    printer::PrinterConfig,
     render::{context::RenderContext, dither, patterns},
     transport::BluetoothTransport,
 };
@@ -136,10 +135,16 @@ pub async fn preview(
         }
     }
 
-    // Calculate dimensions (use overrides if provided, otherwise printer config)
-    let config = PrinterConfig::TSP650II;
-    let width = query.width.unwrap_or(config.width_dots as usize);
-    let height = query.height.unwrap_or(config.mm_to_dots(query.length_mm) as usize);
+    // Calculate dimensions (use overrides if provided, otherwise active profile)
+    let profile = state.active_profile.read().await;
+    let width = query.width.unwrap_or(profile.width_dots());
+    let height = query.height.unwrap_or_else(|| {
+        profile
+            .mm_to_dots(query.length_mm)
+            .map(|d| d as usize)
+            .unwrap_or(query.length_mm.round() as usize) // Canvas: treat as pixels directly
+    });
+    drop(profile);
 
     // Prepare pattern (async — handles I/O like image downloads)
     let ctx = RenderContext::new(
@@ -220,10 +225,20 @@ pub async fn print(
         })?;
     }
 
-    // Calculate dimensions
-    let config = PrinterConfig::TSP650II;
-    let width = config.width_dots as usize;
-    let height = config.mm_to_dots(form.length_mm) as usize;
+    // Check that the active profile can print
+    let profile = state.active_profile.read().await;
+    if !profile.can_print() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"success": false, "error": "Cannot print: active profile is a virtual canvas"})),
+        ));
+    }
+    let width = profile.width_dots();
+    let height = profile
+        .mm_to_dots(form.length_mm)
+        .map(|d| d as usize)
+        .unwrap_or(form.length_mm.round() as usize);
+    drop(profile);
 
     // Prepare pattern (async — handles I/O like image downloads)
     let ctx = RenderContext::new(
@@ -257,7 +272,7 @@ pub async fn print(
     let raster_data = patterns::render(pattern.as_ref(), width, height, dither_algo);
 
     // Build print command based on mode
-    use crate::document::{Divider, Text};
+    use crate::document::{Divider, EmitContext, Text};
     use crate::ir::{Op, Program};
 
     let mut program = Program::new();
@@ -273,16 +288,16 @@ pub async fn print(
             size: [3, 2],
             ..Default::default()
         };
-        let mut title_ops = Vec::new();
-        title.emit(&mut title_ops);
-        program.extend(title_ops);
+        let mut ctx = EmitContext::new(width);
+        title.emit(&mut ctx);
+        program.extend(ctx.ops);
         program.push(Op::Newline);
 
         // Divider
         let divider = Divider::default();
-        let mut divider_ops = Vec::new();
-        divider.emit(&mut divider_ops);
-        program.extend(divider_ops);
+        let mut ctx = EmitContext::new(width);
+        divider.emit(&mut ctx);
+        program.extend(ctx.ops);
     }
 
     if form.mode == "band" {
@@ -301,9 +316,9 @@ pub async fn print(
     // Print parameters if details enabled
     if form.print_details {
         let divider = Divider::default();
-        let mut divider_ops = Vec::new();
-        divider.emit(&mut divider_ops);
-        program.extend(divider_ops);
+        let mut ctx = EmitContext::new(width);
+        divider.emit(&mut ctx);
+        program.extend(ctx.ops);
 
         // Parameters
         let params_list = pattern.list_params();
@@ -319,9 +334,9 @@ pub async fn print(
                 size: [0, 0],
                 ..Default::default()
             };
-            let mut params_ops = Vec::new();
-            params.emit(&mut params_ops);
-            program.extend(params_ops);
+            let mut ctx = EmitContext::new(width);
+            params.emit(&mut ctx);
+            program.extend(ctx.ops);
             program.push(Op::Newline);
         }
     }

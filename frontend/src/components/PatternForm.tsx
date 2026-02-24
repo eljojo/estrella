@@ -7,14 +7,13 @@ import {
   printPattern,
   ParamSpec,
 } from '../api'
+import { canPrint, activeProfile, profileWidth } from './ProfileSelector'
 
 const patterns = signal<string[]>([])
 const selectedPattern = signal('estrella')
 const params = signal<Record<string, string>>({})
 const specs = signal<ParamSpec[]>([])
 const lengthMm = signal(100)
-const pixelWidth = signal<number | null>(null)
-const pixelHeight = signal<number | null>(null)
 const dithering = signal<'bayer' | 'floyd-steinberg' | 'atkinson' | 'jarvis'>('floyd-steinberg')
 const renderMode = signal<'raster' | 'band'>('raster')
 export const cut = signal(true)
@@ -37,7 +36,7 @@ const areParamsEqual = (a: Record<string, string>, b: Record<string, string>) =>
 // Export preview URL for App.tsx
 export const patternPreviewUrl = computed(() => {
   if (!selectedPattern.value) return ''
-  // Include previewKey to force refresh
+  // Include previewKey to force refresh on changes
   void previewKey.value
   return buildPreviewUrl(
     selectedPattern.value,
@@ -45,8 +44,7 @@ export const patternPreviewUrl = computed(() => {
     params.value,
     dithering.value,
     renderMode.value,
-    pixelWidth.value ?? undefined,
-    pixelHeight.value ?? undefined
+    profileWidth.value
   )
 })
 
@@ -302,70 +300,23 @@ export function PatternForm() {
       </div>
 
       <div class="form-group">
-        <label for="length">Length (mm)</label>
+        <label for="length">{canPrint.value ? 'Length (mm)' : 'Height (px)'}</label>
         <input
           type="number"
           id="length"
           min="10"
-          max="500"
+          max={canPrint.value ? 500 : 4000}
           value={lengthMm.value}
-          disabled={pixelHeight.value !== null}
           onInput={(e) => {
             lengthMm.value = parseInt((e.target as HTMLInputElement).value) || 50
             handleSettingChange()
           }}
         />
-        <p class="hint">Pattern height in millimeters (10-500mm)</p>
-      </div>
-
-      <div class="form-group">
-        <label>
-          <input
-            type="checkbox"
-            checked={pixelWidth.value !== null}
-            onChange={(e) => {
-              if ((e.target as HTMLInputElement).checked) {
-                pixelWidth.value = 1200
-                pixelHeight.value = 1800
-              } else {
-                pixelWidth.value = null
-                pixelHeight.value = null
-              }
-              handleSettingChange()
-            }}
-          />
-          {' '}Custom pixel dimensions
-        </label>
-        {pixelWidth.value !== null && (
-          <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
-            <div>
-              <label for="px-width">Width (px)</label>
-              <input
-                type="number"
-                id="px-width"
-                min="1"
-                value={pixelWidth.value}
-                onInput={(e) => {
-                  pixelWidth.value = parseInt((e.target as HTMLInputElement).value) || 576
-                  handleSettingChange()
-                }}
-              />
-            </div>
-            <div>
-              <label for="px-height">Height (px)</label>
-              <input
-                type="number"
-                id="px-height"
-                min="1"
-                value={pixelHeight.value!}
-                onInput={(e) => {
-                  pixelHeight.value = parseInt((e.target as HTMLInputElement).value) || 800
-                  handleSettingChange()
-                }}
-              />
-            </div>
-          </div>
-        )}
+        <p class="hint">
+          {canPrint.value
+            ? 'Pattern height in millimeters (10-500mm)'
+            : 'Pattern height in pixels'}
+        </p>
       </div>
 
       <div class="form-group">
@@ -437,9 +388,11 @@ export function PatternForm() {
         >
           Randomize
         </button>
-        <button type="button" onClick={handlePrint} disabled={!selectedPattern.value || loading.value}>
-          {loading.value ? 'Printing...' : 'Print'}
-        </button>
+        {canPrint.value && (
+          <button type="button" onClick={handlePrint} disabled={!selectedPattern.value || loading.value}>
+            {loading.value ? 'Printing...' : 'Print'}
+          </button>
+        )}
       </div>
     </div>
   )

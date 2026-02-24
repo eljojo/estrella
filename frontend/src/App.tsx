@@ -42,6 +42,7 @@ import { PhotoForm, photoPreviewUrl, photoGrayscaleActive, handlePhotoDrop } fro
 import { JsonForm, jsonPreviewUrl, jsonCustomized } from './components/JsonForm'
 import { PrintOptions } from './components/PrintOptions'
 import { LayerCanvas } from './components/LayerCanvas'
+import { ProfileSelector, canPrint } from './components/ProfileSelector'
 
 export const activeTab = signal<'receipt' | 'patterns' | 'weave' | 'composer' | 'photos' | 'json'>('photos')
 
@@ -124,8 +125,13 @@ export function App() {
 
   return (
     <div class={`container${activeTab.value === 'json' ? ' container--wide' : ''}`}>
-      <h1>Estrella ⭐️</h1>
-      <p class="subtitle">Print text receipts or visual patterns to your thermal printer</p>
+      <div class="header-row">
+        <div>
+          <h1>Estrella ⭐️</h1>
+          <p class="subtitle">Print text receipts or visual patterns to your thermal printer</p>
+        </div>
+        <ProfileSelector />
+      </div>
       <Tabs />
       <div class="main-layout">
         <div class="form-panel">
@@ -208,11 +214,20 @@ export function App() {
                 type="button"
                 class="print-button"
                 onClick={() => triggerEditorPrint()}
-                disabled={!editorCanPrint.value || editorLoading.value}
+                disabled={!editorCanPrint.value || editorLoading.value || !canPrint.value}
               >
                 {editorLoading.value ? 'Printing...' : 'Print'}
               </button>
             </>
+          )}
+          {!canPrint.value && previewUrl && activeTab.value !== 'photos' && (
+            <a
+              class="print-button download-button"
+              href={previewUrl}
+              download={`estrella-${activeTab.value}.png`}
+            >
+              Download PNG
+            </a>
           )}
         </div>
       </div>

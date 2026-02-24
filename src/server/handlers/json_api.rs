@@ -12,9 +12,9 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use crate::document::canvas::ElementLayout;
-use crate::document::{self, Component, Document, ImageResolver};
+use crate::document::{self, Component, Document, EmitContext, ImageResolver};
 use crate::ir::{Op, Program};
-use crate::preview::{measure_cursor_y, measure_preview};
+use crate::preview::{measure_cursor_y_with_width, measure_preview_with_width};
 use crate::transport::BluetoothTransport;
 
 use super::super::state::AppState;
@@ -24,9 +24,19 @@ pub async fn preview(
     State(state): State<Arc<AppState>>,
     Json(mut doc): Json<Document>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
+    // Set document width from active profile if not explicitly set
+    let print_width = {
+        let profile = state.active_profile.read().await;
+        let w = profile.width_dots();
+        if doc.width.is_none() {
+            doc.width = Some(w);
+        }
+        doc.width.unwrap_or(w)
+    };
+
     // Resolve images from URLs before compilation
     let resolver = ImageResolver::new(state.photo_sessions.clone());
-    resolver.resolve(&mut doc).await.map_err(|e| {
+    resolver.resolve(&mut doc, print_width).await.map_err(|e| {
         (
             StatusCode::BAD_REQUEST,
             format!("Image resolution failed: {}", e),
@@ -34,7 +44,7 @@ pub async fn preview(
     })?;
 
     let program = doc.compile();
-    let png_bytes = program.to_preview_png().map_err(|e| {
+    let png_bytes = program.to_preview_png_with_width(print_width).map_err(|e| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
             format!("Preview render failed: {}", e),
@@ -65,6 +75,7 @@ pub struct CanvasLayoutResponse {
 
 /// Handle POST /api/json/canvas-layout - compute element bounding boxes for canvas overlay.
 pub async fn canvas_layout(
+    State(state): State<Arc<AppState>>,
     Json(req): Json<CanvasLayoutRequest>,
 ) -> Result<Json<CanvasLayoutResponse>, (StatusCode, String)> {
     let canvas_component = req.document.get(req.canvas_index).ok_or((
@@ -82,25 +93,35 @@ pub async fn canvas_layout(
         }
     };
 
-    let layout = canvas.compute_layout();
+    let profile = state.active_profile.read().await;
+    let print_width = profile.width_dots();
+    drop(profile);
+
+    let layout = canvas.compute_layout(print_width);
 
     // Compute Y offset using cursor position (where the canvas starts in the
     // preview image), and document height using trimmed buffer height (matching
     // the actual preview PNG dimensions).
-    let mut prefix_ops = vec![Op::Init, Op::SetCodepage(1)];
+    let mut prefix_ctx = EmitContext::new(print_width);
+    prefix_ctx.push(Op::Init);
+    prefix_ctx.push(Op::SetCodepage(1));
     for comp in &req.document[..req.canvas_index] {
-        comp.emit(&mut prefix_ops);
+        comp.emit(&mut prefix_ctx);
     }
-    let y_offset = measure_cursor_y(&Program { ops: prefix_ops }).unwrap_or(0);
+    let y_offset =
+        measure_cursor_y_with_width(&Program { ops: prefix_ctx.ops }, print_width).unwrap_or(0);
 
-    let mut all_ops = vec![Op::Init, Op::SetCodepage(1)];
+    let mut all_ctx = EmitContext::new(print_width);
+    all_ctx.push(Op::Init);
+    all_ctx.push(Op::SetCodepage(1));
     for comp in &req.document {
-        comp.emit(&mut all_ops);
+        comp.emit(&mut all_ctx);
     }
     if req.cut {
-        all_ops.push(Op::Cut { partial: true });
+        all_ctx.push(Op::Cut { partial: true });
     }
-    let document_height = measure_preview(&Program { ops: all_ops }).unwrap_or(0);
+    let document_height =
+        measure_preview_with_width(&Program { ops: all_ctx.ops }, print_width).unwrap_or(0);
 
     Ok(Json(CanvasLayoutResponse {
         width: layout.width,
@@ -113,9 +134,25 @@ pub async fn canvas_layout(
 
 /// Handle POST /api/json/print - print JSON document to device.
 pub async fn print(State(state): State<Arc<AppState>>, Json(mut doc): Json<Document>) -> Response {
+    // Set document width from active profile if not explicitly set
+    {
+        let profile = state.active_profile.read().await;
+        if !profile.can_print() {
+            return (
+                StatusCode::BAD_REQUEST,
+                Html(r#"{"success": false, "error": "Cannot print: active profile is a virtual canvas"}"#.to_string()),
+            )
+                .into_response();
+        }
+        if doc.width.is_none() {
+            doc.width = Some(profile.width_dots());
+        }
+    }
+
     // Resolve images from URLs before compilation
+    let print_width = doc.width.unwrap_or(576);
     let resolver = ImageResolver::new(state.photo_sessions.clone());
-    if let Err(e) = resolver.resolve(&mut doc).await {
+    if let Err(e) = resolver.resolve(&mut doc, print_width).await {
         return (
             StatusCode::BAD_REQUEST,
             Html(format!(

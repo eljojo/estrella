@@ -1,6 +1,7 @@
 //! Emit logic for graphics components: Image, Pattern, NvLogo.
 
 use super::types::{Chart, Image, NvLogo, Pattern};
+use super::EmitContext;
 use crate::ir::Op;
 use crate::render::{chart, dither, patterns};
 
@@ -23,9 +24,9 @@ impl Image {
     ///
     /// Requires that `resolved_data` has been populated by calling
     /// `Document::resolve()` before compilation.
-    pub fn emit(&self, ops: &mut Vec<Op>) {
+    pub fn emit(&self, ctx: &mut EmitContext) {
         if let Some(ref resolved) = self.resolved_data {
-            let print_width: u16 = 576;
+            let print_width: u16 = ctx.print_width as u16;
             if resolved.width < print_width {
                 let align = self.align.as_deref().unwrap_or("center");
                 let position = match align {
@@ -34,10 +35,10 @@ impl Image {
                     _ => (print_width - resolved.width) / 2,
                 };
                 if position > 0 {
-                    ops.push(Op::SetAbsolutePosition(position));
+                    ctx.push(Op::SetAbsolutePosition(position));
                 }
             }
-            ops.push(Op::Raster {
+            ctx.push(Op::Raster {
                 width: resolved.width,
                 height: resolved.height,
                 data: resolved.raster_data.clone(),
@@ -48,7 +49,7 @@ impl Image {
 
 impl Pattern {
     /// Emit IR ops for this pattern component.
-    pub fn emit(&self, ops: &mut Vec<Op>) {
+    pub fn emit(&self, ctx: &mut EmitContext) {
         // Look up pattern by name
         let Some(mut pattern_impl) = patterns::by_name(&self.name) else {
             return; // Unknown pattern — emit nothing
@@ -60,7 +61,7 @@ impl Pattern {
         }
 
         let height = self.height.unwrap_or(500);
-        let width = 576; // default printer width
+        let width = ctx.print_width;
 
         // Parse dithering algorithm
         let dithering = self
@@ -72,7 +73,7 @@ impl Pattern {
         let data = patterns::render(pattern_impl.as_ref(), width, height, dithering);
 
         // Emit raster graphics
-        ops.push(Op::Raster {
+        ctx.push(Op::Raster {
             width: width as u16,
             height: height as u16,
             data,
@@ -82,12 +83,12 @@ impl Pattern {
 
 impl Chart {
     /// Emit IR ops for this chart component.
-    pub fn emit(&self, ops: &mut Vec<Op>) {
+    pub fn emit(&self, ctx: &mut EmitContext) {
         if self.values.is_empty() {
             return;
         }
 
-        let width = 576; // default printer width
+        let width = ctx.print_width;
 
         let dithering = self
             .dither
@@ -98,7 +99,7 @@ impl Chart {
         let (data, w, h) = chart::render(self, width, dithering);
 
         if !data.is_empty() {
-            ops.push(Op::Raster {
+            ctx.push(Op::Raster {
                 width: w,
                 height: h,
                 data,
@@ -109,7 +110,7 @@ impl Chart {
 
 impl NvLogo {
     /// Emit IR ops for this NV logo component.
-    pub fn emit(&self, ops: &mut Vec<Op>) {
+    pub fn emit(&self, ctx: &mut EmitContext) {
         // Resolve scale: scale_x/scale_y take precedence over uniform scale
         let scale_x = self.scale_x.or(self.scale).unwrap_or(1).clamp(1, 2);
         let scale_y = self.scale_y.or(self.scale).unwrap_or(1).clamp(1, 2);
@@ -118,15 +119,15 @@ impl NvLogo {
         if self.center
             && let Some(raster) = crate::logos::get_raster(&self.key)
         {
-            let print_width: u32 = 576; // DEFAULT_PRINT_WIDTH
+            let print_width: u32 = ctx.print_width as u32;
             let scaled_width = (raster.width as u32) * (scale_x as u32);
             if scaled_width < print_width {
                 let position = (print_width - scaled_width) / 2;
-                ops.push(Op::SetAbsolutePosition(position as u16));
+                ctx.push(Op::SetAbsolutePosition(position as u16));
             }
         }
 
-        ops.push(Op::NvPrint {
+        ctx.push(Op::NvPrint {
             key: self.key.clone(),
             scale_x,
             scale_y,
@@ -138,6 +139,10 @@ impl NvLogo {
 mod tests {
     use super::*;
 
+    fn ctx() -> EmitContext {
+        EmitContext::new(576)
+    }
+
     #[test]
     fn test_pattern_ripple() {
         let pattern = Pattern {
@@ -145,9 +150,9 @@ mod tests {
             height: Some(100),
             ..Default::default()
         };
-        let mut ops = Vec::new();
-        pattern.emit(&mut ops);
-        assert!(ops.iter().any(|op| matches!(
+        let mut ctx = ctx();
+        pattern.emit(&mut ctx);
+        assert!(ctx.ops.iter().any(|op| matches!(
             op,
             Op::Raster {
                 width: 576,
@@ -164,9 +169,9 @@ mod tests {
             height: Some(100),
             ..Default::default()
         };
-        let mut ops = Vec::new();
-        pattern.emit(&mut ops);
-        assert!(ops.is_empty());
+        let mut ctx = ctx();
+        pattern.emit(&mut ctx);
+        assert!(ctx.ops.is_empty());
     }
 
     #[test]
@@ -175,9 +180,9 @@ mod tests {
             key: "A0".into(),
             ..Default::default()
         };
-        let mut ops = Vec::new();
-        logo.emit(&mut ops);
-        assert!(ops.iter().any(|op| matches!(
+        let mut ctx = ctx();
+        logo.emit(&mut ctx);
+        assert!(ctx.ops.iter().any(|op| matches!(
             op,
             Op::NvPrint {
                 key,
@@ -194,9 +199,9 @@ mod tests {
             scale: Some(2),
             ..Default::default()
         };
-        let mut ops = Vec::new();
-        logo.emit(&mut ops);
-        assert!(ops.iter().any(|op| matches!(
+        let mut ctx = ctx();
+        logo.emit(&mut ctx);
+        assert!(ctx.ops.iter().any(|op| matches!(
             op,
             Op::NvPrint {
                 key,
@@ -212,9 +217,9 @@ mod tests {
             url: "https://example.com/img.png".into(),
             ..Default::default()
         };
-        let mut ops = Vec::new();
-        img.emit(&mut ops);
+        let mut ctx = ctx();
+        img.emit(&mut ctx);
         // Unresolved images emit nothing
-        assert!(ops.is_empty());
+        assert!(ctx.ops.is_empty());
     }
 }
