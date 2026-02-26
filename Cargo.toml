@@ -18,7 +18,7 @@ rand = "0.10"
 spleen-font = { version = "0.2", features = ["s6x12", "s8x16", "s12x24"] }
 ab_glyph = "0.2"
 barcoders = "2"
-pulldown-cmark = "0.12"
+pulldown-cmark = "0.13"
 
 # HTTP server dependencies
 axum = { version = "0.7", features = ["multipart"] }
