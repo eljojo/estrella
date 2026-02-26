@@ -32,6 +32,15 @@
           (final: prev: {
             inherit (playwright.packages.${system}) playwright-test playwright-driver;
           })
+          (final: prev: {
+            libheif = prev.libheif.overrideAttrs (old: rec {
+              version = "1.21.2";
+              src = prev.fetchurl {
+                url = "https://github.com/strukturag/libheif/releases/download/v${version}/libheif-${version}.tar.gz";
+                hash = "sha256-dfUwtxVLyT5+z4Ru38BBa/X0kGEt6MRZg8Njhap0K0I=";
+              };
+            });
+          })
         ];
         pkgs = import nixpkgs {
           inherit system overlays;
