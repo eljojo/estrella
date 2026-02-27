@@ -240,10 +240,8 @@ impl DeviceProfile {
             other if other.starts_with("canvas:") => {
                 let dims = &other["canvas:".len()..];
                 if let Some((w, h)) = dims.split_once('x') {
-                    let width: usize =
-                        w.parse().map_err(|_| format!("Invalid width: {}", w))?;
-                    let height: usize =
-                        h.parse().map_err(|_| format!("Invalid height: {}", h))?;
+                    let width: usize = w.parse().map_err(|_| format!("Invalid width: {}", w))?;
+                    let height: usize = h.parse().map_err(|_| format!("Invalid height: {}", h))?;
                     Ok(Self::canvas(width, Some(height)))
                 } else {
                     let width: usize = dims
@@ -261,10 +259,7 @@ impl DeviceProfile {
 
     /// List all built-in profiles.
     pub fn built_in() -> Vec<Self> {
-        vec![
-            Self::tsp650ii(),
-            Self::canvas(1200, None),
-        ]
+        vec![Self::tsp650ii(), Self::canvas(1200, None)]
     }
 }
 

@@ -163,11 +163,11 @@ pub async fn preview(
     let png_bytes = build_receipt(&form, Some(print_width))
         .to_preview_png_with_width(print_width)
         .map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Failed to render preview: {}", e),
-        )
-    })?;
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to render preview: {}", e),
+            )
+        })?;
 
     Ok(([(header::CONTENT_TYPE, "image/png")], png_bytes))
 }

@@ -1,9 +1,9 @@
 //! Emit logic for layout components: Divider, Spacer, BlankLine, Columns, Banner.
 
+use super::EmitContext;
 use super::types::{
     Banner, BlankLine, BorderStyle, ColumnAlign, Columns, Divider, DividerStyle, Spacer, Table,
 };
-use super::EmitContext;
 use crate::ir::{Op, Program};
 use crate::preview::ttf_font;
 use crate::protocol::text::{Alignment, Font};
@@ -102,7 +102,8 @@ impl Banner {
             return;
         }
 
-        let (size, total_width) = Self::fit(self.content.len(), self.size, self.border, ctx.print_width);
+        let (size, total_width) =
+            Self::fit(self.content.len(), self.size, self.border, ctx.print_width);
         let [h, w] = size;
         let font = if h == 0 && w == 0 { Font::B } else { Font::A };
         let esc_h = h.saturating_sub(1);
@@ -387,7 +388,8 @@ impl Banner {
         }
 
         // Use the actual fitted size — fit() may cascade width or fall back to Font B
-        let (fitted_size, _) = Self::fit(self.content.len(), self.size, self.border, ctx.print_width);
+        let (fitted_size, _) =
+            Self::fit(self.content.len(), self.size, self.border, ctx.print_width);
         let pixel_height = ttf_font::size_to_pixel_height(fitted_size);
         let text_render =
             ttf_font::render_ttf_text(&self.content, font_name, self.bold, pixel_height, width);
@@ -432,7 +434,12 @@ impl Banner {
     ///
     /// Returns `([h, w], total_chars_per_line)`.
     /// Cascades width from `max_size` down to 1, then falls back to Font B.
-    pub fn fit(content_len: usize, max_size: u8, border: BorderStyle, print_width: usize) -> ([u8; 2], usize) {
+    pub fn fit(
+        content_len: usize,
+        max_size: u8,
+        border: BorderStyle,
+        print_width: usize,
+    ) -> ([u8; 2], usize) {
         let border_overhead = match border {
             BorderStyle::Shadow => 3, // left + right + shadow column
             BorderStyle::Tag => 2,    // "■ " prefix
@@ -750,7 +757,11 @@ mod tests {
         };
         let mut ctx = ctx();
         div.emit(&mut ctx);
-        assert!(ctx.ops.iter().any(|op| *op == Op::Text("----------".into())));
+        assert!(
+            ctx.ops
+                .iter()
+                .any(|op| *op == Op::Text("----------".into()))
+        );
     }
 
     #[test]
@@ -937,7 +948,8 @@ mod tests {
         banner.emit(&mut ctx);
 
         // Top line should be all full-block chars (█)
-        let first_text = ctx.ops
+        let first_text = ctx
+            .ops
             .iter()
             .find_map(|op| {
                 if let Op::Text(s) = op {
@@ -964,7 +976,8 @@ mod tests {
         banner.emit(&mut ctx);
 
         // Top line should be all medium-shade chars (▒)
-        let first_text = ctx.ops
+        let first_text = ctx
+            .ops
             .iter()
             .find_map(|op| {
                 if let Op::Text(s) = op {
@@ -991,7 +1004,8 @@ mod tests {
         banner.emit(&mut ctx);
 
         // Top border: single-line, no shadow
-        let first_text = ctx.ops
+        let first_text = ctx
+            .ops
             .iter()
             .find_map(|op| {
                 if let Op::Text(s) = op {
@@ -1011,7 +1025,8 @@ mod tests {
         );
 
         // Content line should end with shadow char ▓
-        let content_text = ctx.ops
+        let content_text = ctx
+            .ops
             .iter()
             .find_map(|op| {
                 if let Op::Text(s) = op {
@@ -1031,7 +1046,8 @@ mod tests {
         );
 
         // Last text op should be the shadow bottom row
-        let last_text = ctx.ops
+        let last_text = ctx
+            .ops
             .iter()
             .rev()
             .find_map(|op| {
@@ -1099,7 +1115,8 @@ mod tests {
         banner.emit(&mut ctx);
 
         // Should produce a single text line + newline (plus style ops)
-        let texts: Vec<&str> = ctx.ops
+        let texts: Vec<&str> = ctx
+            .ops
             .iter()
             .filter_map(|op| {
                 if let Op::Text(s) = op {
@@ -1142,7 +1159,8 @@ mod tests {
         let mut ctx = ctx();
         banner.emit(&mut ctx);
 
-        let texts: Vec<&str> = ctx.ops
+        let texts: Vec<&str> = ctx
+            .ops
             .iter()
             .filter_map(|op| {
                 if let Op::Text(s) = op {
@@ -1164,7 +1182,8 @@ mod tests {
         assert!(ctx.ops.contains(&Op::SetAlign(Alignment::Center)));
         // Should reset to left for the rule
         assert!(
-            ctx.ops.iter()
+            ctx.ops
+                .iter()
                 .filter(|op| matches!(op, Op::SetAlign(Alignment::Left)))
                 .count()
                 >= 1
@@ -1182,7 +1201,8 @@ mod tests {
         let mut ctx = ctx();
         banner.emit(&mut ctx);
 
-        let texts: Vec<&str> = ctx.ops
+        let texts: Vec<&str> = ctx
+            .ops
             .iter()
             .filter_map(|op| {
                 if let Op::Text(s) = op {
@@ -1234,7 +1254,8 @@ mod tests {
         assert!(ctx.ops.contains(&Op::SetAlign(Alignment::Left)));
 
         // Collect all text ops
-        let texts: Vec<&str> = ctx.ops
+        let texts: Vec<&str> = ctx
+            .ops
             .iter()
             .filter_map(|op| {
                 if let Op::Text(s) = op {
@@ -1312,7 +1333,8 @@ mod tests {
         let mut ctx = ctx();
         table.emit(&mut ctx);
 
-        let row = ctx.ops
+        let row = ctx
+            .ops
             .iter()
             .find_map(|op| {
                 if let Op::Text(s) = op {
@@ -1351,7 +1373,8 @@ mod tests {
         let mut ctx = ctx();
         table.emit(&mut ctx);
 
-        let texts: Vec<&str> = ctx.ops
+        let texts: Vec<&str> = ctx
+            .ops
             .iter()
             .filter_map(|op| {
                 if let Op::Text(s) = op {
@@ -1380,7 +1403,8 @@ mod tests {
         table.emit(&mut ctx);
 
         // Top border should be single (┌)
-        let texts: Vec<&str> = ctx.ops
+        let texts: Vec<&str> = ctx
+            .ops
             .iter()
             .filter_map(|op| {
                 if let Op::Text(s) = op {
@@ -1418,7 +1442,8 @@ mod tests {
         table.emit(&mut ctx);
 
         // Count separator lines (├...┤) — should be 2 (between 3 rows)
-        let sep_count = ctx.ops
+        let sep_count = ctx
+            .ops
             .iter()
             .filter(|op| {
                 if let Op::Text(s) = op {

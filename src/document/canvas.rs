@@ -324,7 +324,10 @@ struct RenderedElement {
 /// Measure a single canvas element: emit → render_raw → scan content bounds.
 ///
 /// Returns the element's position, full size, and content bounds.
-fn measure_element(element: &CanvasElement, canvas_width: usize) -> Option<(i32, i32, ElementMeasurement)> {
+fn measure_element(
+    element: &CanvasElement,
+    canvas_width: usize,
+) -> Option<(i32, i32, ElementMeasurement)> {
     let mut ctx = EmitContext::new(canvas_width);
     element.component.emit(&mut ctx);
     if ctx.ops.is_empty() {

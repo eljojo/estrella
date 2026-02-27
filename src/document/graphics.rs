@@ -1,7 +1,7 @@
 //! Emit logic for graphics components: Image, Pattern, NvLogo.
 
-use super::types::{Chart, Image, NvLogo, Pattern};
 use super::EmitContext;
+use super::types::{Chart, Image, NvLogo, Pattern};
 use crate::ir::Op;
 use crate::render::{chart, dither, patterns};
 

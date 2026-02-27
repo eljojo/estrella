@@ -705,7 +705,11 @@ mod tests {
         };
         let mut ctx = ctx();
         text.emit(&mut ctx);
-        assert!(ctx.ops.iter().any(|op| *op == Op::SetAlign(Alignment::Center)));
+        assert!(
+            ctx.ops
+                .iter()
+                .any(|op| *op == Op::SetAlign(Alignment::Center))
+        );
     }
 
     #[test]
@@ -718,8 +722,16 @@ mod tests {
         };
         let mut ctx = ctx();
         text.emit(&mut ctx);
-        assert!(ctx.ops.iter().any(|op| *op == Op::SetAlign(Alignment::Right)));
-        assert!(!ctx.ops.iter().any(|op| *op == Op::SetAlign(Alignment::Center)));
+        assert!(
+            ctx.ops
+                .iter()
+                .any(|op| *op == Op::SetAlign(Alignment::Right))
+        );
+        assert!(
+            !ctx.ops
+                .iter()
+                .any(|op| *op == Op::SetAlign(Alignment::Center))
+        );
     }
 
     #[test]
@@ -727,7 +739,11 @@ mod tests {
         let header = Header::new("STORE");
         let mut ctx = ctx();
         header.emit(&mut ctx);
-        assert!(ctx.ops.iter().any(|op| *op == Op::SetAlign(Alignment::Center)));
+        assert!(
+            ctx.ops
+                .iter()
+                .any(|op| *op == Op::SetAlign(Alignment::Center))
+        );
         assert!(ctx.ops.iter().any(|op| *op == Op::SetBold(true)));
         assert!(ctx.ops.iter().any(|op| *op
             == Op::SetSize {
@@ -769,7 +785,11 @@ mod tests {
         let mut ctx = ctx();
         total.emit(&mut ctx);
         assert!(ctx.ops.iter().any(|op| *op == Op::SetBold(true)));
-        assert!(ctx.ops.iter().any(|op| *op == Op::SetAlign(Alignment::Right)));
+        assert!(
+            ctx.ops
+                .iter()
+                .any(|op| *op == Op::SetAlign(Alignment::Right))
+        );
         let has_total = ctx.ops.iter().any(|op| {
             if let Op::Text(s) = op {
                 s.contains("TOTAL:") && s.contains("19.99")

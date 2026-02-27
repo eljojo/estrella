@@ -44,12 +44,14 @@ pub async fn preview(
     })?;
 
     let program = doc.compile();
-    let png_bytes = program.to_preview_png_with_width(print_width).map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Preview render failed: {}", e),
-        )
-    })?;
+    let png_bytes = program
+        .to_preview_png_with_width(print_width)
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Preview render failed: {}", e),
+            )
+        })?;
 
     Ok(([(header::CONTENT_TYPE, "image/png")], png_bytes))
 }
@@ -108,8 +110,13 @@ pub async fn canvas_layout(
     for comp in &req.document[..req.canvas_index] {
         comp.emit(&mut prefix_ctx);
     }
-    let y_offset =
-        measure_cursor_y_with_width(&Program { ops: prefix_ctx.ops }, print_width).unwrap_or(0);
+    let y_offset = measure_cursor_y_with_width(
+        &Program {
+            ops: prefix_ctx.ops,
+        },
+        print_width,
+    )
+    .unwrap_or(0);
 
     let mut all_ctx = EmitContext::new(print_width);
     all_ctx.push(Op::Init);

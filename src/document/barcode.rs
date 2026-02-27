@@ -1,7 +1,7 @@
 //! Emit logic for barcode components: QrCode, Pdf417, Barcode.
 
-use super::types::{Barcode, Pdf417, QrCode};
 use super::EmitContext;
+use super::types::{Barcode, Pdf417, QrCode};
 use crate::ir::{BarcodeKind, Op};
 use crate::protocol::barcode::qr::QrErrorLevel;
 use crate::protocol::text::Alignment;

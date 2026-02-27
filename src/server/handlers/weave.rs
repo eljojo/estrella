@@ -217,7 +217,9 @@ pub async fn print(
     if !profile.can_print() {
         return Err((
             StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({"success": false, "error": "Cannot print: active profile is a virtual canvas"})),
+            Json(
+                serde_json::json!({"success": false, "error": "Cannot print: active profile is a virtual canvas"}),
+            ),
         ));
     }
     let width = profile.width_dots();
