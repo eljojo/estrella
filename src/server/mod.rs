@@ -82,7 +82,10 @@ pub async fn serve(config: ServerConfig) -> Result<(), EstrellaError> {
             "/api/patterns/{name}/randomize",
             post(handlers::patterns::randomize),
         )
-        .route("/api/patterns/{name}/print", post(handlers::patterns::print))
+        .route(
+            "/api/patterns/{name}/print",
+            post(handlers::patterns::print),
+        )
         // Weave API
         .route("/api/weave/preview", post(handlers::weave::preview))
         .route("/api/weave/print", post(handlers::weave::print))
