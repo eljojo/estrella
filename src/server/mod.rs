@@ -53,7 +53,7 @@ pub async fn serve(config: ServerConfig) -> Result<(), EstrellaError> {
     let app = Router::new()
         // Frontend
         .route("/", get(static_files::index_handler))
-        .route("/assets/*path", get(static_files::asset_handler))
+        .route("/assets/{*path}", get(static_files::asset_handler))
         // JSON API
         .route("/api/json/preview", post(handlers::json_api::preview))
         .route("/api/json/print", post(handlers::json_api::print))
@@ -62,7 +62,7 @@ pub async fn serve(config: ServerConfig) -> Result<(), EstrellaError> {
             post(handlers::json_api::canvas_layout),
         )
         .route(
-            "/api/json/component/:type/default",
+            "/api/json/component/{type}/default",
             get(handlers::json_api::component_default),
         )
         // Receipt API
@@ -71,18 +71,18 @@ pub async fn serve(config: ServerConfig) -> Result<(), EstrellaError> {
         // Pattern API
         .route("/api/patterns", get(handlers::patterns::list))
         .route(
-            "/api/patterns/:name/params",
+            "/api/patterns/{name}/params",
             get(handlers::patterns::params),
         )
         .route(
-            "/api/patterns/:name/preview",
+            "/api/patterns/{name}/preview",
             get(handlers::patterns::preview),
         )
         .route(
-            "/api/patterns/:name/randomize",
+            "/api/patterns/{name}/randomize",
             post(handlers::patterns::randomize),
         )
-        .route("/api/patterns/:name/print", post(handlers::patterns::print))
+        .route("/api/patterns/{name}/print", post(handlers::patterns::print))
         // Weave API
         .route("/api/weave/preview", post(handlers::weave::preview))
         .route("/api/weave/print", post(handlers::weave::print))
@@ -91,8 +91,8 @@ pub async fn serve(config: ServerConfig) -> Result<(), EstrellaError> {
             "/api/photo/upload",
             post(handlers::photo::upload).layer(DefaultBodyLimit::max(50 * 1024 * 1024)),
         )
-        .route("/api/photo/:id/preview", get(handlers::photo::preview))
-        .route("/api/photo/:id/print", post(handlers::photo::print))
+        .route("/api/photo/{id}/preview", get(handlers::photo::preview))
+        .route("/api/photo/{id}/print", post(handlers::photo::print))
         .with_state(app_state);
 
     println!("Estrella HTTP server starting...");
