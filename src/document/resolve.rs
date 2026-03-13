@@ -36,9 +36,16 @@ impl ImageResolver {
     /// Downloads images from URLs (using the cache when possible),
     /// resizes and dithers them, and populates `resolved_data`.
     /// Recurses into Canvas elements to resolve nested images.
-    pub async fn resolve(&self, doc: &mut Document) -> Result<(), EstrellaError> {
+    ///
+    /// `print_width` is used as the default image width when no explicit
+    /// width is set on an Image component.
+    pub async fn resolve(
+        &self,
+        doc: &mut Document,
+        print_width: usize,
+    ) -> Result<(), EstrellaError> {
         for component in &mut doc.document {
-            self.resolve_component(component).await?;
+            self.resolve_component(component, print_width).await?;
         }
         Ok(())
     }
@@ -47,6 +54,7 @@ impl ImageResolver {
     fn resolve_component<'a>(
         &'a self,
         component: &'a mut Component,
+        print_width: usize,
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), EstrellaError>> + Send + 'a>>
     {
         Box::pin(async move {
@@ -56,7 +64,7 @@ impl ImageResolver {
                         let source = fetch_image(&img.url, &self.sessions).await?;
                         let resolved = process_image(
                             source,
-                            img.width.unwrap_or(576),
+                            img.width.unwrap_or(print_width),
                             img.height,
                             img.dither.as_deref(),
                         );
@@ -65,7 +73,8 @@ impl ImageResolver {
                 }
                 Component::Canvas(canvas) => {
                     for element in &mut canvas.elements {
-                        self.resolve_component(&mut element.component).await?;
+                        self.resolve_component(&mut element.component, print_width)
+                            .await?;
                     }
                 }
                 _ => {}
@@ -143,7 +152,7 @@ pub async fn fetch_image(
 
 /// Process a downloaded image for printing.
 ///
-/// Resizes to `target_width` (default 576 dots) preserving aspect ratio.
+/// Resizes to `target_width` preserving aspect ratio.
 /// If `max_height` is set and the result is taller, resizes to fit within
 /// that height constraint. Dithers with the specified algorithm (default:
 /// Floyd-Steinberg).

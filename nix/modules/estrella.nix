@@ -36,6 +36,17 @@ in
       description = "RFCOMM channel number (creates /dev/rfcommN)";
     };
 
+    profile = mkOption {
+      type = types.str;
+      default = "tsp650ii";
+      description = ''
+        Device profile.
+        - "tsp650ii" — Star TSP650II (576px, 203 DPI)
+        - "canvas:WIDTHxHEIGHT" — Virtual canvas (e.g., "canvas:1200x1800")
+        Use "canvas:..." when running without a physical printer.
+      '';
+    };
+
     package = mkOption {
       type = types.package;
       default = pkgs.estrella or (throw ''
@@ -78,7 +89,7 @@ in
 
       serviceConfig = {
         Type = "simple";
-        ExecStart = "${cfg.package}/bin/estrella serve --listen ${cfg.listenAddress}:${toString cfg.port} --device /dev/rfcomm${toString cfg.rfcommChannel}";
+        ExecStart = "${cfg.package}/bin/estrella serve --listen ${cfg.listenAddress}:${toString cfg.port} --device /dev/rfcomm${toString cfg.rfcommChannel} --profile ${cfg.profile}";
         Restart = "always";
         RestartSec = "10s";
 
