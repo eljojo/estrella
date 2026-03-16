@@ -14,7 +14,7 @@ use crate::{
     art::ParamSpec,
     printer::PrinterConfig,
     render::{context::RenderContext, dither, patterns},
-    transport::BluetoothTransport,
+    transport,
 };
 
 use super::super::state::AppState;
@@ -340,7 +340,7 @@ pub async fn print(
     let print_result = tokio::task::spawn_blocking(move || {
         let programs = program.split_for_long_print();
         println!("[patterns] Split into {} program(s)", programs.len());
-        let mut transport = BluetoothTransport::open(&device_path)?;
+        let mut transport = transport::open_transport(&device_path)?;
         transport.send_programs(&programs)?;
         Ok::<_, crate::EstrellaError>(())
     })
