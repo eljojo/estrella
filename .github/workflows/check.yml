@@ -20,6 +20,9 @@ jobs:
       - name: Nix cache
         uses: DeterminateSystems/magic-nix-cache-action@v13
 
+      - name: Build flake package
+        run: nix build .#default
+
       - name: Build frontend
         run: nix develop --command bash -c "cd frontend && npm ci && npm run build"
 

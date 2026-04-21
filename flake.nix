@@ -46,12 +46,15 @@
           inherit system overlays;
         };
 
-        # Frontend build
+        # Frontend build. npmDeps is derived from frontend/package-lock.json
+        # at evaluation time (via importNpmLock), so there's no hash to keep
+        # in sync when dependabot bumps a package.
         frontendDeps = pkgs.buildNpmPackage {
           pname = "estrella-frontend";
           version = "0.1.0";
           src = ./frontend;
-          npmDepsHash = "sha256-MaPU2rEK6l+0yWFfvNa+fwKkm1EENfq77cr00EqiF4w="; # Update after npm install
+          npmDeps = pkgs.importNpmLock { npmRoot = ./frontend; };
+          npmConfigHook = pkgs.importNpmLock.npmConfigHook;
           buildPhase = ''
             mkdir -p ../src/fixtures
             cp ${./src/fixtures/morning-briefing.json} ../src/fixtures/morning-briefing.json
