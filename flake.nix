@@ -39,6 +39,11 @@
                 url = "https://github.com/strukturag/libheif/releases/download/v${version}/libheif-${version}.tar.gz";
                 hash = "sha256-dfUwtxVLyT5+z4Ru38BBa/X0kGEt6MRZg8Njhap0K0I=";
               };
+              # prev.libheif may carry patches that only apply to its older
+              # version (e.g. nixpkgs' 001-fix-wrong-copy-width-in-overlay-images,
+              # already merged upstream in 1.21.2). Drop inherited patches so
+              # `overrideAttrs` bumps cleanly regardless of the base nixpkgs.
+              patches = [ ];
             });
           })
         ];
