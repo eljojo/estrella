@@ -7,7 +7,7 @@ license = "MIT"
 
 [dependencies]
 chrono = "0.4"
-rayon = "1.10"
+rayon = "1.12"
 clap = { version = "4", features = ["derive"] }
 thiserror = "2"
 image = "0.25"
