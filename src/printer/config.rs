@@ -136,6 +136,134 @@ impl Default for PrinterConfig {
 }
 
 // ============================================================================
+// DEVICE PROFILE
+// ============================================================================
+
+use serde::{Deserialize, Serialize};
+
+/// A device profile describing the output target — either a physical printer
+/// or a virtual canvas for resolution-independent art.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum DeviceProfile {
+    /// A physical thermal printer with known hardware specs.
+    Printer {
+        /// Human-readable name (e.g. "Star TSP650II").
+        name: String,
+        /// Print width in dots.
+        width: usize,
+        /// Resolution in DPI (for mm↔dots conversion).
+        dpi: u16,
+    },
+    /// A virtual canvas — no physical printer, arbitrary dimensions.
+    Canvas {
+        /// Human-readable name (e.g. "Canvas 1200x1800").
+        name: String,
+        /// Width in pixels.
+        width: usize,
+        /// Height in pixels. `None` means auto/continuous (like a roll).
+        height: Option<usize>,
+    },
+}
+
+impl DeviceProfile {
+    /// The built-in Star TSP650II profile.
+    pub fn tsp650ii() -> Self {
+        let config = PrinterConfig::TSP650II;
+        Self::Printer {
+            name: config.name.to_string(),
+            width: config.width_dots as usize,
+            dpi: config.dpi,
+        }
+    }
+
+    /// A built-in canvas profile with default dimensions.
+    pub fn canvas(width: usize, height: Option<usize>) -> Self {
+        let name = match height {
+            Some(h) => format!("Canvas {}x{}", width, h),
+            None => format!("Canvas {} wide", width),
+        };
+        Self::Canvas {
+            name,
+            width,
+            height,
+        }
+    }
+
+    /// Width in dots/pixels.
+    pub fn width_dots(&self) -> usize {
+        match self {
+            Self::Printer { width, .. } => *width,
+            Self::Canvas { width, .. } => *width,
+        }
+    }
+
+    /// Whether this profile can send data to a physical printer.
+    pub fn can_print(&self) -> bool {
+        matches!(self, Self::Printer { .. })
+    }
+
+    /// Human-readable name.
+    pub fn name(&self) -> &str {
+        match self {
+            Self::Printer { name, .. } => name,
+            Self::Canvas { name, .. } => name,
+        }
+    }
+
+    /// Convert millimeters to dots. Returns `None` for canvas profiles (no DPI).
+    pub fn mm_to_dots(&self, mm: f32) -> Option<u16> {
+        match self {
+            Self::Printer { dpi, .. } => {
+                let dots_per_mm = *dpi as f32 / 25.4;
+                Some((mm * dots_per_mm).round() as u16)
+            }
+            Self::Canvas { .. } => None,
+        }
+    }
+
+    /// Parse a profile string (CLI args or display name).
+    ///
+    /// Formats:
+    /// - `"tsp650ii"` → built-in printer
+    /// - `"canvas:WIDTHxHEIGHT"` → virtual canvas (e.g. `"canvas:1200x1800"`)
+    /// - `"canvas:WIDTH"` → virtual canvas, auto height
+    /// - Any built-in profile's display name (e.g. `"Star TSP650II"`, `"Canvas 1200 wide"`)
+    pub fn parse(s: &str) -> Result<Self, String> {
+        // Check built-in profiles by display name first
+        if let Some(profile) = Self::built_in().into_iter().find(|p| p.name() == s) {
+            return Ok(profile);
+        }
+
+        match s.to_lowercase().as_str() {
+            "tsp650ii" => Ok(Self::tsp650ii()),
+            other if other.starts_with("canvas:") => {
+                let dims = &other["canvas:".len()..];
+                if let Some((w, h)) = dims.split_once('x') {
+                    let width: usize = w.parse().map_err(|_| format!("Invalid width: {}", w))?;
+                    let height: usize = h.parse().map_err(|_| format!("Invalid height: {}", h))?;
+                    Ok(Self::canvas(width, Some(height)))
+                } else {
+                    let width: usize = dims
+                        .parse()
+                        .map_err(|_| format!("Invalid width: {}", dims))?;
+                    Ok(Self::canvas(width, None))
+                }
+            }
+            _ => Err(format!(
+                "Unknown profile '{}'. Use 'tsp650ii' or 'canvas:WIDTHxHEIGHT'",
+                s
+            )),
+        }
+    }
+
+    /// List all built-in profiles.
+    pub fn built_in() -> Vec<Self> {
+        vec![Self::tsp650ii(), Self::canvas(1200, None)]
+    }
+}
+
+// ============================================================================
 // TESTS
 // ============================================================================
 

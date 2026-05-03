@@ -14,7 +14,7 @@ mod handlers;
 mod state;
 mod static_files;
 
-pub use state::{CachedIntensity, IntensityCacheKey, PhotoSession, ServerConfig};
+pub use state::{AppState, CachedIntensity, IntensityCacheKey, PhotoSession, ServerConfig};
 
 use axum::{
     Router,
@@ -25,7 +25,8 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use crate::error::EstrellaError;
-use state::{AppState, SESSION_EXPIRATION_SECS};
+use crate::printer::DeviceProfile;
+use state::SESSION_EXPIRATION_SECS;
 
 /// Start the HTTP server.
 ///
@@ -33,6 +34,7 @@ use state::{AppState, SESSION_EXPIRATION_SECS};
 ///
 /// ```no_run
 /// use estrella::server::{serve, ServerConfig};
+/// use estrella::printer::DeviceProfile;
 ///
 /// # async fn example() -> Result<(), estrella::error::EstrellaError> {
 /// let config = ServerConfig {
@@ -40,12 +42,13 @@ use state::{AppState, SESSION_EXPIRATION_SECS};
 ///     listen_addr: "0.0.0.0:8080".to_string(),
 /// };
 ///
-/// serve(config).await?;
+/// serve(config, DeviceProfile::tsp650ii()).await?;
 /// # Ok(())
 /// # }
 /// ```
-pub async fn serve(config: ServerConfig) -> Result<(), EstrellaError> {
-    let app_state = Arc::new(AppState::new(config.clone()));
+pub async fn serve(config: ServerConfig, profile: DeviceProfile) -> Result<(), EstrellaError> {
+    let profile_name = profile.name().to_string();
+    let app_state = Arc::new(AppState::new(config.clone(), profile));
 
     // Spawn background cache cleanup task
     tokio::spawn(cleanup_caches(app_state.clone()));
@@ -89,6 +92,12 @@ pub async fn serve(config: ServerConfig) -> Result<(), EstrellaError> {
         // Weave API
         .route("/api/weave/preview", post(handlers::weave::preview))
         .route("/api/weave/print", post(handlers::weave::print))
+        // Profile API
+        .route("/api/profiles", get(handlers::profiles::list))
+        .route(
+            "/api/profiles/active",
+            get(handlers::profiles::active).put(handlers::profiles::set_active),
+        )
         // Photo API (50MB limit for uploads)
         .route(
             "/api/photo/upload",
@@ -101,6 +110,7 @@ pub async fn serve(config: ServerConfig) -> Result<(), EstrellaError> {
     println!("Estrella HTTP server starting...");
     println!("Listening on: {}", config.listen_addr);
     println!("Printer device: {}", config.device_path);
+    println!("Active profile: {}", profile_name);
     println!();
     println!(
         "Open http://{}/ in your browser to print",

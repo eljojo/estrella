@@ -187,7 +187,7 @@ impl super::Pattern for RileyCheck {
     fn param_specs(&self) -> Vec<super::ParamSpec> {
         use super::ParamSpec;
         vec![
-            ParamSpec::slider("cell_size", "Cell Size", 12.0, 28.0, 1.0)
+            ParamSpec::slider("cell_size", "Cell Size", 12.0, 48.0, 1.0)
                 .with_description("Base cell size in pixels"),
             ParamSpec::slider("wave_amplitude", "Wave Amplitude", 0.2, 0.6, 0.05)
                 .with_description("Horizontal wave distortion strength"),
