@@ -12,7 +12,6 @@ use std::sync::Arc;
 use crate::{
     document::{Component, Divider, Document, Markdown, Spacer, Text},
     ir::Program,
-    printer::PrinterConfig,
     receipt::current_datetime,
     transport::BluetoothTransport,
 };
