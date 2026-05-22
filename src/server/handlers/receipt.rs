@@ -22,6 +22,14 @@ fn default_true() -> bool {
     true
 }
 
+fn default_title_size() -> [u8; 2] {
+    [3, 2]
+}
+
+fn default_body_size() -> [u8; 2] {
+    [0, 0]
+}
+
 /// Form data for receipt operations.
 #[derive(Debug, Deserialize)]
 pub struct ReceiptForm {
@@ -35,6 +43,12 @@ pub struct ReceiptForm {
     /// Whether to print the date footer
     #[serde(default = "default_true")]
     pub print_details: bool,
+    /// Title character size [height, width]. 0 = 1×, 1 = 2×, etc. Defaults to [3, 2].
+    #[serde(default = "default_title_size")]
+    pub title_size: [u8; 2],
+    /// Body character size [height, width]. 0 = 1×, 1 = 2×, etc. Defaults to [0, 0] (normal).
+    #[serde(default = "default_body_size")]
+    pub body_size: [u8; 2],
 }
 
 /// Handle POST /api/receipt/print - print the receipt.
@@ -72,7 +86,7 @@ fn build_receipt(form: &ReceiptForm, printer_width: u16) -> Program {
             content: title.trim().to_string(),
             center: true,
             bold: true,
-            size: [1, 1],
+            size: form.title_size,
             ..Default::default()
         }));
         components.push(Component::Spacer(Spacer::mm(2.0)));
@@ -80,7 +94,7 @@ fn build_receipt(form: &ReceiptForm, printer_width: u16) -> Program {
 
     // Parse body as Markdown, word-wrapped to fit the printer
     components.push(Component::Markdown(Markdown {
-        size: [0, 0],
+        size: form.body_size,
         chars_per_line: Some(chars_per_line),
         ..Markdown::new(&form.body)
     }));
