@@ -14,11 +14,20 @@ impl Markdown {
             return;
         }
 
-        // Ensure we start in a known state (left-aligned)
+        // Ensure we start in a known state (left-aligned, requested size)
         ops.push(Op::SetAlign(Alignment::Left));
+        if self.size != [0, 0] {
+            ops.push(Op::SetSize { height: self.size[0], width: self.size[1] });
+        }
+
+        // Effective wrap column accounts for the width multiplier
+        let effective_cols = self.chars_per_line.map(|c| {
+            let mult = (self.size[1] as usize) + 1;
+            (c / mult).max(1)
+        });
 
         let parser = Parser::new(&self.content);
-        let mut state = ParserState::new(self.show_urls);
+        let mut state = ParserState::new(self.show_urls, effective_cols);
 
         for event in parser {
             match event {
@@ -26,14 +35,26 @@ impl Markdown {
                 Event::End(tag_end) => state.handle_end_tag(tag_end, ops),
                 Event::Text(text) => state.handle_text(&text, ops),
                 Event::Code(code) => state.handle_inline_code(&code, ops),
-                Event::SoftBreak => ops.push(Op::Text(" ".into())),
-                Event::HardBreak => ops.push(Op::Newline),
+                Event::SoftBreak => {
+                    if state.chars_per_line.is_none() {
+                        ops.push(Op::Text(" ".into()));
+                    }
+                    // With word wrapping, soft breaks are handled as spaces within emit_wrapped
+                }
+                Event::HardBreak => {
+                    ops.push(Op::Newline);
+                    state.col = 0;
+                }
                 Event::Rule => {
                     ops.push(Op::Text("\u{2500}".repeat(48)));
                     ops.push(Op::Newline);
                 }
                 _ => {}
             }
+        }
+
+        if self.size != [0, 0] {
+            ops.push(Op::SetSize { height: 0, width: 0 });
         }
     }
 }
@@ -48,10 +69,14 @@ struct ParserState {
     in_heading: bool,
     heading_level: Option<HeadingLevel>,
     just_finished_heading: bool,
+    /// Word-wrap column limit (None = no wrapping).
+    chars_per_line: Option<usize>,
+    /// Current column position within the line, for word wrapping.
+    col: usize,
 }
 
 impl ParserState {
-    fn new(show_urls: bool) -> Self {
+    fn new(show_urls: bool, chars_per_line: Option<usize>) -> Self {
         Self {
             show_urls,
             list_depth: 0,
@@ -61,6 +86,8 @@ impl ParserState {
             in_heading: false,
             heading_level: None,
             just_finished_heading: false,
+            chars_per_line,
+            col: 0,
         }
     }
 
@@ -164,6 +191,7 @@ impl ParserState {
             TagEnd::Paragraph => {
                 ops.push(Op::Newline);
                 ops.push(Op::Newline);
+                self.col = 0;
             }
             TagEnd::Heading(_level) => {
                 self.in_heading = false;
@@ -264,10 +292,35 @@ impl ParserState {
     }
 
     fn handle_text(&mut self, text: &str, ops: &mut Vec<Op>) {
-        if let Some(prefix) = self.pending_list_prefix.take() {
-            ops.push(Op::Text(format!("{}{}", prefix, text)));
-        } else {
-            ops.push(Op::Text(text.to_string()));
+        let content = match self.pending_list_prefix.take() {
+            Some(prefix) => format!("{}{}", prefix, text),
+            None => text.to_string(),
+        };
+
+        // Word-wrap body text only (not headings, code blocks, etc.)
+        if let Some(max_cols) = self.chars_per_line {
+            if !self.in_heading {
+                self.emit_wrapped(&content, ops, max_cols);
+                return;
+            }
+        }
+
+        ops.push(Op::Text(content));
+    }
+
+    fn emit_wrapped(&mut self, text: &str, ops: &mut Vec<Op>, max_cols: usize) {
+        for word in text.split_whitespace() {
+            if self.col == 0 {
+                ops.push(Op::Text(word.to_string()));
+                self.col = word.len();
+            } else if self.col + 1 + word.len() <= max_cols {
+                ops.push(Op::Text(format!(" {}", word)));
+                self.col += 1 + word.len();
+            } else {
+                ops.push(Op::Newline);
+                ops.push(Op::Text(word.to_string()));
+                self.col = word.len();
+            }
         }
     }
 
