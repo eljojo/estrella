@@ -11,6 +11,7 @@ services:
     environment:
       # 576 = TSP650II (80mm paper), 384 = mC-Print2 (58mm paper)
       PRINTER_WIDTH: "576"
+      # TZ: Europe/London
       # PRINTER_DEVICE: /dev/rfcomm0
       # LISTEN_ADDR: 0.0.0.0:8080
     # The printer communicates over Bluetooth RFCOMM. The host must have
