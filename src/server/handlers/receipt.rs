@@ -72,14 +72,18 @@ fn build_receipt(form: &ReceiptForm, printer_width: u16) -> Program {
             content: title.trim().to_string(),
             center: true,
             bold: true,
-            size: [3, 2],
+            size: [1, 1],
             ..Default::default()
         }));
         components.push(Component::Spacer(Spacer::mm(2.0)));
     }
 
-    // Parse body as Markdown
-    components.push(Component::Markdown(Markdown::new(&form.body)));
+    // Parse body as Markdown, word-wrapped to fit the printer
+    components.push(Component::Markdown(Markdown {
+        size: [0, 0],
+        chars_per_line: Some(chars_per_line),
+        ..Markdown::new(&form.body)
+    }));
 
     // Add date footer if print_details is enabled
     if form.print_details {
