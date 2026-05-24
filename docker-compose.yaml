@@ -1,0 +1,25 @@
+name: estrella
+
+services:
+  estrella:
+    build: .
+    image: estrella:latest
+    container_name: estrella
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      # 576 = TSP650II (80mm paper), 384 = mC-Print2 (58mm paper)
+      PRINTER_WIDTH: "576"
+      # TZ: Europe/London
+      # PRINTER_DEVICE: /dev/rfcomm0
+      # LISTEN_ADDR: 0.0.0.0:8080
+    # The printer communicates over Bluetooth RFCOMM. The host must have
+    # the printer paired and the RFCOMM device bound before starting:
+    #
+    #   bluetoothctl pair XX:XX:XX:XX:XX:XX
+    #   sudo rfcomm bind 0 XX:XX:XX:XX:XX:XX 1   # creates /dev/rfcomm0
+    #
+    # To persist the binding across reboots, see the Docker section of the README.
+    devices:
+      - /dev/rfcomm0:/dev/rfcomm0
