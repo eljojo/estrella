@@ -15,7 +15,7 @@ use crate::document::canvas::ElementLayout;
 use crate::document::{self, Component, Document, ImageResolver};
 use crate::ir::{Op, Program};
 use crate::preview::{measure_cursor_y, measure_preview};
-use crate::transport::BluetoothTransport;
+use crate::transport;
 
 use super::super::state::AppState;
 
@@ -135,7 +135,7 @@ pub async fn print(State(state): State<Arc<AppState>>, Json(mut doc): Json<Docum
     let device_path = state.config.device_path.clone();
 
     let print_result = tokio::task::spawn_blocking(move || {
-        let mut transport = BluetoothTransport::open(&device_path)?;
+        let mut transport = transport::open_transport(&device_path)?;
         transport.write_all(&print_data)?;
         Ok::<_, crate::EstrellaError>(())
     })
