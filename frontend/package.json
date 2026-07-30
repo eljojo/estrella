@@ -16,7 +16,7 @@
     "@preact/signals": "^2.10.0"
   },
   "devDependencies": {
-    "@playwright/test": "^1.61.1",
+    "@playwright/test": "^1.62.0",
     "@preact/preset-vite": "^2.10.6",
     "typescript": "^7.0.2",
     "vite": "^8.2.0"
