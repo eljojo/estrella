@@ -9,7 +9,7 @@ Type=simple
 User=estrella
 SupplementaryGroups=dialout
 EnvironmentFile=/etc/estrella/estrella.conf
-ExecStart=/usr/bin/estrella serve --listen ${LISTEN_ADDR} --device /dev/rfcomm${RFCOMM_CHANNEL}
+ExecStart=/usr/bin/estrella serve --listen ${LISTEN_ADDR} --device /dev/rfcomm${RFCOMM_CHANNEL} --profile ${PROFILE}
 
 Restart=always
 RestartSec=10s

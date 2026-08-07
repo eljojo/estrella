@@ -6,6 +6,7 @@
 use serde::Serialize;
 
 use super::Component;
+use super::EmitContext;
 use super::types::Canvas;
 use crate::ir::{Op, Program};
 use crate::preview::render_raw;
@@ -110,12 +111,12 @@ pub struct CanvasLayout {
 
 impl Canvas {
     /// Emit IR ops for this canvas component.
-    pub fn emit(&self, ops: &mut Vec<Op>) {
+    pub fn emit(&self, ctx: &mut EmitContext) {
         if self.elements.is_empty() {
             return;
         }
 
-        let canvas_width = self.width.unwrap_or(576);
+        let canvas_width = self.width.unwrap_or(ctx.print_width);
 
         // Render each element to an f32 intensity buffer.
         // Elements without position flow top-to-bottom; positioned elements are independent.
@@ -184,7 +185,7 @@ impl Canvas {
             dither_algo,
         );
 
-        ops.push(Op::Raster {
+        ctx.push(Op::Raster {
             width: canvas_width as u16,
             height: canvas_height as u16,
             data: raster_data,
@@ -200,15 +201,15 @@ impl Canvas {
     /// tight content bounds (non-white pixels). The `content_offset_x/y` fields
     /// give the offset from content origin to element origin, so the frontend
     /// can map drag positions back: `element_position = content_position - offset`.
-    pub fn compute_layout(&self) -> CanvasLayout {
-        let canvas_width = self.width.unwrap_or(576);
+    pub fn compute_layout(&self, print_width: usize) -> CanvasLayout {
+        let canvas_width = self.width.unwrap_or(print_width);
         let mut layouts = Vec::new();
         // Track full element bottom edges for canvas height (must match emit())
         let mut full_bottoms: Vec<usize> = Vec::new();
         let mut flow_y: i32 = 0;
 
         for el in &self.elements {
-            if let Some((mut elem_x, mut elem_y, measurement)) = measure_element(el) {
+            if let Some((mut elem_x, mut elem_y, measurement)) = measure_element(el, canvas_width) {
                 if el.position.is_none() {
                     elem_x = 0;
                     elem_y = flow_y;
@@ -323,13 +324,16 @@ struct RenderedElement {
 /// Measure a single canvas element: emit → render_raw → scan content bounds.
 ///
 /// Returns the element's position, full size, and content bounds.
-fn measure_element(element: &CanvasElement) -> Option<(i32, i32, ElementMeasurement)> {
-    let mut sub_ops = Vec::new();
-    element.component.emit(&mut sub_ops);
-    if sub_ops.is_empty() {
+fn measure_element(
+    element: &CanvasElement,
+    canvas_width: usize,
+) -> Option<(i32, i32, ElementMeasurement)> {
+    let mut ctx = EmitContext::new(canvas_width);
+    element.component.emit(&mut ctx);
+    if ctx.ops.is_empty() {
         return None;
     }
-    let program = Program { ops: sub_ops };
+    let program = Program { ops: ctx.ops };
     let raw = render_raw(&program).ok()?;
     let (x, y) = element.position.map(|p| (p.x, p.y)).unwrap_or((0, 0));
     let cb = content_bounds(&raw);
@@ -350,15 +354,15 @@ fn measure_element(element: &CanvasElement) -> Option<(i32, i32, ElementMeasurem
 /// Position is set from the element's `position` field; flow positioning is
 /// handled by the caller for elements without explicit position.
 /// Returns None if the element produces no output.
-fn render_element(element: &CanvasElement, _canvas_width: usize) -> Option<RenderedElement> {
-    let mut sub_ops = Vec::new();
-    element.component.emit(&mut sub_ops);
+fn render_element(element: &CanvasElement, canvas_width: usize) -> Option<RenderedElement> {
+    let mut ctx = EmitContext::new(canvas_width);
+    element.component.emit(&mut ctx);
 
-    if sub_ops.is_empty() {
+    if ctx.ops.is_empty() {
         return None;
     }
 
-    let program = Program { ops: sub_ops };
+    let program = Program { ops: ctx.ops };
     let raw = render_raw(&program).ok()?;
 
     // Convert 1-bit packed data to f32 intensity buffer
@@ -520,7 +524,7 @@ mod tests {
             elements: vec![centered_text_element("Hi", None)],
             ..Default::default()
         };
-        let layout = canvas.compute_layout();
+        let layout = canvas.compute_layout(576);
         assert_eq!(layout.elements.len(), 1);
         let el = &layout.elements[0];
         // Content bounds should be narrower than full width
@@ -546,7 +550,7 @@ mod tests {
             elements: vec![centered_text_element("X", Some(Position { x: 50, y: 100 }))],
             ..Default::default()
         };
-        let layout = canvas.compute_layout();
+        let layout = canvas.compute_layout(576);
         let el = &layout.elements[0];
         // element_position = content_position - content_offset
         let recovered_x = el.x - el.content_offset_x;
@@ -562,7 +566,7 @@ mod tests {
             elements: vec![text_element("First", None), text_element("Second", None)],
             ..Default::default()
         };
-        let layout = canvas.compute_layout();
+        let layout = canvas.compute_layout(576);
         assert_eq!(layout.elements.len(), 2);
         let first = &layout.elements[0];
         let second = &layout.elements[1];
@@ -582,7 +586,7 @@ mod tests {
             elements: vec![text_element("Hello", None)],
             ..Default::default()
         };
-        let layout = canvas.compute_layout();
+        let layout = canvas.compute_layout(576);
         let el = &layout.elements[0];
         // Full dimensions should be non-zero and >= content dimensions
         assert!(el.full_width > 0);
@@ -597,7 +601,7 @@ mod tests {
             elements: vec![],
             ..Default::default()
         };
-        let layout = canvas.compute_layout();
+        let layout = canvas.compute_layout(576);
         assert!(layout.elements.is_empty());
     }
 
@@ -608,7 +612,7 @@ mod tests {
             elements: vec![centered_text_element("Test", None)],
             ..Default::default()
         };
-        let layout = canvas.compute_layout();
+        let layout = canvas.compute_layout(576);
         let el = &layout.elements[0];
         // Canvas height must be at least full_height (not just content height)
         assert!(
@@ -628,7 +632,7 @@ mod tests {
             )],
             ..Default::default()
         };
-        let layout = canvas.compute_layout();
+        let layout = canvas.compute_layout(576);
         let el = &layout.elements[0];
         // Content x should be element x (100) + some content offset
         assert_eq!(el.x, 100 + el.content_offset_x);
@@ -650,7 +654,7 @@ mod tests {
             }],
             ..Default::default()
         };
-        let layout = canvas.compute_layout();
+        let layout = canvas.compute_layout(576);
         let el = &layout.elements[0];
         // All-white: content bounds = full bounds, offset = (0, 0)
         assert_eq!(el.content_offset_x, 0);

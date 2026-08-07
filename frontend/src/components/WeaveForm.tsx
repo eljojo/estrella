@@ -9,6 +9,7 @@ import {
   WeavePatternEntry as ApiWeavePatternEntry,
 } from '../api'
 import { ParamInput } from './PatternForm'
+import { canPrint, activeProfile } from './ProfileSelector'
 
 // Curves hardcoded (matches BlendCurve in src/render/weave.rs)
 const BLEND_CURVES = ['linear', 'smooth', 'ease-in', 'ease-out'] as const
@@ -61,6 +62,7 @@ effect(() => {
   const dither = dithering.value
   const mode = renderMode.value
   void previewKey.value // Force refresh dependency
+  void activeProfile.value // Re-render when profile changes
 
   if (previewTimeout) clearTimeout(previewTimeout)
 
@@ -235,35 +237,43 @@ export function WeaveForm() {
 
       {/* Weave Settings */}
       <div class="form-group">
-        <label for="weave-length">Total Length (mm)</label>
+        <label for="weave-length">{canPrint.value ? 'Total Length (mm)' : 'Total Height (px)'}</label>
         <input
           type="number"
           id="weave-length"
           min="50"
-          max="1000"
+          max={canPrint.value ? 1000 : 4000}
           value={weaveLengthMm.value}
           onInput={(e) => {
             weaveLengthMm.value = parseInt((e.target as HTMLInputElement).value) || 200
             handleSettingChange()
           }}
         />
-        <p class="hint">Total weave height (50-1000mm)</p>
+        <p class="hint">
+          {canPrint.value
+            ? 'Total weave height (50-1000mm)'
+            : 'Total weave height in pixels'}
+        </p>
       </div>
 
       <div class="form-group">
-        <label for="crossfade">Crossfade (mm)</label>
+        <label for="crossfade">{canPrint.value ? 'Crossfade (mm)' : 'Crossfade (px)'}</label>
         <input
           type="number"
           id="crossfade"
           min="5"
-          max="100"
+          max={canPrint.value ? 100 : 500}
           value={crossfadeMm.value}
           onInput={(e) => {
             crossfadeMm.value = parseInt((e.target as HTMLInputElement).value) || 30
             handleSettingChange()
           }}
         />
-        <p class="hint">Transition length between patterns (5-100mm)</p>
+        <p class="hint">
+          {canPrint.value
+            ? 'Transition length between patterns (5-100mm)'
+            : 'Transition length between patterns in pixels'}
+        </p>
       </div>
 
       <div class="form-group">
@@ -397,13 +407,15 @@ export function WeaveForm() {
         >
           Randomize All
         </button>
-        <button
-          type="button"
-          onClick={handlePrint}
-          disabled={weavePatterns.value.length < 2 || loading.value}
-        >
-          {loading.value ? 'Printing...' : 'Print'}
-        </button>
+        {canPrint.value && (
+          <button
+            type="button"
+            onClick={handlePrint}
+            disabled={weavePatterns.value.length < 2 || loading.value}
+          >
+            {loading.value ? 'Printing...' : 'Print'}
+          </button>
+        )}
       </div>
 
       {previewLoading.value && <p class="hint">Generating preview...</p>}

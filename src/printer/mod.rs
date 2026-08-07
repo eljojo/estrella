@@ -8,4 +8,4 @@
 
 pub mod config;
 
-pub use config::PrinterConfig;
+pub use config::{DeviceProfile, PrinterConfig};

@@ -7,6 +7,8 @@ use std::sync::Arc;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;
 
+use crate::printer::DeviceProfile;
+
 /// Server configuration.
 #[derive(Debug, Clone)]
 pub struct ServerConfig {
@@ -151,10 +153,12 @@ pub struct AppState {
     pub photo_sessions: Arc<RwLock<HashMap<String, PhotoSession>>>,
     /// Cached intensity buffers for composer layers.
     pub intensity_cache: Arc<RwLock<HashMap<IntensityCacheKey, CachedIntensity>>>,
+    /// Active device profile (printer or virtual canvas).
+    pub active_profile: Arc<RwLock<DeviceProfile>>,
 }
 
 impl AppState {
-    pub fn new(config: ServerConfig) -> Self {
+    pub fn new(config: ServerConfig, profile: DeviceProfile) -> Self {
         let boot_time = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
@@ -164,6 +168,7 @@ impl AppState {
             boot_time,
             photo_sessions: Arc::new(RwLock::new(HashMap::new())),
             intensity_cache: Arc::new(RwLock::new(HashMap::new())),
+            active_profile: Arc::new(RwLock::new(profile)),
         }
     }
 }
