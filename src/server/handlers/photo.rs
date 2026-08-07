@@ -21,7 +21,7 @@ use crate::{
         self,
         dither::{self, DitheringAlgorithm},
     },
-    transport::BluetoothTransport,
+    transport,
 };
 
 use super::super::state::{AppState, PhotoSession, SESSION_EXPIRATION_SECS};
@@ -370,7 +370,7 @@ pub async fn print(
         );
         let programs = program.split_for_long_print();
         println!("[photo] Split into {} program(s)", programs.len());
-        let mut transport = BluetoothTransport::open(&device_path)?;
+        let mut transport = transport::open_transport(&device_path)?;
         transport.send_programs(&programs)?;
         Ok::<_, crate::EstrellaError>(())
     })
