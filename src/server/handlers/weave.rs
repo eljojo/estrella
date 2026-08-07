@@ -100,7 +100,7 @@ pub async fn preview(
     );
 
     // Calculate dimensions (needed for prepare)
-    let config = PrinterConfig::TSP650II;
+    let config = PrinterConfig::with_width(state.config.printer_width);
     let width = config.width_dots as usize;
     let height = config.mm_to_dots(req.length_mm) as usize;
 
@@ -208,10 +208,12 @@ pub async fn print(
     );
 
     // Calculate dimensions (needed for prepare)
-    let config = PrinterConfig::TSP650II;
+    let config = PrinterConfig::with_width(state.config.printer_width);
     let width = config.width_dots as usize;
     let height = config.mm_to_dots(req.length_mm) as usize;
     let crossfade_pixels = config.mm_to_dots(req.crossfade_mm) as usize;
+    // Font A is 12 dots/char — derive divider width from actual printer dots
+    let chars_per_line = config.width_dots as usize / 12;
 
     // Load, configure, and prepare patterns
     let mut pattern_impls: Vec<Box<dyn Pattern>> = Vec::new();
@@ -294,7 +296,7 @@ pub async fn print(
 
     // Print details at bottom if enabled
     if req.print_details {
-        let divider = Divider::default();
+        let divider = Divider { width: Some(chars_per_line), ..Default::default() };
         let mut divider_ops = Vec::new();
         divider.emit(&mut divider_ops);
         program.extend(divider_ops);
