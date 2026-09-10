@@ -269,6 +269,14 @@ impl Program {
         crate::preview::render_preview(self)
     }
 
+    /// Render this program to a PNG preview with a custom print width.
+    pub fn to_preview_png_with_width(
+        &self,
+        print_width: usize,
+    ) -> Result<Vec<u8>, crate::preview::PreviewError> {
+        crate::preview::render_preview_with_width(self, print_width)
+    }
+
     /// Create a program with an initial Init op and CP437 code page.
     pub fn with_init() -> Self {
         Self {

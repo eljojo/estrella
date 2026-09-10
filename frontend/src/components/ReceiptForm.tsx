@@ -1,5 +1,6 @@
 import { signal, effect, computed } from '@preact/signals'
 import { printReceipt, fetchReceiptPreview } from '../api'
+import { canPrint, activeProfile } from './ProfileSelector'
 
 const DEFAULT_TITLE = 'Churra Mart'
 const DEFAULT_BODY = `# Groceries
@@ -39,6 +40,7 @@ effect(() => {
   const currentBody = body.value
   const currentCut = cut.value
   const currentPrintDetails = printDetails.value
+  void activeProfile.value // Re-render when profile changes
 
   // Clear existing timeout
   if (previewTimeout) {
@@ -127,9 +129,11 @@ Supports **Markdown** formatting:
         <p class="hint">Required. Supports Markdown formatting.</p>
       </div>
 
-      <button type="submit" disabled={loading.value}>
-        {loading.value ? 'Printing...' : 'Print Receipt'}
-      </button>
+      {canPrint.value && (
+        <button type="submit" disabled={loading.value}>
+          {loading.value ? 'Printing...' : 'Print Receipt'}
+        </button>
+      )}
     </form>
   )
 }
