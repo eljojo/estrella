@@ -85,3 +85,4 @@ pub mod transport;
 pub use error::EstrellaError;
 pub use printer::PrinterConfig;
 pub use transport::BluetoothTransport;
+pub use transport::UsbTransport;

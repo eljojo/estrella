@@ -13,7 +13,7 @@ use crate::{
     document::{Component, Divider, Document, Markdown, Spacer, Text},
     ir::Program,
     receipt::current_datetime,
-    transport::BluetoothTransport,
+    transport,
 };
 
 use super::super::state::AppState;
@@ -105,7 +105,7 @@ fn build_receipt(form: &ReceiptForm) -> Program {
 
 /// Print to the physical device.
 fn print_to_device(device_path: &str, data: &[u8]) -> Result<(), crate::EstrellaError> {
-    let mut transport = BluetoothTransport::open(device_path)?;
+    let mut transport = transport::open_transport(device_path)?;
     transport.write_all(data)?;
     Ok(())
 }
