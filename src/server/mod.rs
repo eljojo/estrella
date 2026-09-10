@@ -101,6 +101,7 @@ pub async fn serve(config: ServerConfig) -> Result<(), EstrellaError> {
     println!("Estrella HTTP server starting...");
     println!("Listening on: {}", config.listen_addr);
     println!("Printer device: {}", config.device_path);
+    println!("Printer width: {} dots", config.printer_width);
     println!();
     println!(
         "Open http://{}/ in your browser to print",
