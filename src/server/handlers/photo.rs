@@ -16,7 +16,6 @@ use std::{sync::Arc, time::Instant};
 use uuid::Uuid;
 
 use crate::{
-    printer::PrinterConfig,
     render::{
         self,
         dither::{self, DitheringAlgorithm},
@@ -198,9 +197,11 @@ pub async fn preview(
     let contrast = query.contrast;
     let dither_algo = parse_dither(&query.dither);
 
+    let printer_width = state.config.printer_width as u32;
+
     // Move CPU-intensive work to blocking thread pool
     let png_bytes = tokio::task::spawn_blocking(move || {
-        generate_preview_png(source_image, rotation, brightness, contrast, dither_algo)
+        generate_preview_png(source_image, rotation, brightness, contrast, dither_algo, printer_width)
     })
     .await
     .map_err(|e| {
@@ -221,8 +222,8 @@ fn prepare_for_print(
     brightness: i32,
     contrast: i32,
     filter: FilterType,
+    target_width: u32,
 ) -> DynamicImage {
-    let target_width = PrinterConfig::TSP650II.width_dots as u32;
 
     // Rotate first to get correct orientation
     let rotated = match rotation % 360 {
@@ -270,6 +271,7 @@ fn generate_preview_png(
     brightness: i32,
     contrast: i32,
     dither_algo: DitheringAlgorithm,
+    printer_width: u32,
 ) -> Result<Vec<u8>, String> {
     // Use Triangle filter for speed in preview
     let processed = prepare_for_print(
@@ -278,6 +280,7 @@ fn generate_preview_png(
         brightness,
         contrast,
         FilterType::Triangle,
+        printer_width,
     );
     let (width, height, raster_data) = generate_dithered_raster(&processed, dither_algo);
     render::raster_to_png(width, height, &raster_data)
@@ -290,6 +293,7 @@ fn generate_print_raster(
     brightness: i32,
     contrast: i32,
     dither_algo: DitheringAlgorithm,
+    printer_width: u32,
 ) -> (usize, usize, Vec<u8>) {
     // Use Lanczos3 for print quality
     let processed = prepare_for_print(
@@ -298,6 +302,7 @@ fn generate_print_raster(
         brightness,
         contrast,
         FilterType::Lanczos3,
+        printer_width,
     );
     generate_dithered_raster(&processed, dither_algo)
 }
@@ -331,12 +336,13 @@ pub async fn print(
     let mode = req.mode.clone();
     let cut = req.cut;
     let device_path = state.config.device_path.clone();
+    let printer_width = state.config.printer_width as u32;
 
     // Move all CPU-intensive work to blocking thread pool
     let print_result = tokio::task::spawn_blocking(move || {
         // Generate raster data
         let (width, height, raster_data) =
-            generate_print_raster(source_image, rotation, brightness, contrast, dither_algo);
+            generate_print_raster(source_image, rotation, brightness, contrast, dither_algo, printer_width);
 
         // Build print command
         use crate::ir::{Op, Program};

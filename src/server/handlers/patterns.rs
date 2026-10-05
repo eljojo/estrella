@@ -133,7 +133,7 @@ pub async fn preview(
     }
 
     // Calculate dimensions
-    let config = PrinterConfig::TSP650II;
+    let config = PrinterConfig::with_width(state.config.printer_width);
     let width = config.width_dots as usize;
     let height = config.mm_to_dots(query.length_mm) as usize;
 
@@ -217,9 +217,11 @@ pub async fn print(
     }
 
     // Calculate dimensions
-    let config = PrinterConfig::TSP650II;
+    let config = PrinterConfig::with_width(state.config.printer_width);
     let width = config.width_dots as usize;
     let height = config.mm_to_dots(form.length_mm) as usize;
+    // Font A is 12 dots/char — derive divider width from actual printer dots
+    let chars_per_line = config.width_dots as usize / 12;
 
     // Prepare pattern (async — handles I/O like image downloads)
     let ctx = RenderContext::new(
@@ -274,8 +276,8 @@ pub async fn print(
         program.extend(title_ops);
         program.push(Op::Newline);
 
-        // Divider
-        let divider = Divider::default();
+        // Divider — width derived from printer dots so it never wraps
+        let divider = Divider { width: Some(chars_per_line), ..Default::default() };
         let mut divider_ops = Vec::new();
         divider.emit(&mut divider_ops);
         program.extend(divider_ops);
@@ -296,7 +298,7 @@ pub async fn print(
 
     // Print parameters if details enabled
     if form.print_details {
-        let divider = Divider::default();
+        let divider = Divider { width: Some(chars_per_line), ..Default::default() };
         let mut divider_ops = Vec::new();
         divider.emit(&mut divider_ops);
         program.extend(divider_ops);
