@@ -14,6 +14,8 @@ pub struct ServerConfig {
     pub device_path: String,
     /// Address to listen on (e.g., "0.0.0.0:8080")
     pub listen_addr: String,
+    /// Printer paper width in dots (576 for TSP650II/80mm, 384 for mC-Print2/58mm)
+    pub printer_width: u16,
 }
 
 /// Cache key for rendered intensity buffers.
