@@ -319,7 +319,7 @@ Text("B")
 
 - **Printer:** Star Micronics TSP650II (or compatible StarPRNT printer)
 - **Connection:** Bluetooth, paired to create `/dev/rfcomm0`
-- **Install:** `.deb` package (Raspberry Pi / Debian), Nix (NixOS), or Rust nightly
+- **Install:** `.deb` package (Raspberry Pi / Debian), Docker, Nix (NixOS), or Rust nightly
 
 ### Install on Raspberry Pi (Debian/Ubuntu)
 
@@ -399,6 +399,57 @@ For a proper deployment on NixOS:
 The module creates two systemd services:
 - `estrella-rfcomm.service` - Oneshot that sets up the Bluetooth RFCOMM device (runs as root)
 - `estrella.service` - The HTTP daemon (runs unprivileged with DynamicUser)
+
+### Docker
+
+A `Dockerfile` and `docker-compose.yaml` are included. The image is not published; build it locally.
+
+**Build:**
+
+```bash
+docker compose build
+```
+
+**Pair your printer first** (see [Bluetooth Setup](#bluetooth-setup) below), then bind the RFCOMM device on the host and start the container:
+
+```bash
+sudo rfcomm bind 0 XX:XX:XX:XX:XX:XX
+docker compose up -d
+```
+
+Open `http://your-host:8080` in your browser.
+
+**Configuration** via environment variables in `docker-compose.yaml`:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PRINTER_DEVICE` | `/dev/rfcomm0` | RFCOMM device path |
+| `PRINTER_WIDTH` | `576` | Print width in dots |
+| `LISTEN_ADDR` | `0.0.0.0:8080` | Listen address |
+
+The default width (576) is correct for the TSP650II. Set `PRINTER_WIDTH=384` for 58mm printers such as the mC-Print2.
+
+**Persisting the RFCOMM binding across reboots** — create `/etc/systemd/system/rfcomm-printer.service`:
+
+```ini
+[Unit]
+Description=Bind printer RFCOMM
+After=bluetooth.service
+Requires=bluetooth.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/rfcomm bind 0 XX:XX:XX:XX:XX:XX 1
+ExecStop=/usr/bin/rfcomm release 0
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl enable --now rfcomm-printer.service
+```
 
 ### Bluetooth Setup
 
