@@ -12,7 +12,7 @@
     "test:headed": "playwright test --headed"
   },
   "dependencies": {
-    "preact": "^11.0.1",
+    "preact": "^11.0.2",
     "@preact/signals": "^2.11.3"
   },
   "devDependencies": {
