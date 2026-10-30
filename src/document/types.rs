@@ -615,6 +615,14 @@ pub struct Markdown {
     pub content: String,
     #[serde(default)]
     pub show_urls: bool,
+    /// Character size multipliers [height, width]. 0 = 1×, 1 = 2×, etc.
+    /// Applies to body text; heading sizes are relative to this base.
+    #[serde(default)]
+    pub size: [u8; 2],
+    /// Word-wrap column width at normal (1×) size. The emit logic divides
+    /// by the width multiplier to get the effective wrap column.
+    #[serde(default)]
+    pub chars_per_line: Option<usize>,
 }
 
 impl ComponentMeta for Markdown {
