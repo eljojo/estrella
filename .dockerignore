@@ -1,0 +1,25 @@
+# Rust build artefacts (can be many GBs — never send to Docker daemon)
+target/
+.cargo/
+
+# Frontend build output and node packages (rebuilt inside the container)
+frontend/dist/
+frontend/node_modules/
+
+# Nix/flake
+.direnv/
+result
+result-*
+
+# Version control
+.git/
+.gitignore
+
+# Docs / editor noise
+docs/
+*.md
+.editorconfig
+
+# OS detritus
+.DS_Store
+Thumbs.db
