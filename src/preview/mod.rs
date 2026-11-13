@@ -123,6 +123,14 @@ impl PreviewRenderer {
         Self::new(640, 576, 32, 16)
     }
 
+    /// Create a renderer for an arbitrary print width.
+    ///
+    /// Scales margins proportionally to the TSP650II ratio (~5.5% of print width).
+    pub fn for_width(print_width: usize) -> Self {
+        let margin = (print_width as f32 * 0.055).round() as usize;
+        Self::new(print_width + margin * 2, print_width, margin, margin / 2)
+    }
+
     /// Ensure buffer has room for the given y position.
     fn ensure_height(&mut self, y: usize) {
         let needed_height = y + 1;
@@ -674,9 +682,18 @@ impl PreviewRenderer {
     }
 }
 
-/// Render a program to PNG bytes.
+/// Render a program to PNG bytes using TSP650II dimensions.
 pub fn render_preview(program: &Program) -> Result<Vec<u8>, PreviewError> {
     let mut renderer = PreviewRenderer::tsp650ii();
+    renderer.render(program)
+}
+
+/// Render a program to PNG bytes with a custom print width.
+pub fn render_preview_with_width(
+    program: &Program,
+    print_width: usize,
+) -> Result<Vec<u8>, PreviewError> {
+    let mut renderer = PreviewRenderer::for_width(print_width);
     renderer.render(program)
 }
 
@@ -685,7 +702,15 @@ pub fn render_preview(program: &Program) -> Result<Vec<u8>, PreviewError> {
 /// Returns the same height that `to_preview_png()` would produce, without
 /// generating the PNG. Useful for computing the total preview image height.
 pub fn measure_preview(program: &Program) -> Result<usize, PreviewError> {
-    let mut renderer = PreviewRenderer::tsp650ii();
+    measure_preview_with_width(program, 576)
+}
+
+/// Measure the rendered height of a program with a custom print width.
+pub fn measure_preview_with_width(
+    program: &Program,
+    print_width: usize,
+) -> Result<usize, PreviewError> {
+    let mut renderer = PreviewRenderer::for_width(print_width);
     for op in &program.ops {
         renderer.process_op(op)?;
     }
@@ -699,7 +724,15 @@ pub fn measure_preview(program: &Program) -> Result<usize, PreviewError> {
 /// Unlike `measure_preview`, this returns the cursor position (not the trimmed
 /// buffer height), so it correctly accounts for whitespace/spacers.
 pub fn measure_cursor_y(program: &Program) -> Result<usize, PreviewError> {
-    let mut renderer = PreviewRenderer::tsp650ii();
+    measure_cursor_y_with_width(program, 576)
+}
+
+/// Measure the Y cursor position with a custom print width.
+pub fn measure_cursor_y_with_width(
+    program: &Program,
+    print_width: usize,
+) -> Result<usize, PreviewError> {
+    let mut renderer = PreviewRenderer::for_width(print_width);
     for op in &program.ops {
         renderer.process_op(op)?;
     }
@@ -721,8 +754,15 @@ pub struct RawRaster {
 /// Returns exactly 576 pixels wide (72mm at 203 DPI), packed 1-bit per pixel.
 /// This is suitable for direct raster printing via `Op::Raster`.
 pub fn render_raw(program: &Program) -> Result<RawRaster, PreviewError> {
-    // Create renderer with no margins: paper = print = 576px
-    let mut renderer = PreviewRenderer::new(576, 576, 0, 0);
+    render_raw_with_width(program, 576)
+}
+
+/// Render a program to raw 1-bit raster data with a custom width and no margins.
+pub fn render_raw_with_width(
+    program: &Program,
+    print_width: usize,
+) -> Result<RawRaster, PreviewError> {
+    let mut renderer = PreviewRenderer::new(print_width, print_width, 0, 0);
 
     for op in &program.ops {
         // Skip Cut ops - we want the content only

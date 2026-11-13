@@ -75,6 +75,48 @@ h1 {
     margin-bottom: 24px;
 }
 
+.header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.profile-selector select {
+    padding: 6px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #4a5568;
+    background: white;
+    cursor: pointer;
+    min-width: 0;
+    width: auto;
+}
+
+.profile-selector select:hover {
+    border-color: #667eea;
+}
+
+.download-button {
+    display: block;
+    text-align: center;
+    text-decoration: none;
+    margin-top: 12px;
+    background: #38a169;
+    color: white;
+    padding: 14px 32px;
+    font-size: 16px;
+    font-weight: 600;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(56, 161, 105, 0.4);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.download-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(56, 161, 105, 0.6);
+}
+
 .tabs {
     display: flex;
     gap: 8px;

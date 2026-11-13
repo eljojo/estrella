@@ -93,9 +93,13 @@ fn generate_band_commands(name: &str, height: usize) -> Vec<u8> {
         size: [3, 2],
         ..Default::default()
     };
-    title_text.emit(&mut program.ops);
+    let mut ctx = estrella::document::EmitContext::new(width);
+    title_text.emit(&mut ctx);
+    program.extend(ctx.ops);
     let divider = Divider::default();
-    divider.emit(&mut program.ops);
+    let mut ctx = estrella::document::EmitContext::new(width);
+    divider.emit(&mut ctx);
+    program.extend(ctx.ops);
 
     // Band mode graphics
     let width_bytes = (width as u16).div_ceil(8) as u8;
