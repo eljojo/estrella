@@ -44,8 +44,8 @@ pub async fn print(State(state): State<Arc<AppState>>, Json(form): Json<ReceiptF
         return error_response("Body cannot be empty");
     }
 
-    // Build the receipt data
-    let receipt_data = build_receipt(&form).to_bytes();
+    let printer_width = state.config.printer_width;
+    let receipt_data = build_receipt(&form, printer_width).to_bytes();
 
     // Print to device (blocking operation, run in separate thread)
     let device_path = state.config.device_path.clone();
@@ -60,7 +60,8 @@ pub async fn print(State(state): State<Arc<AppState>>, Json(form): Json<ReceiptF
 }
 
 /// Build receipt program from form data.
-fn build_receipt(form: &ReceiptForm) -> Program {
+fn build_receipt(form: &ReceiptForm, printer_width: u16) -> Program {
+    let chars_per_line = printer_width as usize / 12;
     let mut components = Vec::new();
 
     // Add title if provided
@@ -83,7 +84,7 @@ fn build_receipt(form: &ReceiptForm) -> Program {
     // Add date footer if print_details is enabled
     if form.print_details {
         components.push(Component::Spacer(Spacer::mm(3.0)));
-        components.push(Component::Divider(Divider::default()));
+        components.push(Component::Divider(Divider { width: Some(chars_per_line), ..Default::default() }));
         components.push(Component::Text(Text {
             content: format!("Printed: {}", current_datetime()),
             center: true,
@@ -138,13 +139,13 @@ fn error_response(error_msg: &str) -> Response {
 }
 
 /// Handle POST /api/receipt/preview - generate PNG preview.
-pub async fn preview(Json(form): Json<ReceiptForm>) -> impl IntoResponse {
+pub async fn preview(State(state): State<Arc<AppState>>, Json(form): Json<ReceiptForm>) -> impl IntoResponse {
     if form.body.trim().is_empty() {
         return Err((StatusCode::BAD_REQUEST, "Body cannot be empty".to_string()));
     }
 
-    // Build the receipt program and render to PNG
-    let png_bytes = build_receipt(&form).to_preview_png().map_err(|e| {
+    let printer_width = state.config.printer_width;
+    let png_bytes = build_receipt(&form, printer_width).to_preview_png().map_err(|e| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
             format!("Failed to render preview: {}", e),
