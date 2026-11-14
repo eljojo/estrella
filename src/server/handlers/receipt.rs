@@ -4,9 +4,9 @@ use axum::{
     Json,
     extract::State,
     http::{StatusCode, header},
-    response::{Html, IntoResponse, Response},
+    response::{IntoResponse, Response},
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use crate::{
@@ -112,27 +112,34 @@ fn print_to_device(device_path: &str, data: &[u8]) -> Result<(), crate::Estrella
 
 /// Generate success response JSON.
 fn success_response(form: &ReceiptForm) -> Response {
-    let title_text = form
-        .title
-        .as_ref()
-        .map(|t| format!("\"{}\"", t))
-        .unwrap_or_else(|| "(no title)".to_string());
+    #[derive(Serialize)]
+    struct SuccessBody<'a> {
+        success: bool,
+        message: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        title: Option<&'a str>,
+    }
 
-    (
-        StatusCode::OK,
-        Html(format!(
-            r#"{{"success": true, "message": "Receipt {} printed successfully"}}"#,
-            title_text
-        )),
-    )
-        .into_response()
+    let title = form.title.as_deref().filter(|t| !t.trim().is_empty());
+    let message = match title {
+        Some(t) => format!("Receipt \"{}\" printed successfully", t),
+        None => "Receipt printed successfully".to_string(),
+    };
+
+    (StatusCode::OK, Json(SuccessBody { success: true, message, title })).into_response()
 }
 
 /// Generate error response JSON.
 fn error_response(error_msg: &str) -> Response {
+    #[derive(Serialize)]
+    struct ErrorBody<'a> {
+        success: bool,
+        error: &'a str,
+    }
+
     (
         StatusCode::INTERNAL_SERVER_ERROR,
-        Html(format!(r#"{{"success": false, "error": "{}"}}"#, error_msg)),
+        Json(ErrorBody { success: false, error: error_msg }),
     )
         .into_response()
 }
