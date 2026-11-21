@@ -44,8 +44,16 @@ pub async fn print(State(state): State<Arc<AppState>>, Json(form): Json<ReceiptF
         return error_response("Body cannot be empty");
     }
 
+    // Check that the active profile can print
+    let profile = state.active_profile.read().await;
+    if !profile.can_print() {
+        return error_response("Cannot print: active profile is a virtual canvas");
+    }
+    let width = profile.width_dots();
+    drop(profile);
+
     // Build the receipt data
-    let receipt_data = build_receipt(&form).to_bytes();
+    let receipt_data = build_receipt(&form, Some(width)).to_bytes();
 
     // Print to device (blocking operation, run in separate thread)
     let device_path = state.config.device_path.clone();
@@ -60,7 +68,7 @@ pub async fn print(State(state): State<Arc<AppState>>, Json(form): Json<ReceiptF
 }
 
 /// Build receipt program from form data.
-fn build_receipt(form: &ReceiptForm) -> Program {
+fn build_receipt(form: &ReceiptForm, width: Option<usize>) -> Program {
     let mut components = Vec::new();
 
     // Add title if provided
@@ -98,6 +106,7 @@ fn build_receipt(form: &ReceiptForm) -> Program {
         document: components,
         cut: form.cut,
         interpolate: false,
+        width,
         ..Default::default()
     }
     .compile()
@@ -138,18 +147,27 @@ fn error_response(error_msg: &str) -> Response {
 }
 
 /// Handle POST /api/receipt/preview - generate PNG preview.
-pub async fn preview(Json(form): Json<ReceiptForm>) -> impl IntoResponse {
+pub async fn preview(
+    State(state): State<Arc<AppState>>,
+    Json(form): Json<ReceiptForm>,
+) -> impl IntoResponse {
     if form.body.trim().is_empty() {
         return Err((StatusCode::BAD_REQUEST, "Body cannot be empty".to_string()));
     }
 
+    let profile = state.active_profile.read().await;
+    let print_width = profile.width_dots();
+    drop(profile);
+
     // Build the receipt program and render to PNG
-    let png_bytes = build_receipt(&form).to_preview_png().map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Failed to render preview: {}", e),
-        )
-    })?;
+    let png_bytes = build_receipt(&form, Some(print_width))
+        .to_preview_png_with_width(print_width)
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to render preview: {}", e),
+            )
+        })?;
 
     Ok(([(header::CONTENT_TYPE, "image/png")], png_bytes))
 }

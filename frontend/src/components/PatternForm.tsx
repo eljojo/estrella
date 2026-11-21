@@ -7,6 +7,7 @@ import {
   printPattern,
   ParamSpec,
 } from '../api'
+import { canPrint, activeProfile, profileWidth } from './ProfileSelector'
 
 const patterns = signal<string[]>([])
 const selectedPattern = signal('estrella')
@@ -35,14 +36,15 @@ const areParamsEqual = (a: Record<string, string>, b: Record<string, string>) =>
 // Export preview URL for App.tsx
 export const patternPreviewUrl = computed(() => {
   if (!selectedPattern.value) return ''
-  // Include previewKey to force refresh
+  // Include previewKey to force refresh on changes
   void previewKey.value
   return buildPreviewUrl(
     selectedPattern.value,
     lengthMm.value,
     params.value,
     dithering.value,
-    renderMode.value
+    renderMode.value,
+    profileWidth.value
   )
 })
 
@@ -298,19 +300,23 @@ export function PatternForm() {
       </div>
 
       <div class="form-group">
-        <label for="length">Length (mm)</label>
+        <label for="length">{canPrint.value ? 'Length (mm)' : 'Height (px)'}</label>
         <input
           type="number"
           id="length"
           min="10"
-          max="500"
+          max={canPrint.value ? 500 : 4000}
           value={lengthMm.value}
           onInput={(e) => {
             lengthMm.value = parseInt((e.target as HTMLInputElement).value) || 50
             handleSettingChange()
           }}
         />
-        <p class="hint">Pattern height in millimeters (10-500mm)</p>
+        <p class="hint">
+          {canPrint.value
+            ? 'Pattern height in millimeters (10-500mm)'
+            : 'Pattern height in pixels'}
+        </p>
       </div>
 
       <div class="form-group">
@@ -382,9 +388,11 @@ export function PatternForm() {
         >
           Randomize
         </button>
-        <button type="button" onClick={handlePrint} disabled={!selectedPattern.value || loading.value}>
-          {loading.value ? 'Printing...' : 'Print'}
-        </button>
+        {canPrint.value && (
+          <button type="button" onClick={handlePrint} disabled={!selectedPattern.value || loading.value}>
+            {loading.value ? 'Printing...' : 'Print'}
+          </button>
+        )}
       </div>
     </div>
   )

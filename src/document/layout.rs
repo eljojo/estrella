@@ -1,5 +1,6 @@
 //! Emit logic for layout components: Divider, Spacer, BlankLine, Columns, Banner.
 
+use super::EmitContext;
 use super::types::{
     Banner, BlankLine, BorderStyle, ColumnAlign, Columns, Divider, DividerStyle, Spacer, Table,
 };
@@ -10,8 +11,8 @@ use crate::render::dither;
 
 impl Divider {
     /// Emit IR ops for this divider component.
-    pub fn emit(&self, ops: &mut Vec<Op>) {
-        let width = self.width.unwrap_or(48);
+    pub fn emit(&self, ctx: &mut EmitContext) {
+        let width = self.width.unwrap_or(ctx.chars_per_line());
         let line = match self.style {
             DividerStyle::Dashed => "-".repeat(width),
             DividerStyle::Solid => "\u{2500}".repeat(width), // ─
@@ -19,16 +20,16 @@ impl Divider {
             DividerStyle::Equals => "=".repeat(width),
         };
         // Reset to Font A to ensure correct width (48 chars × 12 dots = 576 = full print width)
-        ops.push(Op::SetFont(Font::A));
-        ops.push(Op::SetAlign(Alignment::Left));
-        ops.push(Op::Text(line));
-        ops.push(Op::Newline);
+        ctx.push(Op::SetFont(Font::A));
+        ctx.push(Op::SetAlign(Alignment::Left));
+        ctx.push(Op::Text(line));
+        ctx.push(Op::Newline);
     }
 }
 
 impl Spacer {
     /// Emit IR ops for this spacer component.
-    pub fn emit(&self, ops: &mut Vec<Op>) {
+    pub fn emit(&self, ctx: &mut EmitContext) {
         let units = if let Some(mm) = self.mm {
             (mm * 4.0).round().clamp(0.0, 255.0) as u8
         } else if let Some(lines) = self.lines {
@@ -38,22 +39,22 @@ impl Spacer {
         };
 
         if units > 0 {
-            ops.push(Op::Feed { units });
+            ctx.push(Op::Feed { units });
         }
     }
 }
 
 impl BlankLine {
     /// Emit IR ops for this blank line component.
-    pub fn emit(&self, ops: &mut Vec<Op>) {
-        ops.push(Op::Newline);
+    pub fn emit(&self, ctx: &mut EmitContext) {
+        ctx.push(Op::Newline);
     }
 }
 
 impl Columns {
     /// Emit IR ops for this two-column layout component.
-    pub fn emit(&self, ops: &mut Vec<Op>) {
-        let width = self.width.unwrap_or(48);
+    pub fn emit(&self, ctx: &mut EmitContext) {
+        let width = self.width.unwrap_or(ctx.chars_per_line());
         let padding = width.saturating_sub(self.left.len() + self.right.len());
         let line = format!(
             "{}{:>width$}",
@@ -63,29 +64,29 @@ impl Columns {
         );
 
         // Reset to Font A to ensure correct width (48 chars × 12 dots = 576 = full print width)
-        ops.push(Op::SetFont(Font::A));
-        ops.push(Op::SetAlign(Alignment::Left));
+        ctx.push(Op::SetFont(Font::A));
+        ctx.push(Op::SetAlign(Alignment::Left));
         if self.bold {
-            ops.push(Op::SetBold(true));
+            ctx.push(Op::SetBold(true));
         }
         if self.underline {
-            ops.push(Op::SetUnderline(true));
+            ctx.push(Op::SetUnderline(true));
         }
         if self.invert {
-            ops.push(Op::SetInvert(true));
+            ctx.push(Op::SetInvert(true));
         }
 
-        ops.push(Op::Text(line));
-        ops.push(Op::Newline);
+        ctx.push(Op::Text(line));
+        ctx.push(Op::Newline);
 
         if self.invert {
-            ops.push(Op::SetInvert(false));
+            ctx.push(Op::SetInvert(false));
         }
         if self.underline {
-            ops.push(Op::SetUnderline(false));
+            ctx.push(Op::SetUnderline(false));
         }
         if self.bold {
-            ops.push(Op::SetBold(false));
+            ctx.push(Op::SetBold(false));
         }
     }
 }
@@ -95,39 +96,40 @@ impl Banner {
     ///
     /// Renders a box-drawing frame around the content text, auto-sizing
     /// the width to be as large as possible while fitting the content.
-    pub fn emit(&self, ops: &mut Vec<Op>) {
+    pub fn emit(&self, ctx: &mut EmitContext) {
         if let Some(ref font_name) = self.font {
-            self.emit_with_custom_font(font_name, ops);
+            self.emit_with_custom_font(font_name, ctx);
             return;
         }
 
-        let (size, total_width) = Self::fit(self.content.len(), self.size, self.border);
+        let (size, total_width) =
+            Self::fit(self.content.len(), self.size, self.border, ctx.print_width);
         let [h, w] = size;
         let font = if h == 0 && w == 0 { Font::B } else { Font::A };
         let esc_h = h.saturating_sub(1);
         let esc_w = w.saturating_sub(1);
 
         // Set style
-        ops.push(Op::SetFont(font));
-        ops.push(Op::SetAlign(Alignment::Left));
+        ctx.push(Op::SetFont(font));
+        ctx.push(Op::SetAlign(Alignment::Left));
         if esc_h > 0 || esc_w > 0 {
-            ops.push(Op::SetSize {
+            ctx.push(Op::SetSize {
                 height: esc_h,
                 width: esc_w,
             });
         }
 
         match self.border {
-            BorderStyle::Shadow => self.emit_shadow(ops, total_width),
-            BorderStyle::Rule => self.emit_rule(ops, total_width),
-            BorderStyle::Heading => self.emit_heading(ops, total_width),
-            BorderStyle::Tag => self.emit_tag(ops, total_width),
-            _ => self.emit_boxed(ops, total_width),
+            BorderStyle::Shadow => self.emit_shadow(ctx, total_width),
+            BorderStyle::Rule => self.emit_rule(ctx, total_width),
+            BorderStyle::Heading => self.emit_heading(ctx, total_width),
+            BorderStyle::Tag => self.emit_tag(ctx, total_width),
+            _ => self.emit_boxed(ctx, total_width),
         }
 
         // Reset size if we changed it
         if esc_h > 0 || esc_w > 0 {
-            ops.push(Op::SetSize {
+            ctx.push(Op::SetSize {
                 height: 0,
                 width: 0,
             });
@@ -135,7 +137,7 @@ impl Banner {
     }
 
     /// Emit a standard boxed banner (Single, Double, Heavy, Shade).
-    fn emit_boxed(&self, ops: &mut Vec<Op>, total_width: usize) {
+    fn emit_boxed(&self, ctx: &mut EmitContext, total_width: usize) {
         let (tl, tr, bl, br, horiz, vert) = match self.border {
             BorderStyle::Single | BorderStyle::Mixed => (
                 '\u{250C}', '\u{2510}', '\u{2514}', '\u{2518}', '\u{2500}', '\u{2502}',
@@ -178,34 +180,34 @@ impl Banner {
         );
 
         // Top border
-        ops.push(Op::Text(top));
-        ops.push(Op::Newline);
+        ctx.push(Op::Text(top));
+        ctx.push(Op::Newline);
 
         // Padding lines above content
         for _ in 0..self.padding {
-            ops.push(Op::Text(empty_line.clone()));
-            ops.push(Op::Newline);
+            ctx.push(Op::Text(empty_line.clone()));
+            ctx.push(Op::Newline);
         }
 
         // Content line (bold if enabled)
         if self.bold {
-            ops.push(Op::SetBold(true));
+            ctx.push(Op::SetBold(true));
         }
-        ops.push(Op::Text(content_line));
-        ops.push(Op::Newline);
+        ctx.push(Op::Text(content_line));
+        ctx.push(Op::Newline);
         if self.bold {
-            ops.push(Op::SetBold(false));
+            ctx.push(Op::SetBold(false));
         }
 
         // Padding lines below content
         for _ in 0..self.padding {
-            ops.push(Op::Text(empty_line.clone()));
-            ops.push(Op::Newline);
+            ctx.push(Op::Text(empty_line.clone()));
+            ctx.push(Op::Newline);
         }
 
         // Bottom border
-        ops.push(Op::Text(bot));
-        ops.push(Op::Newline);
+        ctx.push(Op::Text(bot));
+        ctx.push(Op::Newline);
     }
 
     /// Emit a shadow-style banner: single border + dark shade shadow.
@@ -218,7 +220,7 @@ impl Banner {
     /// └──────────┘▓
     ///  ▓▓▓▓▓▓▓▓▓▓▓
     /// ```
-    fn emit_shadow(&self, ops: &mut Vec<Op>, total_width: usize) {
+    fn emit_shadow(&self, ctx: &mut EmitContext, total_width: usize) {
         let shadow = '\u{2593}'; // ▓
 
         // Shadow takes 1 char on right, so the box is (total_width - 1) wide
@@ -251,42 +253,42 @@ impl Banner {
         );
 
         // Top border (no shadow — creates depth illusion)
-        ops.push(Op::Text(top));
-        ops.push(Op::Newline);
+        ctx.push(Op::Text(top));
+        ctx.push(Op::Newline);
 
         // Padding lines above content (with shadow on right)
         for _ in 0..self.padding {
-            ops.push(Op::Text(empty_with_shadow.clone()));
-            ops.push(Op::Newline);
+            ctx.push(Op::Text(empty_with_shadow.clone()));
+            ctx.push(Op::Newline);
         }
 
         // Content line (with shadow on right)
         if self.bold {
-            ops.push(Op::SetBold(true));
+            ctx.push(Op::SetBold(true));
         }
-        ops.push(Op::Text(content_line));
-        ops.push(Op::Newline);
+        ctx.push(Op::Text(content_line));
+        ctx.push(Op::Newline);
         if self.bold {
-            ops.push(Op::SetBold(false));
+            ctx.push(Op::SetBold(false));
         }
 
         // Padding lines below content (with shadow on right)
         for _ in 0..self.padding {
-            ops.push(Op::Text(empty_with_shadow.clone()));
-            ops.push(Op::Newline);
+            ctx.push(Op::Text(empty_with_shadow.clone()));
+            ctx.push(Op::Newline);
         }
 
         // Bottom border with shadow
-        ops.push(Op::Text(bot_with_shadow));
-        ops.push(Op::Newline);
+        ctx.push(Op::Text(bot_with_shadow));
+        ctx.push(Op::Newline);
 
         // Shadow bottom row
-        ops.push(Op::Text(shadow_bottom));
-        ops.push(Op::Newline);
+        ctx.push(Op::Text(shadow_bottom));
+        ctx.push(Op::Newline);
     }
 
     /// Emit a rule-style banner: `──── TEXT ──────────────────────` (single line).
-    fn emit_rule(&self, ops: &mut Vec<Op>, total_width: usize) {
+    fn emit_rule(&self, ctx: &mut EmitContext, total_width: usize) {
         let text = &self.content;
         let text_len = text.len();
         // " TEXT " with 1 space on each side
@@ -303,67 +305,67 @@ impl Banner {
         );
 
         if self.bold {
-            ops.push(Op::SetBold(true));
+            ctx.push(Op::SetBold(true));
         }
-        ops.push(Op::Text(line));
-        ops.push(Op::Newline);
+        ctx.push(Op::Text(line));
+        ctx.push(Op::Newline);
         if self.bold {
-            ops.push(Op::SetBold(false));
+            ctx.push(Op::SetBold(false));
         }
     }
 
     /// Emit a heading-style banner: centered bold text + full-width rule below (2 lines).
-    fn emit_heading(&self, ops: &mut Vec<Op>, total_width: usize) {
+    fn emit_heading(&self, ctx: &mut EmitContext, total_width: usize) {
         // Centered text line
-        ops.push(Op::SetAlign(Alignment::Center));
+        ctx.push(Op::SetAlign(Alignment::Center));
         if self.bold {
-            ops.push(Op::SetBold(true));
+            ctx.push(Op::SetBold(true));
         }
-        ops.push(Op::Text(self.content.clone()));
-        ops.push(Op::Newline);
+        ctx.push(Op::Text(self.content.clone()));
+        ctx.push(Op::Newline);
         if self.bold {
-            ops.push(Op::SetBold(false));
+            ctx.push(Op::SetBold(false));
         }
 
         // Full-width rule below
-        ops.push(Op::SetAlign(Alignment::Left));
+        ctx.push(Op::SetAlign(Alignment::Left));
         let rule: String = "\u{2500}".repeat(total_width);
-        ops.push(Op::Text(rule));
-        ops.push(Op::Newline);
+        ctx.push(Op::Text(rule));
+        ctx.push(Op::Newline);
     }
 
     /// Emit a tag-style banner: `■ TEXT` (single line, left-aligned).
-    fn emit_tag(&self, ops: &mut Vec<Op>, _total_width: usize) {
+    fn emit_tag(&self, ctx: &mut EmitContext, _total_width: usize) {
         let line = format!("\u{25A0} {}", self.content);
 
         if self.bold {
-            ops.push(Op::SetBold(true));
+            ctx.push(Op::SetBold(true));
         }
-        ops.push(Op::Text(line));
-        ops.push(Op::Newline);
+        ctx.push(Op::Text(line));
+        ctx.push(Op::Newline);
         if self.bold {
-            ops.push(Op::SetBold(false));
+            ctx.push(Op::SetBold(false));
         }
     }
 
     /// Emit a banner with custom font: render the banner frame using standard
     /// bitmap path, then composite TTF-rendered text content over the frame.
-    fn emit_with_custom_font(&self, font_name: &str, ops: &mut Vec<Op>) {
+    fn emit_with_custom_font(&self, font_name: &str, ctx: &mut EmitContext) {
         // Render the banner frame with spaces instead of real text — same length
         // preserves the fit() result (same expansion, same frame geometry) while
         // leaving the interior blank for clean TTF compositing.
-        let mut banner_ops = Vec::new();
+        let mut sub_ctx = EmitContext::new(ctx.print_width);
         let mut plain_banner = self.clone();
         plain_banner.font = None;
         plain_banner.content = " ".repeat(self.content.len());
-        plain_banner.emit(&mut banner_ops);
+        plain_banner.emit(&mut sub_ctx);
 
-        if banner_ops.is_empty() {
+        if sub_ctx.ops.is_empty() {
             return;
         }
 
         // Render the bitmap banner to raw pixels
-        let program = Program { ops: banner_ops };
+        let program = Program { ops: sub_ctx.ops };
         let Ok(raw) = crate::preview::render_raw(&program) else {
             return;
         };
@@ -386,7 +388,8 @@ impl Banner {
         }
 
         // Use the actual fitted size — fit() may cascade width or fall back to Font B
-        let (fitted_size, _) = Self::fit(self.content.len(), self.size, self.border);
+        let (fitted_size, _) =
+            Self::fit(self.content.len(), self.size, self.border, ctx.print_width);
         let pixel_height = ttf_font::size_to_pixel_height(fitted_size);
         let text_render =
             ttf_font::render_ttf_text(&self.content, font_name, self.bold, pixel_height, width);
@@ -420,7 +423,7 @@ impl Banner {
             dither::DitheringAlgorithm::Atkinson,
         );
 
-        ops.push(Op::Raster {
+        ctx.push(Op::Raster {
             width: width as u16,
             height: height as u16,
             data: raster_data,
@@ -431,7 +434,12 @@ impl Banner {
     ///
     /// Returns `([h, w], total_chars_per_line)`.
     /// Cascades width from `max_size` down to 1, then falls back to Font B.
-    pub fn fit(content_len: usize, max_size: u8, border: BorderStyle) -> ([u8; 2], usize) {
+    pub fn fit(
+        content_len: usize,
+        max_size: u8,
+        border: BorderStyle,
+        print_width: usize,
+    ) -> ([u8; 2], usize) {
         let border_overhead = match border {
             BorderStyle::Shadow => 3, // left + right + shadow column
             BorderStyle::Tag => 2,    // "■ " prefix
@@ -441,15 +449,15 @@ impl Banner {
 
         // Try each width from max down to 1 (Font A with ESC i)
         for w in (1..=max_size).rev() {
-            let chars_per_line = 48 / w as usize;
+            let chars_per_line = (print_width / 12) / w as usize;
             let usable = chars_per_line.saturating_sub(border_overhead);
             if content_len <= usable {
                 return ([max_size, w], chars_per_line);
             }
         }
 
-        // Font B fallback: 64 chars per line
-        ([0, 0], 64)
+        // Font B fallback
+        ([0, 0], print_width / 9)
     }
 }
 
@@ -642,8 +650,8 @@ fn compute_col_widths(num_cols: usize, max_widths: &[usize], total_width: usize)
 
 impl Table {
     /// Emit IR ops for this table component.
-    pub fn emit(&self, ops: &mut Vec<Op>) {
-        let total_width = self.width.unwrap_or(48);
+    pub fn emit(&self, ctx: &mut EmitContext) {
+        let total_width = self.width.unwrap_or(ctx.chars_per_line());
 
         // Determine number of columns
         let num_cols = {
@@ -674,21 +682,21 @@ impl Table {
         let col_widths = compute_col_widths(num_cols, &max_widths, total_width);
         let chars = table_chars(self.border);
 
-        ops.push(Op::SetFont(Font::A));
-        ops.push(Op::SetAlign(Alignment::Left));
+        ctx.push(Op::SetFont(Font::A));
+        ctx.push(Op::SetAlign(Alignment::Left));
 
         // Top border: ┌──┬──┐
         let top = horizontal_line(chars.tl, chars.horiz, chars.t_down, chars.tr, &col_widths);
-        ops.push(Op::Text(top));
-        ops.push(Op::Newline);
+        ctx.push(Op::Text(top));
+        ctx.push(Op::Newline);
 
         // Header row
         if let Some(ref headers) = self.headers {
-            ops.push(Op::SetBold(true));
+            ctx.push(Op::SetBold(true));
             let header_row = data_row(chars.vert, headers, &col_widths, &self.align, num_cols);
-            ops.push(Op::Text(header_row));
-            ops.push(Op::Newline);
-            ops.push(Op::SetBold(false));
+            ctx.push(Op::Text(header_row));
+            ctx.push(Op::Newline);
+            ctx.push(Op::SetBold(false));
 
             // Header separator: ├──┼──┤ or ╞══╪══╡ for mixed
             let sep = if matches!(self.border, BorderStyle::Mixed) {
@@ -702,15 +710,15 @@ impl Table {
                     &col_widths,
                 )
             };
-            ops.push(Op::Text(sep));
-            ops.push(Op::Newline);
+            ctx.push(Op::Text(sep));
+            ctx.push(Op::Newline);
         }
 
         // Data rows
         for (i, row) in self.rows.iter().enumerate() {
             let row_text = data_row(chars.vert, row, &col_widths, &self.align, num_cols);
-            ops.push(Op::Text(row_text));
-            ops.push(Op::Newline);
+            ctx.push(Op::Text(row_text));
+            ctx.push(Op::Newline);
 
             // Row separator between rows, not after last
             if self.row_separator && i < self.rows.len() - 1 {
@@ -721,15 +729,15 @@ impl Table {
                     chars.t_left,
                     &col_widths,
                 );
-                ops.push(Op::Text(sep));
-                ops.push(Op::Newline);
+                ctx.push(Op::Text(sep));
+                ctx.push(Op::Newline);
             }
         }
 
         // Bottom border: └──┴──┘
         let bottom = horizontal_line(chars.bl, chars.horiz, chars.t_up, chars.br, &col_widths);
-        ops.push(Op::Text(bottom));
-        ops.push(Op::Newline);
+        ctx.push(Op::Text(bottom));
+        ctx.push(Op::Newline);
     }
 }
 
@@ -737,15 +745,23 @@ impl Table {
 mod tests {
     use super::*;
 
+    fn ctx() -> EmitContext {
+        EmitContext::new(576)
+    }
+
     #[test]
     fn test_dashed_divider() {
         let div = Divider {
             style: DividerStyle::Dashed,
             width: Some(10),
         };
-        let mut ops = Vec::new();
-        div.emit(&mut ops);
-        assert!(ops.iter().any(|op| *op == Op::Text("----------".into())));
+        let mut ctx = ctx();
+        div.emit(&mut ctx);
+        assert!(
+            ctx.ops
+                .iter()
+                .any(|op| *op == Op::Text("----------".into()))
+        );
     }
 
     #[test]
@@ -754,25 +770,25 @@ mod tests {
             style: DividerStyle::Equals,
             width: Some(5),
         };
-        let mut ops = Vec::new();
-        div.emit(&mut ops);
-        assert!(ops.iter().any(|op| *op == Op::Text("=====".into())));
+        let mut ctx = ctx();
+        div.emit(&mut ctx);
+        assert!(ctx.ops.iter().any(|op| *op == Op::Text("=====".into())));
     }
 
     #[test]
     fn test_spacer_mm() {
         let spacer = Spacer::mm(5.0);
-        let mut ops = Vec::new();
-        spacer.emit(&mut ops);
-        assert!(ops.iter().any(|op| *op == Op::Feed { units: 20 }));
+        let mut ctx = ctx();
+        spacer.emit(&mut ctx);
+        assert!(ctx.ops.iter().any(|op| *op == Op::Feed { units: 20 }));
     }
 
     #[test]
     fn test_spacer_lines() {
         let spacer = Spacer::lines(2);
-        let mut ops = Vec::new();
-        spacer.emit(&mut ops);
-        assert!(ops.iter().any(|op| *op == Op::Feed { units: 24 }));
+        let mut ctx = ctx();
+        spacer.emit(&mut ctx);
+        assert!(ctx.ops.iter().any(|op| *op == Op::Feed { units: 24 }));
     }
 
     #[test]
@@ -783,9 +799,9 @@ mod tests {
             width: Some(20),
             ..Default::default()
         };
-        let mut ops = Vec::new();
-        cols.emit(&mut ops);
-        let has_columns = ops.iter().any(|op| {
+        let mut ctx = ctx();
+        cols.emit(&mut ctx);
+        let has_columns = ctx.ops.iter().any(|op| {
             if let Op::Text(s) = op {
                 s.starts_with("Left") && s.ends_with("Right") && s.len() == 20
             } else {
@@ -803,18 +819,18 @@ mod tests {
             bold: true,
             ..Default::default()
         };
-        let mut ops = Vec::new();
-        cols.emit(&mut ops);
-        assert!(ops.contains(&Op::SetBold(true)));
-        assert!(ops.contains(&Op::SetBold(false)));
+        let mut ctx = ctx();
+        cols.emit(&mut ctx);
+        assert!(ctx.ops.contains(&Op::SetBold(true)));
+        assert!(ctx.ops.contains(&Op::SetBold(false)));
     }
 
     #[test]
     fn test_blank_line() {
         let blank = BlankLine {};
-        let mut ops = Vec::new();
-        blank.emit(&mut ops);
-        assert!(ops.iter().any(|op| *op == Op::Newline));
+        let mut ctx = ctx();
+        blank.emit(&mut ctx);
+        assert!(ctx.ops.iter().any(|op| *op == Op::Newline));
     }
 
     // ========================================================================
@@ -824,7 +840,7 @@ mod tests {
     #[test]
     fn test_banner_fit_short_text() {
         // "HELLO" (5 chars) fits at size 3×3 (16 chars/line, 14 usable)
-        let (size, total) = Banner::fit(5, 3, BorderStyle::Single);
+        let (size, total) = Banner::fit(5, 3, BorderStyle::Single, 576);
         assert_eq!(size, [3, 3]);
         assert_eq!(total, 16);
     }
@@ -832,7 +848,7 @@ mod tests {
     #[test]
     fn test_banner_fit_medium_text() {
         // 15 chars won't fit at 3×3 (14 usable) but fits at 3×2 (22 usable)
-        let (size, total) = Banner::fit(15, 3, BorderStyle::Single);
+        let (size, total) = Banner::fit(15, 3, BorderStyle::Single, 576);
         assert_eq!(size, [3, 2]);
         assert_eq!(total, 24);
     }
@@ -840,7 +856,7 @@ mod tests {
     #[test]
     fn test_banner_fit_long_text() {
         // 47 chars won't fit at 3×1 (46 usable) → Font B (62 usable)
-        let (size, total) = Banner::fit(47, 3, BorderStyle::Single);
+        let (size, total) = Banner::fit(47, 3, BorderStyle::Single, 576);
         assert_eq!(size, [0, 0]);
         assert_eq!(total, 64);
     }
@@ -848,7 +864,7 @@ mod tests {
     #[test]
     fn test_banner_fit_size_0() {
         // max_size 0 → always Font B
-        let (size, total) = Banner::fit(5, 0, BorderStyle::Single);
+        let (size, total) = Banner::fit(5, 0, BorderStyle::Single, 576);
         assert_eq!(size, [0, 0]);
         assert_eq!(total, 64);
     }
@@ -856,17 +872,17 @@ mod tests {
     #[test]
     fn test_banner_emit_basic() {
         let banner = Banner::new("TEST");
-        let mut ops = Vec::new();
-        banner.emit(&mut ops);
+        let mut ctx = ctx();
+        banner.emit(&mut ctx);
 
         // Should have font, alignment, size set, bold, and box-drawing text
-        assert!(ops.contains(&Op::SetFont(Font::A)));
-        assert!(ops.contains(&Op::SetAlign(Alignment::Left)));
-        assert!(ops.contains(&Op::SetBold(true)));
-        assert!(ops.contains(&Op::SetBold(false)));
+        assert!(ctx.ops.contains(&Op::SetFont(Font::A)));
+        assert!(ctx.ops.contains(&Op::SetAlign(Alignment::Left)));
+        assert!(ctx.ops.contains(&Op::SetBold(true)));
+        assert!(ctx.ops.contains(&Op::SetBold(false)));
 
         // Should have the content text with the border chars
-        let has_content = ops.iter().any(|op| {
+        let has_content = ctx.ops.iter().any(|op| {
             if let Op::Text(s) = op {
                 s.contains("TEST")
             } else {
@@ -876,7 +892,7 @@ mod tests {
         assert!(has_content, "Banner should contain the content text");
 
         // Should have box-drawing border
-        let has_top_border = ops.iter().any(|op| {
+        let has_top_border = ctx.ops.iter().any(|op| {
             if let Op::Text(s) = op {
                 s.starts_with('\u{250C}') && s.ends_with('\u{2510}')
             } else {
@@ -893,10 +909,10 @@ mod tests {
             border: BorderStyle::Double,
             ..Default::default()
         };
-        let mut ops = Vec::new();
-        banner.emit(&mut ops);
+        let mut ctx = ctx();
+        banner.emit(&mut ctx);
 
-        let has_double_top = ops.iter().any(|op| {
+        let has_double_top = ctx.ops.iter().any(|op| {
             if let Op::Text(s) = op {
                 s.starts_with('\u{2554}') && s.ends_with('\u{2557}')
             } else {
@@ -915,10 +931,10 @@ mod tests {
             size: 3,
             ..Default::default()
         };
-        let mut ops = Vec::new();
-        banner.emit(&mut ops);
-        assert!(ops.contains(&Op::SetFont(Font::B)));
-        assert!(!ops.iter().any(|op| matches!(op, Op::SetSize { .. })));
+        let mut ctx = ctx();
+        banner.emit(&mut ctx);
+        assert!(ctx.ops.contains(&Op::SetFont(Font::B)));
+        assert!(!ctx.ops.iter().any(|op| matches!(op, Op::SetSize { .. })));
     }
 
     #[test]
@@ -928,11 +944,12 @@ mod tests {
             border: BorderStyle::Heavy,
             ..Default::default()
         };
-        let mut ops = Vec::new();
-        banner.emit(&mut ops);
+        let mut ctx = ctx();
+        banner.emit(&mut ctx);
 
         // Top line should be all full-block chars (█)
-        let first_text = ops
+        let first_text = ctx
+            .ops
             .iter()
             .find_map(|op| {
                 if let Op::Text(s) = op {
@@ -955,11 +972,12 @@ mod tests {
             border: BorderStyle::Shade,
             ..Default::default()
         };
-        let mut ops = Vec::new();
-        banner.emit(&mut ops);
+        let mut ctx = ctx();
+        banner.emit(&mut ctx);
 
         // Top line should be all medium-shade chars (▒)
-        let first_text = ops
+        let first_text = ctx
+            .ops
             .iter()
             .find_map(|op| {
                 if let Op::Text(s) = op {
@@ -982,11 +1000,12 @@ mod tests {
             border: BorderStyle::Shadow,
             ..Default::default()
         };
-        let mut ops = Vec::new();
-        banner.emit(&mut ops);
+        let mut ctx = ctx();
+        banner.emit(&mut ctx);
 
         // Top border: single-line, no shadow
-        let first_text = ops
+        let first_text = ctx
+            .ops
             .iter()
             .find_map(|op| {
                 if let Op::Text(s) = op {
@@ -1006,7 +1025,8 @@ mod tests {
         );
 
         // Content line should end with shadow char ▓
-        let content_text = ops
+        let content_text = ctx
+            .ops
             .iter()
             .find_map(|op| {
                 if let Op::Text(s) = op {
@@ -1026,7 +1046,8 @@ mod tests {
         );
 
         // Last text op should be the shadow bottom row
-        let last_text = ops
+        let last_text = ctx
+            .ops
             .iter()
             .rev()
             .find_map(|op| {
@@ -1052,12 +1073,12 @@ mod tests {
         // Shadow has overhead of 3 instead of 2
         // At size 3×3: 16 chars/line, 13 usable (16-3)
         // Content of 14 won't fit at 3×3 but fits at 3×2 (24-3 = 21 usable)
-        let (size, total) = Banner::fit(14, 3, BorderStyle::Shadow);
+        let (size, total) = Banner::fit(14, 3, BorderStyle::Shadow, 576);
         assert_eq!(size, [3, 2]);
         assert_eq!(total, 24);
 
         // Content of 13 fits at 3×3 (16-3 = 13 usable)
-        let (size, total) = Banner::fit(13, 3, BorderStyle::Shadow);
+        let (size, total) = Banner::fit(13, 3, BorderStyle::Shadow, 576);
         assert_eq!(size, [3, 3]);
         assert_eq!(total, 16);
     }
@@ -1070,9 +1091,9 @@ mod tests {
             border: BorderStyle::Mixed,
             ..Default::default()
         };
-        let mut ops = Vec::new();
-        banner.emit(&mut ops);
-        let has_single_top = ops.iter().any(|op| {
+        let mut ctx = ctx();
+        banner.emit(&mut ctx);
+        let has_single_top = ctx.ops.iter().any(|op| {
             if let Op::Text(s) = op {
                 s.starts_with('\u{250C}') && s.ends_with('\u{2510}')
             } else {
@@ -1090,11 +1111,12 @@ mod tests {
             size: 2,
             ..Default::default()
         };
-        let mut ops = Vec::new();
-        banner.emit(&mut ops);
+        let mut ctx = ctx();
+        banner.emit(&mut ctx);
 
         // Should produce a single text line + newline (plus style ops)
-        let texts: Vec<&str> = ops
+        let texts: Vec<&str> = ctx
+            .ops
             .iter()
             .filter_map(|op| {
                 if let Op::Text(s) = op {
@@ -1134,10 +1156,11 @@ mod tests {
             size: 2,
             ..Default::default()
         };
-        let mut ops = Vec::new();
-        banner.emit(&mut ops);
+        let mut ctx = ctx();
+        banner.emit(&mut ctx);
 
-        let texts: Vec<&str> = ops
+        let texts: Vec<&str> = ctx
+            .ops
             .iter()
             .filter_map(|op| {
                 if let Op::Text(s) = op {
@@ -1156,10 +1179,11 @@ mod tests {
         );
 
         // Should set center alignment for text
-        assert!(ops.contains(&Op::SetAlign(Alignment::Center)));
+        assert!(ctx.ops.contains(&Op::SetAlign(Alignment::Center)));
         // Should reset to left for the rule
         assert!(
-            ops.iter()
+            ctx.ops
+                .iter()
                 .filter(|op| matches!(op, Op::SetAlign(Alignment::Left)))
                 .count()
                 >= 1
@@ -1174,10 +1198,11 @@ mod tests {
             size: 2,
             ..Default::default()
         };
-        let mut ops = Vec::new();
-        banner.emit(&mut ops);
+        let mut ctx = ctx();
+        banner.emit(&mut ctx);
 
-        let texts: Vec<&str> = ops
+        let texts: Vec<&str> = ctx
+            .ops
             .iter()
             .filter_map(|op| {
                 if let Op::Text(s) = op {
@@ -1194,7 +1219,7 @@ mod tests {
     #[test]
     fn test_banner_fit_rule() {
         // Rule has 0 border overhead
-        let (size, total) = Banner::fit(5, 3, BorderStyle::Rule);
+        let (size, total) = Banner::fit(5, 3, BorderStyle::Rule, 576);
         assert_eq!(size, [3, 3]);
         assert_eq!(total, 16);
         // All 16 chars usable (no border deduction)
@@ -1205,7 +1230,7 @@ mod tests {
     #[test]
     fn test_banner_fit_tag() {
         // Tag has 2 chars overhead ("■ " prefix)
-        let (size, total) = Banner::fit(5, 3, BorderStyle::Tag);
+        let (size, total) = Banner::fit(5, 3, BorderStyle::Tag, 576);
         assert_eq!(size, [3, 3]);
         assert_eq!(total, 16);
     }
@@ -1221,15 +1246,16 @@ mod tests {
             width: Some(20),
             ..Default::default()
         };
-        let mut ops = Vec::new();
-        table.emit(&mut ops);
+        let mut ctx = ctx();
+        table.emit(&mut ctx);
 
         // Should set Font A and Left alignment
-        assert!(ops.contains(&Op::SetFont(Font::A)));
-        assert!(ops.contains(&Op::SetAlign(Alignment::Left)));
+        assert!(ctx.ops.contains(&Op::SetFont(Font::A)));
+        assert!(ctx.ops.contains(&Op::SetAlign(Alignment::Left)));
 
         // Collect all text ops
-        let texts: Vec<&str> = ops
+        let texts: Vec<&str> = ctx
+            .ops
             .iter()
             .filter_map(|op| {
                 if let Op::Text(s) = op {
@@ -1266,15 +1292,15 @@ mod tests {
             width: Some(30),
             ..Default::default()
         };
-        let mut ops = Vec::new();
-        table.emit(&mut ops);
+        let mut ctx = ctx();
+        table.emit(&mut ctx);
 
         // Header should be bold
-        assert!(ops.contains(&Op::SetBold(true)));
-        assert!(ops.contains(&Op::SetBold(false)));
+        assert!(ctx.ops.contains(&Op::SetBold(true)));
+        assert!(ctx.ops.contains(&Op::SetBold(false)));
 
         // Should have header separator (├...┼...┤)
-        let has_separator = ops.iter().any(|op| {
+        let has_separator = ctx.ops.iter().any(|op| {
             if let Op::Text(s) = op {
                 s.starts_with('\u{251C}') && s.contains('\u{253C}') && s.ends_with('\u{2524}')
             } else {
@@ -1304,10 +1330,11 @@ mod tests {
             width: Some(30),
             ..Default::default()
         };
-        let mut ops = Vec::new();
-        table.emit(&mut ops);
+        let mut ctx = ctx();
+        table.emit(&mut ctx);
 
-        let row = ops
+        let row = ctx
+            .ops
             .iter()
             .find_map(|op| {
                 if let Op::Text(s) = op {
@@ -1343,10 +1370,11 @@ mod tests {
             width: Some(20),
             ..Default::default()
         };
-        let mut ops = Vec::new();
-        table.emit(&mut ops);
+        let mut ctx = ctx();
+        table.emit(&mut ctx);
 
-        let texts: Vec<&str> = ops
+        let texts: Vec<&str> = ctx
+            .ops
             .iter()
             .filter_map(|op| {
                 if let Op::Text(s) = op {
@@ -1371,11 +1399,12 @@ mod tests {
             width: Some(20),
             ..Default::default()
         };
-        let mut ops = Vec::new();
-        table.emit(&mut ops);
+        let mut ctx = ctx();
+        table.emit(&mut ctx);
 
         // Top border should be single (┌)
-        let texts: Vec<&str> = ops
+        let texts: Vec<&str> = ctx
+            .ops
             .iter()
             .filter_map(|op| {
                 if let Op::Text(s) = op {
@@ -1388,7 +1417,7 @@ mod tests {
         assert!(texts[0].starts_with('\u{250C}'), "Mixed top uses single ┌");
 
         // Header separator should use mixed chars ╞═╪═╡
-        let has_mixed_sep = ops.iter().any(|op| {
+        let has_mixed_sep = ctx.ops.iter().any(|op| {
             if let Op::Text(s) = op {
                 s.starts_with('\u{255E}') && s.contains('\u{256A}') && s.ends_with('\u{2561}')
             } else {
@@ -1409,11 +1438,12 @@ mod tests {
             width: Some(20),
             ..Default::default()
         };
-        let mut ops = Vec::new();
-        table.emit(&mut ops);
+        let mut ctx = ctx();
+        table.emit(&mut ctx);
 
         // Count separator lines (├...┤) — should be 2 (between 3 rows)
-        let sep_count = ops
+        let sep_count = ctx
+            .ops
             .iter()
             .filter(|op| {
                 if let Op::Text(s) = op {
@@ -1438,11 +1468,11 @@ mod tests {
             width: Some(30),
             ..Default::default()
         };
-        let mut ops = Vec::new();
-        table.emit(&mut ops);
+        let mut ctx = ctx();
+        table.emit(&mut ctx);
 
         // Short row should still produce a valid line with 3 │ separators
-        let first_data_row = ops.iter().find_map(|op| {
+        let first_data_row = ctx.ops.iter().find_map(|op| {
             if let Op::Text(s) = op {
                 if s.contains("1") && !s.contains("2") && s.starts_with('\u{2502}') {
                     Some(s.clone())
@@ -1463,9 +1493,9 @@ mod tests {
             width: Some(20),
             ..Default::default()
         };
-        let mut ops = Vec::new();
-        table.emit(&mut ops);
+        let mut ctx = ctx();
+        table.emit(&mut ctx);
         // Empty table with no rows and no headers → no output
-        assert!(ops.is_empty(), "Empty table should produce no ops");
+        assert!(ctx.ops.is_empty(), "Empty table should produce no ops");
     }
 }

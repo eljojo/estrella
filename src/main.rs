@@ -139,6 +139,10 @@ enum Commands {
         /// Printer device path
         #[arg(long, default_value = "/dev/rfcomm0")]
         device: String,
+
+        /// Device profile: "tsp650ii" or "canvas:WIDTHxHEIGHT"
+        #[arg(long, default_value = "tsp650ii")]
+        profile: String,
     },
 
     /// Blend multiple patterns together with crossfade transitions (like a DJ mix)
@@ -551,7 +555,14 @@ fn run() -> Result<(), EstrellaError> {
             }
         },
 
-        Commands::Serve { listen, device } => {
+        Commands::Serve {
+            listen,
+            device,
+            profile,
+        } => {
+            let device_profile = estrella::printer::DeviceProfile::parse(&profile)
+                .map_err(EstrellaError::Transport)?;
+
             let config = server::ServerConfig {
                 device_path: device,
                 listen_addr: listen,
@@ -562,7 +573,7 @@ fn run() -> Result<(), EstrellaError> {
                 .map_err(|e| {
                     EstrellaError::Transport(format!("Failed to create tokio runtime: {}", e))
                 })?
-                .block_on(server::serve(config))?;
+                .block_on(server::serve(config, device_profile))?;
         }
 
         Commands::Weave {
@@ -625,10 +636,14 @@ fn build_pattern_program(
             size: [3, 2],
             ..Default::default()
         };
-        title.emit(&mut program.ops);
+        let mut ctx = document::EmitContext::new(width);
+        title.emit(&mut ctx);
+        program.extend(ctx.ops);
         program.push(Op::Newline);
         let divider = document::Divider::default();
-        divider.emit(&mut program.ops);
+        let mut ctx = document::EmitContext::new(width);
+        divider.emit(&mut ctx);
+        program.extend(ctx.ops);
     }
 
     if band_mode {
@@ -646,7 +661,9 @@ fn build_pattern_program(
 
     if show_params {
         let divider = document::Divider::default();
-        divider.emit(&mut program.ops);
+        let mut ctx = document::EmitContext::new(width);
+        divider.emit(&mut ctx);
+        program.extend(ctx.ops);
         let params_list = pattern_impl.list_params();
         if !params_list.is_empty() {
             let params_text = params_list
@@ -660,7 +677,9 @@ fn build_pattern_program(
                 size: [0, 0],
                 ..Default::default()
             };
-            text.emit(&mut program.ops);
+            let mut ctx = document::EmitContext::new(width);
+            text.emit(&mut ctx);
+            program.extend(ctx.ops);
             program.push(Op::Newline);
         }
     }
