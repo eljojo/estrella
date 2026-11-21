@@ -95,6 +95,40 @@ impl PrinterConfig {
         max_chunk_rows: 256,
     };
 
+    /// # Star mC-Print2 Configuration
+    ///
+    /// 58mm paper width compact thermal receipt printer.
+    ///
+    /// ## Specifications
+    ///
+    /// | Property | Value |
+    /// |----------|-------|
+    /// | Paper width | 58mm |
+    /// | Print width | 48mm (384 dots) |
+    /// | Resolution | 203 DPI |
+    /// | Interface | Bluetooth/LAN/USB |
+    /// | Cutter | Auto-cutter (full/partial) |
+    pub const MCP21: Self = Self {
+        name: "Star mC-Print2",
+        width_dots: 384,
+        width_bytes: 48,
+        dpi: 203,
+        band_height: 24,
+        max_chunk_rows: 256,
+    };
+
+    /// Create a config with a custom dot width. DPI (203), band height (24),
+    /// and chunk size are shared across all StarPRNT printers and are taken
+    /// from the TSP650II constant.
+    pub fn with_width(width_dots: u16) -> Self {
+        Self {
+            name: "Custom",
+            width_dots,
+            width_bytes: width_dots / 8,
+            ..Self::TSP650II
+        }
+    }
+
     /// Calculate dots per millimeter
     ///
     /// ## Example
