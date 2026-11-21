@@ -133,12 +133,16 @@ enum Commands {
     /// Start HTTP server for web-based printing
     Serve {
         /// Address and port to bind to
-        #[arg(long, default_value = "0.0.0.0:8080")]
+        #[arg(long, default_value = "0.0.0.0:8080", env = "LISTEN_ADDR")]
         listen: String,
 
         /// Printer device path
-        #[arg(long, default_value = "/dev/rfcomm0")]
+        #[arg(long, default_value = "/dev/rfcomm0", env = "PRINTER_DEVICE")]
         device: String,
+
+        /// Printer paper width in dots (576 = TSP650II/80mm, 384 = mC-Print2/58mm)
+        #[arg(long, default_value = "576", env = "PRINTER_WIDTH")]
+        width: u16,
     },
 
     /// Blend multiple patterns together with crossfade transitions (like a DJ mix)
@@ -551,10 +555,11 @@ fn run() -> Result<(), EstrellaError> {
             }
         },
 
-        Commands::Serve { listen, device } => {
+        Commands::Serve { listen, device, width } => {
             let config = server::ServerConfig {
                 device_path: device,
                 listen_addr: listen,
+                printer_width: width,
             };
 
             // Create tokio runtime and run the server
