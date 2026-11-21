@@ -43,7 +43,7 @@ use estrella::{
     render::patterns,
     render::weave::{BlendCurve, Weave},
     server,
-    transport::BluetoothTransport,
+    transport,
 };
 
 /// Estrella - Thermal receipt printer utility
@@ -670,10 +670,12 @@ fn build_pattern_program(
     program
 }
 
-/// Print raw command data to the printer device
+/// Print raw command data to the printer device.
+///
+/// Auto-detects transport: Bluetooth for rfcomm devices, USB for everything else.
 fn print_raw_to_device(device: &str, data: &[u8]) -> Result<(), EstrellaError> {
-    let mut transport = BluetoothTransport::open(device)?;
-    transport.write_all(data)?;
+    let mut t = transport::open_transport(device)?;
+    t.write_all(data)?;
     Ok(())
 }
 
